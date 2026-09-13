@@ -41,7 +41,7 @@ The local release path uses the installed Developer ID Application certificate, 
 npm run release:mac
 ```
 
-The script tests the app, builds the Apple Silicon app/DMG, signs the updater archive, submits the DMG to Apple, staples the ticket, verifies Gatekeeper and writes `latest-lite.json`. See [docs/RELEASE.md](docs/RELEASE.md) for website and GitHub release steps.
+The script tests the app, builds the Apple Silicon app/DMG, notarizes and staples both the application and DMG, rebuilds and signs the updater archive from the stapled app, verifies Gatekeeper and writes `latest-lite.json`. See [docs/RELEASE.md](docs/RELEASE.md) for website and GitHub release steps.
 
 ## Source layout
 

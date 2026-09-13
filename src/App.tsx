@@ -40,27 +40,30 @@ import type {
   BootstrapState,
   FailedRecording,
   MicrophoneProbe,
+  RecordingSnapshot,
   ShortcutBinding,
   TranscriptEntry,
   TranscriptionCompleted,
 } from "./types";
 
 type Page = "dictation" | "history" | "settings";
+type ToastTone = "success" | "warning" | "error";
+type ToastHandler = (message: string, tone?: ToastTone) => void;
 
 export default function App() {
   const [data, setData] = useState<BootstrapState | null>(null);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [page, setPage] = useState<Page>("dictation");
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TranscriptEntry | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
   const languageRef = useRef<AppLanguage>("bg");
 
-  const showToast = useCallback((message: string) => {
-    setToast(message);
+  const showToast = useCallback<ToastHandler>((message, tone = "success") => {
+    setToast({ message, tone });
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(null), 4200);
   }, []);
@@ -87,14 +90,16 @@ export default function App() {
         if (!current || !payload.entry) return current;
         return { ...current, history: [payload.entry, ...current.history.filter((item) => item.id !== payload.entry!.id)].slice(0, 10) };
       });
-      if (payload.pasteError) showToast(payload.pasteError);
     }).then((fn) => unlisten.push(fn));
-    void listen<string>("toast", ({ payload }) => showToast(errorMessage(payload, languageRef.current))).then((fn) => unlisten.push(fn));
+    void listen<string>("toast", ({ payload }) => showToast(errorMessage(payload, languageRef.current), "warning")).then((fn) => unlisten.push(fn));
     void listen<FailedRecording | null>("failed-recording:changed", ({ payload }) => {
       setData((current) => current ? { ...current, failedRecording: payload } : current);
     }).then((fn) => unlisten.push(fn));
     void listen<string>("recording:state", ({ payload }) => {
       setData((current) => current ? { ...current, recording: { ...current.recording, state: payload as BootstrapState["recording"]["state"] } } : current);
+    }).then((fn) => unlisten.push(fn));
+    void listen<RecordingSnapshot>("recording:snapshot", ({ payload }) => {
+      setData((current) => current ? { ...current, recording: payload } : current);
     }).then((fn) => unlisten.push(fn));
     void listen<Page>("navigate", ({ payload }) => setPage(payload)).then((fn) => unlisten.push(fn));
     return () => {
@@ -135,7 +140,7 @@ export default function App() {
         await invoke("start_recording");
       }
     } catch (reason) {
-      showToast(errorMessage(reason, language));
+      showToast(errorMessage(reason, language), "error");
     }
   };
 
@@ -155,7 +160,7 @@ export default function App() {
       await invoke("retranscribe_history_item", { id });
       await refresh();
     } catch (reason) {
-      showToast(errorMessage(reason, language));
+      showToast(errorMessage(reason, language), "error");
     }
   };
 
@@ -188,19 +193,19 @@ export default function App() {
             onTest={runTestDictation}
             onRetry={async () => {
               try { await invoke("retry_failed_transcription"); await refresh(); }
-              catch (reason) { showToast(errorMessage(reason, language)); }
+              catch (reason) { showToast(errorMessage(reason, language), "error"); }
             }}
             onDeleteFailed={async () => {
               try { await invoke("delete_failed_recording"); await refresh(); showToast(t("deleted")); }
-              catch (reason) { showToast(errorMessage(reason, language)); }
+              catch (reason) { showToast(errorMessage(reason, language), "error"); }
             }}
             onCopy={async (text) => {
               try { await invoke("copy_text", { text }); showToast(t("copied")); }
-              catch (reason) { showToast(errorMessage(reason, language)); }
+              catch (reason) { showToast(errorMessage(reason, language), "error"); }
             }}
             onOpen={async (path) => {
               try { await openPath(path); }
-              catch (reason) { showToast(errorMessage(reason, language)); }
+              catch (reason) { showToast(errorMessage(reason, language), "error"); }
             }}
             onRetranscribe={retranscribe}
           />
@@ -211,11 +216,11 @@ export default function App() {
             language={language}
             onCopy={async (text) => {
               try { await invoke("copy_text", { text }); showToast(t("copied")); }
-              catch (reason) { showToast(errorMessage(reason, language)); }
+              catch (reason) { showToast(errorMessage(reason, language), "error"); }
             }}
             onOpen={async (path) => {
               try { await openPath(path); }
-              catch (reason) { showToast(errorMessage(reason, language)); }
+              catch (reason) { showToast(errorMessage(reason, language), "error"); }
             }}
             onRetranscribe={retranscribe}
             onDelete={setDeleteTarget}
@@ -246,21 +251,21 @@ export default function App() {
                   throw reason;
                 }
                 showToast(t("saved"));
-              } catch (reason) { showToast(errorMessage(reason, language)); }
+              } catch (reason) { showToast(errorMessage(reason, language), "error"); }
             }}
             onRefresh={refresh}
             onCheckUpdates={checkUpdates}
             onInstallUpdate={async () => {
               if (!availableUpdate) return;
               if (isBusy) {
-                showToast(t("updateBusy"));
+                showToast(t("updateBusy"), "warning");
                 return;
               }
               try {
                 await availableUpdate.downloadAndInstall();
                 await relaunch();
               } catch (reason) {
-                showToast(errorMessage(reason, language));
+                showToast(errorMessage(reason, language), "error");
               }
             }}
             onToast={showToast}
@@ -293,13 +298,13 @@ export default function App() {
               await refresh();
               showToast(t("deleted"));
             } catch (reason) {
-              showToast(errorMessage(reason, language));
+              showToast(errorMessage(reason, language), "error");
             }
           }}
         />
       )}
 
-      {toast && <div className="toast"><Check />{toast}</div>}
+      {toast && <div className={`toast ${toast.tone}`}>{toast.tone === "success" ? <Check /> : <AlertCircle />}{toast.message}</div>}
     </div>
   );
 }
@@ -373,7 +378,7 @@ function SettingsPage({ data, language, availableUpdate, updateMessage, isBusy, 
   onRefresh: () => Promise<BootstrapState>;
   onCheckUpdates: () => Promise<void>;
   onInstallUpdate: () => Promise<void>;
-  onToast: (message: string) => void;
+  onToast: ToastHandler;
   onOpenOnboarding: () => void;
 }) {
   const t = translator(language);
@@ -384,7 +389,7 @@ function SettingsPage({ data, language, availableUpdate, updateMessage, isBusy, 
   const [diagnosticBusy, setDiagnosticBusy] = useState(false);
   const [microphoneBusy, setMicrophoneBusy] = useState(false);
   const [accessibilityBusy, setAccessibilityBusy] = useState(false);
-  useShortcutCapture(shortcutBusy, setShortcutBusy, (binding) => setDraft((current) => ({ ...current, dictationShortcut: binding })), (message) => onToast(errorMessage(message, language)));
+  useShortcutCapture(shortcutBusy, setShortcutBusy, (binding) => setDraft((current) => ({ ...current, dictationShortcut: binding })), (message) => onToast(errorMessage(message, language), "error"));
 
   useEffect(() => setDraft(data.settings), [data.settings]);
 
@@ -393,15 +398,15 @@ function SettingsPage({ data, language, availableUpdate, updateMessage, isBusy, 
       const selected = await open({ directory: true, multiple: false, defaultPath: draft.outputDirectory ?? data.defaultOutputDirectory });
       if (selected) setDraft({ ...draft, outputDirectory: selected });
     } catch (reason) {
-      onToast(errorMessage(reason, language));
+      onToast(errorMessage(reason, language), "error");
     }
   };
 
-  return <div className="page settings-page"><header className="page-header"><div><span className="eyebrow">AIDOO WHISPER LITE</span><h1>{t("settings")}</h1><p>{t("version")} {data.appVersion}</p></div><button className="secondary-button" onClick={onOpenOnboarding}><Sparkles />{t("openOnboarding")}</button></header>
+  return <div className="page settings-page"><header className="page-header"><div><span className="eyebrow">AIDOO WHISPER LITE</span><h1>{t("settings")}</h1><p>{t("version")} {data.appVersion}</p></div><button className="secondary-button" disabled={isBusy} title={isBusy ? t("finishDictationFirst") : undefined} onClick={onOpenOnboarding}><Sparkles />{t("openOnboarding")}</button></header>
     <SettingsSection icon={<KeyRound />} title={t("apiTitle")}>
       <p className="section-help">{t("apiHelp")}</p><p className="instruction-note"><CircleHelp />{t("apiSteps")}</p>
-      <div className="api-row"><input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={data.hasApiKey ? "••••••••••••••••••" : "sk-…"} /><button className="secondary-button" onClick={async () => { try { await openUrl("https://platform.openai.com/api-keys"); } catch (reason) { onToast(errorMessage(reason, language)); } }}><ExternalLink />{t("createKey")}</button><button className="primary-button" disabled={keyBusy || !apiKey.trim()} onClick={async () => { setKeyBusy(true); try { await invoke("save_api_key", { apiKey }); setApiKey(""); await onRefresh(); onToast(t("keySaved")); } catch (reason) { onToast(errorMessage(reason, language)); } finally { setKeyBusy(false); } }}>{keyBusy ? <LoaderCircle className="spin" /> : <ShieldCheck />}{t("verifySave")}</button></div>
-      {data.hasApiKey && <button className="text-button danger" onClick={async () => { try { await invoke("delete_api_key"); await onRefresh(); onToast(t("deleted")); } catch (reason) { onToast(errorMessage(reason, language)); } }}>{t("removeKey")}</button>}
+      <div className="api-row"><input type="password" value={apiKey} disabled={isBusy} onChange={(event) => setApiKey(event.target.value)} placeholder={data.hasApiKey ? "••••••••••••••••••" : "sk-…"} /><button className="secondary-button" onClick={async () => { try { await openUrl("https://platform.openai.com/api-keys"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("createKey")}</button><button className="primary-button" disabled={isBusy || keyBusy || !apiKey.trim()} onClick={async () => { setKeyBusy(true); try { await invoke("save_api_key", { apiKey }); setApiKey(""); await onRefresh(); onToast(t("keySaved")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setKeyBusy(false); } }}>{keyBusy ? <LoaderCircle className="spin" /> : <ShieldCheck />}{t("verifySave")}</button></div>
+      {data.hasApiKey && <button className="text-button danger" disabled={isBusy} onClick={async () => { try { await invoke("delete_api_key"); await onRefresh(); onToast(t("deleted")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}>{t("removeKey")}</button>}
     </SettingsSection>
     <SettingsSection icon={<Languages />} title={t("modelLanguage")}>
       <ModelPicker settings={draft} language={language} onChange={setDraft} />
@@ -409,9 +414,10 @@ function SettingsPage({ data, language, availableUpdate, updateMessage, isBusy, 
     </SettingsSection>
     <SettingsSection icon={<Mic />} title={t("microphone")}>
       <SettingRow title={t("microphone")}><select value={draft.microphoneName ?? ""} onChange={(event) => setDraft({ ...draft, microphoneName: event.target.value || null })}><option value="">{t("systemDefault")}</option>{data.microphones.map((item) => <option key={item} value={item}>{item}</option>)}</select></SettingRow>
-      <SettingRow title={t("testMicrophone")} detail={t("microphoneTestHelp")}><button className="secondary-button" disabled={microphoneBusy || !data.microphones.length} onClick={async () => { setMicrophoneBusy(true); try { await invoke<AppSettings>("update_settings", { settings: draft }); await onRefresh(); const probe = await invoke<MicrophoneProbe>("test_microphone"); if (!probe.heardAudio) throw new Error(t("microphoneSilent")); onToast(probe.usedFallback ? t("microphoneFallback", { name: probe.deviceName }) : t("microphoneOk")); } catch (reason) { onToast(errorMessage(reason, language)); } finally { setMicrophoneBusy(false); } }}>{microphoneBusy ? <LoaderCircle className="spin" /> : <AudioLines />}{t("testMicrophone")}</button></SettingRow>
-      <SettingRow title={t("accessibility")} detail={data.accessibilityGranted ? t("ready") : t("accessibilityHelp")}><div className="inline-actions"><button className="secondary-button" onClick={async () => { try { await invoke("open_accessibility_settings"); } catch (reason) { onToast(errorMessage(reason, language)); } }}>{t("grant")}</button><button className="secondary-button" disabled={accessibilityBusy} onClick={async () => { setAccessibilityBusy(true); try { await invoke("refresh_accessibility_status"); await onRefresh(); } catch (reason) { onToast(errorMessage(reason, language)); } finally { setAccessibilityBusy(false); } }}>{accessibilityBusy ? <LoaderCircle className="spin" /> : data.accessibilityGranted ? <Check /> : <RefreshCw />}{t("refresh")}</button></div></SettingRow>
-      <SettingRow title={t("shortcut")} detail={formatShortcut(draft.dictationShortcut)}><button className="secondary-button" onClick={async () => { setShortcutBusy(true); try { await invoke("begin_shortcut_capture"); } catch (reason) { setShortcutBusy(false); onToast(errorMessage(reason, language)); } }}>{shortcutBusy ? <LoaderCircle className="spin" /> : null}{shortcutBusy ? t("pressShortcut") : t("changeShortcut")}</button></SettingRow>
+      <SettingRow title={t("automaticMicrophoneFallback")} detail={t("automaticMicrophoneFallbackHelp")}><Toggle checked={draft.automaticMicrophoneFallback} onChange={(automaticMicrophoneFallback) => setDraft({ ...draft, automaticMicrophoneFallback })} /></SettingRow>
+      <SettingRow title={t("testMicrophone")} detail={t("microphoneTestHelp")}><button className="secondary-button" disabled={isBusy || microphoneBusy || !data.microphones.length} onClick={async () => { setMicrophoneBusy(true); try { const probe = await invoke<MicrophoneProbe>("test_microphone", { microphoneName: draft.microphoneName, automaticFallback: draft.automaticMicrophoneFallback }); if (!probe.heardAudio) throw new Error(t("microphoneSilent")); onToast(probe.usedFallback ? t("microphoneFallback", { name: probe.deviceName }) : t("microphoneOk"), probe.usedFallback ? "warning" : "success"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setMicrophoneBusy(false); } }}>{microphoneBusy ? <LoaderCircle className="spin" /> : <AudioLines />}{t("testMicrophone")}</button></SettingRow>
+      <SettingRow title={t("accessibility")} detail={data.accessibilityGranted ? t("ready") : t("accessibilityHelp")}><div className="inline-actions"><button className="secondary-button" onClick={async () => { try { await invoke("open_accessibility_settings"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}>{t("grant")}</button><button className="secondary-button" disabled={accessibilityBusy} onClick={async () => { setAccessibilityBusy(true); try { await invoke("refresh_accessibility_status"); await onRefresh(); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setAccessibilityBusy(false); } }}>{accessibilityBusy ? <LoaderCircle className="spin" /> : data.accessibilityGranted ? <Check /> : <RefreshCw />}{t("refresh")}</button></div></SettingRow>
+      <SettingRow title={t("shortcut")} detail={formatShortcut(draft.dictationShortcut)}><button className="secondary-button" disabled={isBusy} onClick={async () => { setShortcutBusy(true); try { await invoke("begin_shortcut_capture"); } catch (reason) { setShortcutBusy(false); onToast(errorMessage(reason, language), "error"); } }}>{shortcutBusy ? <LoaderCircle className="spin" /> : null}{shortcutBusy ? t("pressShortcut") : t("changeShortcut")}</button></SettingRow>
       <SettingRow title={t("autoPaste")} detail={t("autoPasteHelp")}><Toggle checked={draft.autoPaste} onChange={(autoPaste) => setDraft({ ...draft, autoPaste })} /></SettingRow>
     </SettingsSection>
     <SettingsSection icon={<FolderOpen />} title={t("storage")}>
@@ -422,9 +428,9 @@ function SettingsPage({ data, language, availableUpdate, updateMessage, isBusy, 
       <div className="update-row"><button className="secondary-button" onClick={onCheckUpdates}><RefreshCw />{t("checkUpdates")}</button>{updateMessage && <span>{updateMessage}</span>}{availableUpdate && <button className="primary-button" disabled={isBusy} title={isBusy ? t("updateBusy") : undefined} onClick={onInstallUpdate}>{t("installUpdate")}</button>}</div>
     </SettingsSection>
     <SettingsSection icon={<ShieldCheck />} title={t("diagnostics")}>
-      <p className="section-help">{t("diagnosticsHelp")}</p><button className="secondary-button" disabled={diagnosticBusy} onClick={async () => { setDiagnosticBusy(true); try { const path = await invoke<string>("create_diagnostic_bundle"); await openPath(path); } catch (reason) { onToast(errorMessage(reason, language)); } finally { setDiagnosticBusy(false); } }}>{diagnosticBusy ? <LoaderCircle className="spin" /> : <FileText />}{t("createDiagnostics")}</button>
+      <p className="section-help">{t("diagnosticsHelp")}</p><button className="secondary-button" disabled={diagnosticBusy} onClick={async () => { setDiagnosticBusy(true); try { const path = await invoke<string>("create_diagnostic_bundle"); await openPath(path); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setDiagnosticBusy(false); } }}>{diagnosticBusy ? <LoaderCircle className="spin" /> : <FileText />}{t("createDiagnostics")}</button>
     </SettingsSection>
-    <footer className="settings-footer"><button className="primary-button large" onClick={() => onSave(draft)}><Check />{t("save")}</button></footer>
+    <footer className="settings-footer"><button className="primary-button large" disabled={isBusy} title={isBusy ? t("finishDictationFirst") : undefined} onClick={() => onSave(draft)}><Check />{t("save")}</button></footer>
   </div>;
 }
 
@@ -450,7 +456,7 @@ function StorageControls({ settings, language, outputPath, onChange, onChooseFol
   return <div className="storage-controls"><SettingRow title={t("saveFlac")} detail={t("saveFlacHelp")}><Toggle checked={settings.saveAudio} onChange={(saveAudio) => onChange({ ...settings, saveAudio })} /></SettingRow><SettingRow title={t("saveTxt")} detail={t("saveTxtHelp")}><Toggle checked={settings.saveText} onChange={(saveText) => onChange({ ...settings, saveText })} /></SettingRow><SettingRow title={t("saveHistory")} detail={t("saveHistoryHelp")}><Toggle checked={settings.historyEnabled} onChange={(historyEnabled) => onChange({ ...settings, historyEnabled })} /></SettingRow><div className="folder-picker"><div><strong>{t("folder")}</strong><span title={outputPath}>{outputPath}</span></div><button className="secondary-button" onClick={onChooseFolder}><FolderOpen />{t("chooseFolder")}</button></div></div>;
 }
 
-function Onboarding({ data, language, onData, onPersist, onRefresh, onClose, onToast }: { data: BootstrapState; language: AppLanguage; onData: React.Dispatch<React.SetStateAction<BootstrapState | null>>; onPersist: (settings: AppSettings) => Promise<AppSettings>; onRefresh: () => Promise<BootstrapState>; onClose: () => void; onToast: (message: string) => void }) {
+function Onboarding({ data, language, onData, onPersist, onRefresh, onClose, onToast }: { data: BootstrapState; language: AppLanguage; onData: React.Dispatch<React.SetStateAction<BootstrapState | null>>; onPersist: (settings: AppSettings) => Promise<AppSettings>; onRefresh: () => Promise<BootstrapState>; onClose: () => void; onToast: ToastHandler }) {
   const t = translator(language);
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState(data.settings);
@@ -458,40 +464,54 @@ function Onboarding({ data, language, onData, onPersist, onRefresh, onClose, onT
   const [busy, setBusy] = useState(false);
   const [micTested, setMicTested] = useState(data.settings.onboardingComplete);
   const [shortcutBusy, setShortcutBusy] = useState(false);
-  useShortcutCapture(shortcutBusy, setShortcutBusy, (binding) => setDraft((current) => ({ ...current, dictationShortcut: binding })), (message) => onToast(errorMessage(message, language)));
+  useShortcutCapture(shortcutBusy, setShortcutBusy, (binding) => setDraft((current) => ({ ...current, dictationShortcut: binding })), (message) => onToast(errorMessage(message, language), "error"));
   const steps = [t("stepAccount"), t("stepPermissions"), t("stepShortcut"), t("stepPreferences"), t("stepStorage"), t("stepReady")];
 
   const saveDraft = async () => { const saved = await onPersist(draft); setDraft(saved); return saved; };
-  const next = async () => { try { await saveDraft(); setStep((value) => Math.min(steps.length - 1, value + 1)); } catch (reason) { onToast(errorMessage(reason, language)); } };
+  const next = async () => { try { await saveDraft(); setStep((value) => Math.min(steps.length - 1, value + 1)); } catch (reason) { onToast(errorMessage(reason, language), "error"); } };
   const chooseFolder = async () => {
     try {
       const selected = await open({ directory: true, multiple: false, defaultPath: draft.outputDirectory ?? data.defaultOutputDirectory });
       if (selected) setDraft({ ...draft, outputDirectory: selected });
     } catch (reason) {
-      onToast(errorMessage(reason, language));
+      onToast(errorMessage(reason, language), "error");
     }
   };
   const missing = !data.hasApiKey ? t("keyRequired") : !micTested ? t("micRequired") : !data.accessibilityGranted ? t("accessRequired") : null;
 
   return <div className="modal-backdrop"><section className="onboarding-modal"><header className="onboarding-header"><div className="brand compact"><img src="/app-icon.png" alt="" /><div><strong>AIDOO</strong><span>Whisper Lite</span></div></div><button className="close-button" onClick={onClose}><X /></button></header><div className="stepper">{steps.map((name, index) => <div key={name} className={`${index === step ? "active" : ""} ${index < step ? "done" : ""}`}><i>{index < step ? <Check /> : index + 1}</i><span>{name}</span></div>)}</div><div className="onboarding-content">
-    {step === 0 && <div className="onboarding-step"><span className="step-icon"><KeyRound /></span><h1>{t("welcomeTitle")}</h1><p>{t("welcomeBody")}</p><div className="instruction-card"><CircleHelp /><span>{t("apiSteps")}</span></div><button className="secondary-button wide" onClick={async () => { try { await openUrl("https://platform.openai.com/api-keys"); } catch (reason) { onToast(errorMessage(reason, language)); } }}><ExternalLink />{t("createKey")}</button><div className="api-input"><input type="password" placeholder="sk-…" value={apiKey} onChange={(event) => setApiKey(event.target.value)} /><button className="primary-button" disabled={busy || !apiKey.trim()} onClick={async () => { setBusy(true); try { await invoke("save_api_key", { apiKey }); setApiKey(""); const nextData = await onRefresh(); onData(nextData); onToast(t("keySaved")); } catch (reason) { onToast(errorMessage(reason, language)); } finally { setBusy(false); } }}>{busy ? <LoaderCircle className="spin" /> : <ShieldCheck />}{t("verifySave")}</button></div>{data.hasApiKey && <div className="success-note"><Check />{t("keySaved")}</div>}</div>}
-    {step === 1 && <div className="onboarding-step"><span className="step-icon"><Mic /></span><h1>{t("stepPermissions")}</h1><p>{t("accessibilityHelp")}</p><div className="permission-list"><article className={micTested ? "ready" : ""}><div><Mic /></div><span><strong>{t("microphone")}</strong><small>{draft.microphoneName ?? data.microphones[0] ?? t("micRequired")} · {t("microphoneTestHelp")}</small></span><select value={draft.microphoneName ?? ""} onChange={(event) => { setMicTested(false); setDraft({ ...draft, microphoneName: event.target.value || null }); }}><option value="">{t("systemDefault")}</option>{data.microphones.map((item) => <option key={item} value={item}>{item}</option>)}</select><button className="secondary-button" disabled={busy || !data.microphones.length} onClick={async () => { setBusy(true); try { await saveDraft(); const probe = await invoke<MicrophoneProbe>("test_microphone"); if (!probe.heardAudio) throw new Error(t("microphoneSilent")); setMicTested(true); onToast(probe.usedFallback ? t("microphoneFallback", { name: probe.deviceName }) : t("microphoneOk")); } catch (reason) { setMicTested(false); onToast(errorMessage(reason, language)); } finally { setBusy(false); } }}>{busy ? <LoaderCircle className="spin" /> : <AudioLines />}{t("testMicrophone")}</button></article><article className={data.accessibilityGranted ? "ready" : ""}><div><ShieldCheck /></div><span><strong>{t("accessibility")}</strong><small>{t("accessibilityHelp")}</small></span><button className="secondary-button" onClick={async () => { try { await invoke("open_accessibility_settings"); } catch (reason) { onToast(errorMessage(reason, language)); } }}>{t("grant")}</button><button className="secondary-button" disabled={busy} onClick={async () => { setBusy(true); try { const granted = await invoke<boolean>("refresh_accessibility_status"); onData((current) => current ? { ...current, accessibilityGranted: granted } : current); } catch (reason) { onToast(errorMessage(reason, language)); } finally { setBusy(false); } }}>{data.accessibilityGranted ? <Check /> : <RefreshCw />}{t("refresh")}</button></article></div></div>}
-    {step === 2 && <div className="onboarding-step"><span className="step-icon"><AudioLines /></span><h1>{t("shortcut")}</h1><p>{t("holdShortcut", { shortcut: formatShortcut(draft.dictationShortcut) })}</p><button className={`shortcut-capture ${shortcutBusy ? "listening" : ""}`} onClick={async () => { setShortcutBusy(true); try { await invoke("begin_shortcut_capture"); } catch (reason) { setShortcutBusy(false); onToast(errorMessage(reason, language)); } }}>{shortcutBusy ? <><AudioLines />{t("pressShortcut")}</> : <><kbd>{formatShortcut(draft.dictationShortcut)}</kbd>{t("changeShortcut")}</>}</button>{shortcutBusy && <button className="text-button" onClick={async () => { try { await invoke("cancel_shortcut_capture"); } catch (reason) { onToast(errorMessage(reason, language)); } finally { setShortcutBusy(false); } }}>{t("cancel")}</button>}</div>}
+    {step === 0 && <div className="onboarding-step"><span className="step-icon"><KeyRound /></span><h1>{t("welcomeTitle")}</h1><p>{t("welcomeBody")}</p><div className="instruction-card"><CircleHelp /><span>{t("apiSteps")}</span></div><button className="secondary-button wide" onClick={async () => { try { await openUrl("https://platform.openai.com/api-keys"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("createKey")}</button><div className="api-input"><input type="password" placeholder="sk-…" value={apiKey} onChange={(event) => setApiKey(event.target.value)} /><button className="primary-button" disabled={busy || !apiKey.trim()} onClick={async () => { setBusy(true); try { await invoke("save_api_key", { apiKey }); setApiKey(""); const nextData = await onRefresh(); onData(nextData); onToast(t("keySaved")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setBusy(false); } }}>{busy ? <LoaderCircle className="spin" /> : <ShieldCheck />}{t("verifySave")}</button></div>{data.hasApiKey && <div className="success-note"><Check />{t("keySaved")}</div>}</div>}
+    {step === 1 && <div className="onboarding-step"><span className="step-icon"><Mic /></span><h1>{t("stepPermissions")}</h1><p>{t("accessibilityHelp")}</p><div className="permission-list"><article className={micTested ? "ready" : ""}><div><Mic /></div><span><strong>{t("microphone")}</strong><small>{draft.microphoneName ?? data.microphones[0] ?? t("micRequired")} · {t("microphoneTestHelp")}</small></span><select value={draft.microphoneName ?? ""} onChange={(event) => { setMicTested(false); setDraft({ ...draft, microphoneName: event.target.value || null }); }}><option value="">{t("systemDefault")}</option>{data.microphones.map((item) => <option key={item} value={item}>{item}</option>)}</select><button className="secondary-button" disabled={busy || !data.microphones.length} onClick={async () => { setBusy(true); try { const probe = await invoke<MicrophoneProbe>("test_microphone", { microphoneName: draft.microphoneName, automaticFallback: draft.automaticMicrophoneFallback }); if (!probe.heardAudio) throw new Error(t("microphoneSilent")); setMicTested(true); onToast(probe.usedFallback ? t("microphoneFallback", { name: probe.deviceName }) : t("microphoneOk"), probe.usedFallback ? "warning" : "success"); } catch (reason) { setMicTested(false); onToast(errorMessage(reason, language), "error"); } finally { setBusy(false); } }}>{busy ? <LoaderCircle className="spin" /> : <AudioLines />}{t("testMicrophone")}</button></article><article className={data.accessibilityGranted ? "ready" : ""}><div><ShieldCheck /></div><span><strong>{t("accessibility")}</strong><small>{t("accessibilityHelp")}</small></span><button className="secondary-button" onClick={async () => { try { await invoke("open_accessibility_settings"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}>{t("grant")}</button><button className="secondary-button" disabled={busy} onClick={async () => { setBusy(true); try { const granted = await invoke<boolean>("refresh_accessibility_status"); onData((current) => current ? { ...current, accessibilityGranted: granted } : current); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setBusy(false); } }}>{data.accessibilityGranted ? <Check /> : <RefreshCw />}{t("refresh")}</button></article></div><SettingRow title={t("automaticMicrophoneFallback")} detail={t("automaticMicrophoneFallbackHelp")}><Toggle checked={draft.automaticMicrophoneFallback} onChange={(automaticMicrophoneFallback) => setDraft({ ...draft, automaticMicrophoneFallback })} /></SettingRow></div>}
+    {step === 2 && <div className="onboarding-step"><span className="step-icon"><AudioLines /></span><h1>{t("shortcut")}</h1><p>{t("holdShortcut", { shortcut: formatShortcut(draft.dictationShortcut) })}</p><button className={`shortcut-capture ${shortcutBusy ? "listening" : ""}`} onClick={async () => { setShortcutBusy(true); try { await invoke("begin_shortcut_capture"); } catch (reason) { setShortcutBusy(false); onToast(errorMessage(reason, language), "error"); } }}>{shortcutBusy ? <><AudioLines />{t("pressShortcut")}</> : <><kbd>{formatShortcut(draft.dictationShortcut)}</kbd>{t("changeShortcut")}</>}</button>{shortcutBusy && <button className="text-button" onClick={async () => { try { await invoke("cancel_shortcut_capture"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setShortcutBusy(false); } }}>{t("cancel")}</button>}</div>}
     {step === 3 && <div className="onboarding-step"><span className="step-icon"><Languages /></span><h1>{t("modelLanguage")}</h1><p>{language === "bg" ? "Изберете баланс между цена и точност и задайте език, за да избегнете автоматичното разпознаване." : "Choose your cost/accuracy balance and set a language to skip automatic detection."}</p><ModelPicker settings={draft} language={language} onChange={setDraft} /></div>}
     {step === 4 && <div className="onboarding-step"><span className="step-icon"><FolderOpen /></span><h1>{t("storage")}</h1><p>{language === "bg" ? "Всеки тип съхранение се управлява отделно. Потребителските файлове никога не се изтриват автоматично." : "Each storage type is controlled separately. User files are never deleted automatically."}</p><StorageControls settings={draft} language={language} outputPath={draft.outputDirectory ?? data.defaultOutputDirectory} onChange={setDraft} onChooseFolder={chooseFolder} /></div>}
     {step === 5 && <div className="onboarding-step ready-step"><span className={`step-icon ${missing ? "warning" : "success"}`}>{missing ? <AlertCircle /> : <Check />}</span><h1>{missing ?? t("allReady")}</h1><p>{missing ? t("onboardingIncomplete") : t("readyBody")}</p><div className="ready-summary"><span><KeyRound /><strong>OpenAI</strong><em>{data.hasApiKey ? "✓" : "—"}</em></span><span><Mic /><strong>{t("microphone")}</strong><em>{micTested ? "✓" : "—"}</em></span><span><ShieldCheck /><strong>Accessibility</strong><em>{data.accessibilityGranted ? "✓" : "—"}</em></span><span><AudioLines /><strong>{t("shortcut")}</strong><em>{formatShortcut(draft.dictationShortcut)}</em></span></div></div>}
-  </div><footer className="onboarding-footer"><button className="text-button" onClick={onClose}>{t("closeContinueLater")}</button><div>{step > 0 && <button className="secondary-button" onClick={() => setStep((value) => value - 1)}><ChevronLeft />{t("back")}</button>}{step < steps.length - 1 ? <button className="primary-button" onClick={next}>{t("continue")}<ChevronRight /></button> : <button className="primary-button" disabled={Boolean(missing)} onClick={async () => { try { const completed = { ...draft, onboardingComplete: true }; await onPersist(completed); await onRefresh(); onClose(); } catch (reason) { onToast(errorMessage(reason, language)); } }}><Check />{t("finish")}</button>}</div></footer></section></div>;
+  </div><footer className="onboarding-footer"><button className="text-button" onClick={onClose}>{t("closeContinueLater")}</button><div>{step > 0 && <button className="secondary-button" onClick={() => setStep((value) => value - 1)}><ChevronLeft />{t("back")}</button>}{step < steps.length - 1 ? <button className="primary-button" onClick={next}>{t("continue")}<ChevronRight /></button> : <button className="primary-button" disabled={Boolean(missing)} onClick={async () => { try { const completed = { ...draft, onboardingComplete: true }; await onPersist(completed); await onRefresh(); onClose(); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><Check />{t("finish")}</button>}</div></footer></section></div>;
 }
 
 function useShortcutCapture(active: boolean, setActive: (active: boolean) => void, onCaptured: (binding: ShortcutBinding) => void, onError: (message: string) => void) {
+  const activeRef = useRef(active);
+  const capturedRef = useRef(onCaptured);
+  const errorRef = useRef(onError);
+  activeRef.current = active;
+  capturedRef.current = onCaptured;
+  errorRef.current = onError;
+
   useEffect(() => {
-    if (!active) return;
+    let disposed = false;
     const unlisten: Array<() => void> = [];
-    void listen<{ binding: ShortcutBinding }>("shortcut:captured", ({ payload }) => { onCaptured(payload.binding); setActive(false); }).then((fn) => unlisten.push(fn));
-    void listen<string>("shortcut:capture-error", ({ payload }) => onError(payload)).then((fn) => unlisten.push(fn));
-    void listen("shortcut:capture-cancelled", () => setActive(false)).then((fn) => unlisten.push(fn));
-    return () => unlisten.forEach((fn) => fn());
-  }, [active, onCaptured, onError, setActive]);
+    const register = (promise: Promise<() => void>) => {
+      void promise.then((fn) => disposed ? fn() : unlisten.push(fn));
+    };
+    register(listen<{ binding: ShortcutBinding }>("shortcut:captured", ({ payload }) => { capturedRef.current(payload.binding); setActive(false); }));
+    register(listen<string>("shortcut:capture-error", ({ payload }) => errorRef.current(payload)));
+    register(listen("shortcut:capture-cancelled", () => setActive(false)));
+    return () => {
+      disposed = true;
+      unlisten.forEach((fn) => fn());
+      if (activeRef.current) void invoke("cancel_shortcut_capture");
+    };
+  }, [setActive]);
 }
 
 function DeleteDialog({ entry, language, onCancel, onDelete }: { entry: TranscriptEntry; language: AppLanguage; onCancel: () => void; onDelete: (deleteFiles: boolean) => void }) {

@@ -11,7 +11,6 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug, Clone)]
 pub struct MicrophoneRoutingConfig {
     pub preferred_name: Option<String>,
-    pub priority: Vec<String>,
     pub automatic_fallback: bool,
 }
 
@@ -192,7 +191,6 @@ fn start(routing: &MicrophoneRoutingConfig) -> Result<(ActiveRecording, AudioSta
         .and_then(|device| device.name().ok());
     let plan = microphone_plan(
         routing.preferred_name.as_deref(),
-        &routing.priority,
         &available,
         default_name.as_deref(),
         routing.automatic_fallback,
@@ -423,7 +421,6 @@ fn microphone_activity(samples: &[f32], sample_rate: u32, channels: u16) -> (f32
 
 fn microphone_plan(
     preferred: Option<&str>,
-    priority: &[String],
     available: &[String],
     default_name: Option<&str>,
     automatic_fallback: bool,
@@ -436,22 +433,10 @@ fn microphone_plan(
     };
     if let Some(preferred) = preferred {
         push_unique(preferred);
-    } else {
-        for name in priority {
-            if available.contains(name) {
-                push_unique(name);
-            }
-        }
-        if let Some(default_name) = default_name {
-            push_unique(default_name);
-        }
+    } else if let Some(default_name) = default_name {
+        push_unique(default_name);
     }
     if automatic_fallback {
-        for name in priority {
-            if available.contains(name) {
-                push_unique(name);
-            }
-        }
         if let Some(default_name) = default_name {
             push_unique(default_name);
         }
@@ -497,10 +482,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn preferred_device_leads_then_priority_default_and_remaining_devices() {
+    fn preferred_device_leads_then_default_and_remaining_devices() {
         let plan = microphone_plan(
             Some("AirPods"),
-            &["Studio USB".into(), "MacBook Microphone".into()],
             &[
                 "MacBook Microphone".into(),
                 "Studio USB".into(),
@@ -511,7 +495,7 @@ mod tests {
         );
         assert_eq!(
             plan,
-            vec!["AirPods", "Studio USB", "MacBook Microphone", "Webcam Mic"]
+            vec!["AirPods", "MacBook Microphone", "Studio USB", "Webcam Mic"]
         );
     }
 
@@ -519,7 +503,6 @@ mod tests {
     fn fallback_off_tries_only_the_explicit_preference() {
         let plan = microphone_plan(
             Some("AirPods"),
-            &["Studio USB".into()],
             &["Studio USB".into(), "MacBook Microphone".into()],
             Some("MacBook Microphone"),
             false,
@@ -528,15 +511,14 @@ mod tests {
     }
 
     #[test]
-    fn automatic_mode_uses_available_priority_before_system_default() {
+    fn automatic_mode_uses_system_default_before_other_devices() {
         let plan = microphone_plan(
             None,
-            &["Disconnected".into(), "Studio USB".into()],
             &["MacBook Microphone".into(), "Studio USB".into()],
             Some("MacBook Microphone"),
             true,
         );
-        assert_eq!(plan, vec!["Studio USB", "MacBook Microphone"]);
+        assert_eq!(plan, vec!["MacBook Microphone", "Studio USB"]);
     }
 
     #[test]

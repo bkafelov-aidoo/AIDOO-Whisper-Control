@@ -12,7 +12,6 @@ export interface AppSettings {
   outputDirectory: string | null;
   launchAtLogin: boolean;
   microphoneName: string | null;
-  microphonePriority: string[];
   automaticMicrophoneFallback: boolean;
   dictationShortcut: ShortcutBinding;
 }

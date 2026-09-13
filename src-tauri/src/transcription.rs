@@ -82,6 +82,9 @@ async fn streamed_audio_part(
             let mut chunk = vec![0_u8; 64 * 1024];
             let read = file.read(&mut chunk).await?;
             if read == 0 {
+                if let Some(callback) = progress.as_ref() {
+                    callback(72, "openai_transcribing", false);
+                }
                 return Ok::<_, std::io::Error>(None);
             }
             chunk.truncate(read);
@@ -144,9 +147,6 @@ pub async fn transcribe(
         .text("response_format", "json");
     if settings.language != "auto" {
         form = form.text("language", settings.language.clone());
-    }
-    if let Some(callback) = progress.as_ref() {
-        callback(72, "openai_transcribing", false);
     }
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(20))

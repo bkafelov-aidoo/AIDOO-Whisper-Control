@@ -17,7 +17,9 @@
 - Release, verify FLAC upload progress, clipboard content and automatic paste.
 - Deny Accessibility temporarily and confirm the exact clipboard fallback toast appears.
 - Test Bulgarian, English, automatic detection, Economy and Maximum accuracy.
-- Disconnect the selected microphone and confirm fallback or a clear error according to the setting.
+- With automatic fallback enabled, disconnect the selected microphone and confirm the system or another available microphone is used with a clear warning in the main window and overlay.
+- Disable automatic fallback, disconnect the selected microphone and confirm recording is refused with a clear error.
+- While recording or transcribing, confirm API key, microphone, shortcut and settings changes are disabled and rejected by the native layer.
 
 ## Local data
 

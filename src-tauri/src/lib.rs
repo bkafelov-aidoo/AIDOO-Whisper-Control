@@ -394,11 +394,9 @@ fn reposition_overlay_inner(app: &AppHandle) {
     let Ok(size) = window.outer_size() else {
         return;
     };
-    let position = monitor.position();
-    let monitor_size = monitor.size();
-    let x = position.x + (monitor_size.width.saturating_sub(size.width) / 2) as i32;
-    // 76px keeps the overlay clear of a normally sized Dock.
-    let y = position.y + monitor_size.height.saturating_sub(size.height + 76) as i32;
+    let work_area = monitor.work_area();
+    let x = work_area.position.x + (work_area.size.width.saturating_sub(size.width) / 2) as i32;
+    let y = work_area.position.y + work_area.size.height.saturating_sub(size.height + 18) as i32;
     let _ = window.set_position(PhysicalPosition::new(x, y));
 }
 
@@ -447,6 +445,16 @@ fn readiness_error(state: &AppState) -> Option<String> {
         );
     }
     if state
+        .shortcut_capture
+        .lock()
+        .map(|capture| capture.is_some())
+        .unwrap_or(true)
+    {
+        return Some(
+            "Завършете или отменете избора на shortcut, преди да започнете диктовка.".into(),
+        );
+    }
+    if state
         .failed_recording
         .lock()
         .map(|recording| recording.is_some())
@@ -473,7 +481,7 @@ fn acquire_operation(state: &AppState) -> Result<OperationGuard<'_>, String> {
         .operation_active
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
         .map(|_| OperationGuard(&state.operation_active))
-        .map_err(|_| "Изчакайте текущата диктовка да приключи.".into())
+        .map_err(|_| "Изчакайте текущата операция да приключи.".into())
 }
 
 fn start_recording_inner(app: &AppHandle) -> Result<audio::AudioStartInfo, String> {
@@ -499,7 +507,6 @@ fn start_recording_inner(app: &AppHandle) -> Result<audio::AudioStartInfo, Strin
         .clone();
     let routing = audio::MicrophoneRoutingConfig {
         preferred_name: settings.microphone_name,
-        priority: settings.microphone_priority,
         automatic_fallback: settings.automatic_microphone_fallback,
     };
     match state.recorder.start(routing) {
@@ -1004,6 +1011,9 @@ fn update_settings(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<AppSettings, String> {
+    if state.operation_active.load(Ordering::Acquire) {
+        return Err("Изчакайте текущата диктовка да приключи.".into());
+    }
     let mut settings = settings;
     settings.normalize();
     shortcuts::validate_settings(&settings)?;
@@ -1024,6 +1034,7 @@ fn update_settings(
 
 #[tauri::command]
 async fn save_api_key(api_key: String, state: State<'_, AppState>) -> Result<(), String> {
+    let _operation = acquire_operation(&state)?;
     let key = Zeroizing::new(api_key.trim().to_string());
     transcription::validate_api_key(&key).await?;
     keyring_entry()?
@@ -1038,6 +1049,9 @@ async fn save_api_key(api_key: String, state: State<'_, AppState>) -> Result<(),
 
 #[tauri::command]
 fn delete_api_key(state: State<'_, AppState>) -> Result<(), String> {
+    if state.operation_active.load(Ordering::Acquire) {
+        return Err("Изчакайте текущата диктовка да приключи.".into());
+    }
     match keyring_entry()?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => {}
         Err(error) => return Err(format!("Ключът не можа да бъде изтрит: {error}")),
@@ -1051,6 +1065,9 @@ fn delete_api_key(state: State<'_, AppState>) -> Result<(), String> {
 
 #[tauri::command]
 fn begin_shortcut_capture(state: State<'_, AppState>) -> Result<(), String> {
+    if state.operation_active.load(Ordering::Acquire) {
+        return Err("Изчакайте текущата диктовка да приключи.".into());
+    }
     shortcuts::begin_capture("dictation".into(), &state)
 }
 
@@ -1060,18 +1077,17 @@ fn cancel_shortcut_capture(state: State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn test_microphone(state: State<'_, AppState>) -> Result<audio::MicrophoneProbe, String> {
-    let settings = state
-        .settings
-        .lock()
-        .map_err(|_| "Настройките са заключени.")?
-        .clone();
+async fn test_microphone(
+    microphone_name: Option<String>,
+    automatic_fallback: bool,
+    state: State<'_, AppState>,
+) -> Result<audio::MicrophoneProbe, String> {
+    let _operation = acquire_operation(&state)?;
     let recorder = state.recorder.clone();
     tokio::task::spawn_blocking(move || {
         recorder.probe(audio::MicrophoneRoutingConfig {
-            preferred_name: settings.microphone_name,
-            priority: settings.microphone_priority,
-            automatic_fallback: settings.automatic_microphone_fallback,
+            preferred_name: microphone_name,
+            automatic_fallback,
         })
     })
     .await

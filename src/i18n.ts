@@ -47,6 +47,8 @@ export const copy = {
     testMicrophone: "Тествай микрофона",
     microphoneOk: "Микрофонът работи",
     microphoneFallback: "Избраният микрофон не е наличен. Използвам „{name}“.",
+    automaticMicrophoneFallback: "Използвай резервен микрофон автоматично",
+    automaticMicrophoneFallbackHelp: "Ако избраният микрофон липсва или не може да стартира, приложението опитва системния и останалите налични микрофони.",
     microphoneTestHelp: "Говорете нормално около секунда и половина по време на теста.",
     microphoneSilent: "Микрофонът се свърза, но не беше засечен глас. Проверете входното ниво и опитайте отново.",
     accessibility: "Accessibility",
@@ -75,6 +77,7 @@ export const copy = {
     updateAvailable: "Налична е версия {version}.",
     installUpdate: "Инсталирай и рестартирай",
     updateBusy: "Завършете текущата диктовка, преди да инсталирате обновяването.",
+    finishDictationFirst: "Завършете текущата диктовка, преди да променяте настройките.",
     diagnostics: "Диагностика",
     diagnosticsHelp: "Създава локален пакет без API ключ и без съдържанието на транскрипциите.",
     createDiagnostics: "Създай диагностичен пакет",
@@ -154,6 +157,8 @@ export const copy = {
     testMicrophone: "Test microphone",
     microphoneOk: "Microphone works",
     microphoneFallback: "The selected microphone is unavailable. Using “{name}”.",
+    automaticMicrophoneFallback: "Use a fallback microphone automatically",
+    automaticMicrophoneFallbackHelp: "If the selected microphone is missing or cannot start, the app tries the system microphone and other available inputs.",
     microphoneTestHelp: "Speak normally for about a second and a half during the test.",
     microphoneSilent: "The microphone connected, but no voice was detected. Check the input level and try again.",
     accessibility: "Accessibility",
@@ -182,6 +187,7 @@ export const copy = {
     updateAvailable: "Version {version} is available.",
     installUpdate: "Install and restart",
     updateBusy: "Finish the current dictation before installing the update.",
+    finishDictationFirst: "Finish the current dictation before changing settings.",
     diagnostics: "Diagnostics",
     diagnosticsHelp: "Creates a local package without the API key or transcription content.",
     createDiagnostics: "Create diagnostics package",
@@ -274,6 +280,8 @@ export function errorMessage(reason: unknown, language: AppLanguage) {
     "Запазеният неуспешен аудио файл не е намерен.": "The saved failed audio recording could not be found.",
     "Текстът не можа да бъде поставен. Копиран е в клипборда.": "The text could not be pasted. It remains copied to the clipboard.",
     "Има запазен неуспешен запис. Изберете „Опитай отново“ или „Изтрий“, преди да започнете нова диктовка.": "A failed recording is saved. Choose “Try again” or “Delete” before starting a new dictation.",
+    "Завършете или отменете избора на shortcut, преди да започнете диктовка.": "Finish or cancel shortcut selection before starting dictation.",
+    "Изчакайте текущата операция да приключи.": "Wait for the current operation to finish.",
   };
   if (exact[message]) return exact[message];
   const prefixes: Array<[string, string]> = [

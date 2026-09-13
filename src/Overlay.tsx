@@ -37,6 +37,7 @@ const stateText = {
 export default function Overlay() {
   const [snapshot, setSnapshot] = useState(initial);
   const [language, setLanguage] = useState<"bg" | "en">("bg");
+  const [notice, setNotice] = useState<string | null>(null);
   const card = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,10 +50,14 @@ export default function Overlay() {
       }
     });
     void listen<RecordingSnapshot>("recording:snapshot", ({ payload }) => setSnapshot(payload)).then((fn) => unlisten.push(fn));
-    void listen<string>("recording:state", ({ payload }) => setSnapshot((current) => ({ ...current, state: payload as RecordingSnapshot["state"] }))).then((fn) => unlisten.push(fn));
+    void listen<string>("recording:state", ({ payload }) => {
+      if (payload === "starting" || payload === "idle") setNotice(null);
+      setSnapshot((current) => ({ ...current, state: payload as RecordingSnapshot["state"] }));
+    }).then((fn) => unlisten.push(fn));
     void listen<RecordingProgress>("recording:progress", ({ payload }) => setSnapshot((current) => ({ ...current, progress: payload }))).then((fn) => unlisten.push(fn));
     void listen<string>("recording:error", ({ payload }) => setSnapshot((current) => ({ ...current, state: "error", error: payload }))).then((fn) => unlisten.push(fn));
     void listen<BootstrapState["settings"]>("settings:changed", ({ payload }) => setLanguage(resolveLanguage(payload.uiLanguage))).then((fn) => unlisten.push(fn));
+    void listen<string>("toast", ({ payload }) => setNotice(payload)).then((fn) => unlisten.push(fn));
     const timer = window.setInterval(() => {
       setSnapshot((current) => current.state === "recording" ? { ...current, elapsedSeconds: current.elapsedSeconds + 0.1 } : current);
     }, 100);
@@ -66,7 +71,7 @@ export default function Overlay() {
   useEffect(() => {
     const height = Math.max(92, Math.min(220, (card.current?.scrollHeight ?? 112) + 18));
     void getCurrentWindow().setSize(new LogicalSize(480, height)).then(() => invoke("reposition_overlay"));
-  }, [snapshot.state, snapshot.error, snapshot.progress.stage]);
+  }, [snapshot.state, snapshot.error, snapshot.progress.stage, notice]);
 
   const label = stateText[language];
   const stage = progressLabel(snapshot.progress.stage, language);
@@ -87,6 +92,7 @@ export default function Overlay() {
           {snapshot.state === "transcribing" && <span>{stage}</span>}
           {snapshot.state === "error" && <span className="error-text">{errorMessage(snapshot.error, language)}</span>}
           {snapshot.state === "starting" && <span>{stage}</span>}
+          {notice && snapshot.state !== "error" && <span className="notice-text">{errorMessage(notice, language)}</span>}
         </div>
         {snapshot.state === "recording" && (
           <div className="overlay-live">

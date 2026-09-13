@@ -37,7 +37,6 @@ pub struct AppSettings {
     pub output_directory: Option<String>,
     pub launch_at_login: bool,
     pub microphone_name: Option<String>,
-    pub microphone_priority: Vec<String>,
     pub automatic_microphone_fallback: bool,
     pub dictation_shortcut: ShortcutBinding,
 }
@@ -56,7 +55,6 @@ impl Default for AppSettings {
             output_directory: None,
             launch_at_login: false,
             microphone_name: None,
-            microphone_priority: Vec::new(),
             automatic_microphone_fallback: true,
             dictation_shortcut: ShortcutBinding::key("alt_gr", &[]),
         }
