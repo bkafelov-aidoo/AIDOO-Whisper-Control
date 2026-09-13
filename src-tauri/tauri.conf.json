@@ -1,0 +1,78 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AIDOO Whisper Lite",
+  "version": "1.0.0",
+  "identifier": "app.aidoo.whisper-lite",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "AIDOO Whisper Lite",
+        "width": 1040,
+        "height": 720,
+        "minWidth": 900,
+        "minHeight": 620,
+        "center": true,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
+      },
+      {
+        "label": "overlay",
+        "url": "index.html?window=overlay",
+        "title": "AIDOO Whisper Lite",
+        "width": 480,
+        "height": 132,
+        "minHeight": 92,
+        "maxHeight": 220,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "focus": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": true,
+    "targets": [
+      "app",
+      "dmg"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Говориш. Текстът се появява.",
+    "longDescription": "AIDOO Whisper Lite is a focused, cost-efficient voice typing assistant for macOS.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": "Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)",
+      "entitlements": "Entitlements.plist"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/bkafelov-aidoo/Aidoo-Whisper/releases/download/lite-stable/latest-lite.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY4M0IzRDE5N0Q3RjAzM0MKUldROEEzOTlHVDA3YUhlWnBvQ0V6SHdZNFJPU0tKdUJtOG9FZ1BjRmppKzJtWDdiLzJnZURvMzEK"
+    }
+  }
+}

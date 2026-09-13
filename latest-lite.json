@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "notes": "AIDOO Whisper Lite 1.0.0",
+  "pub_date": "2026-09-13T23:25:40Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVROEEzOTlHVDA3YUJQbnRFc2FEcHlCYlB4U1I3MG1aSE5waGF1MkdLc0p5RFhKbnF4Vm4yVzJwVG9JQ3o0ckV3UExEdFZTT3FlS05DZXpvanJWNXRXME9GNktrV2l1dWdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5MzQxODk2CWZpbGU6QUlET08gV2hpc3BlciBMaXRlLmFwcC50YXIuZ3oKVmswYUlnY21KcEdZNno5RytYNGdES0xBU1NDM0JWM05FOHdISnhZYUdFUXRFMTZza1pYN1VRYXN3dXVGbHlTUkZTSlRCcDJkQkFISDZidDhENHB6Qnc9PQo=",
+      "url": "https://github.com/bkafelov-aidoo/Aidoo-Whisper/releases/download/lite-v1.0.0/AIDOO%20Whisper%20Lite.app.tar.gz"
+    }
+  }
+}

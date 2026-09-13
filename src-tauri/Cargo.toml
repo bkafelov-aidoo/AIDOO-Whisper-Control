@@ -1,0 +1,44 @@
+[package]
+name = "aidoo-whisper-lite"
+version = "1.0.0"
+description = "Cost-efficient voice dictation for macOS"
+authors = ["Aidoo Ltd. OOD"]
+edition = "2021"
+
+[lib]
+name = "aidoo_whisper_lite_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
+tauri-plugin-autostart = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-process = "2"
+tauri-plugin-updater = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+arboard = "3"
+chrono = { version = "0.4", features = ["serde"] }
+cpal = "0.15"
+dirs = "6"
+flexaudio-encode = "=0.2.0"
+futures-util = "0.3"
+hound = "3"
+keyring = { version = "3", features = ["apple-native", "windows-native"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls", "stream"] }
+sys-locale = "0.3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "fs", "io-util", "sync"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+zip = { version = "4", default-features = false, features = ["deflate"] }
+zeroize = "1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = { version = "0.19.2", features = ["highsierra"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+enigo = "0.3"
+rdev = "0.5"
