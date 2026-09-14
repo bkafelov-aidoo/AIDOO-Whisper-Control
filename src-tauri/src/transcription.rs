@@ -8,6 +8,8 @@ use std::time::Duration;
 use tokio::io::AsyncReadExt;
 
 pub type ProgressCallback = Arc<dyn Fn(u8, &str, bool) + Send + Sync>;
+const MAX_TRANSCRIPTION_FILE_BYTES: u64 = 25 * 1024 * 1024;
+const FILE_TOO_LARGE_PREFIX: &str = "Аудио файлът е по-голям от лимита на OpenAI от 25 MB.";
 
 #[derive(Deserialize)]
 struct TranscriptionResponse {
@@ -73,8 +75,13 @@ async fn streamed_audio_part(
         .metadata()
         .await
         .map_err(|error| error.to_string())?
-        .len()
-        .max(1);
+        .len();
+    if total > MAX_TRANSCRIPTION_FILE_BYTES {
+        return Err(format!(
+            "{FILE_TOO_LARGE_PREFIX} Направете по-кратък запис."
+        ));
+    }
+    let total = total.max(1);
     let progress_for_stream = progress.clone();
     let stream = futures_util::stream::try_unfold((file, 0_u64), move |(mut file, uploaded)| {
         let progress = progress_for_stream.clone();
@@ -111,6 +118,10 @@ async fn streamed_audio_part(
             },
         )
         .map_err(|error| error.to_string())
+}
+
+pub fn failure_is_retryable(error: &str) -> bool {
+    !error.starts_with(FILE_TOO_LARGE_PREFIX)
 }
 
 pub async fn validate_api_key(api_key: &str) -> Result<(), String> {
@@ -195,7 +206,15 @@ async fn api_error(response: reqwest::Response, prefix: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::encode_wav_to_flac;
+    use super::{encode_wav_to_flac, failure_is_retryable};
+
+    #[test]
+    fn oversized_audio_failure_cannot_be_retried_unchanged() {
+        assert!(!failure_is_retryable(
+            "Аудио файлът е по-голям от лимита на OpenAI от 25 MB. Направете по-кратък запис."
+        ));
+        assert!(failure_is_retryable("Няма връзка с OpenAI: timeout"));
+    }
 
     #[test]
     fn wav_is_encoded_as_flac() {

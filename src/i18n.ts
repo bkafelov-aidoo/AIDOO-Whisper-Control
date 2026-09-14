@@ -286,6 +286,7 @@ export function errorMessage(reason: unknown, language: AppLanguage) {
     "Свързаният аудио файл не е намерен.": "The linked audio file could not be found.",
     "Запазеният неуспешен аудио файл не е намерен.": "The saved failed audio recording could not be found.",
     "Текстът не можа да бъде поставен. Копиран е в клипборда.": "The text could not be pasted. It remains copied to the clipboard.",
+    "Аудио файлът е по-голям от лимита на OpenAI от 25 MB. Направете по-кратък запис.": "The audio file exceeds OpenAI's 25 MB limit. Make a shorter recording.",
     "Има запазен неуспешен запис. Изберете „Опитай отново“ или „Изтрий“, преди да започнете нова диктовка.": "A failed recording is saved. Choose “Try again” or “Delete” before starting a new dictation.",
     "Транскрипцията е готова, но старият recovery запис не можа да бъде изчистен. Изберете „Изтрий“; нов опит може да доведе до повторно API таксуване.": "The transcription succeeded, but the old recovery item could not be cleared. Choose Delete; another retry may create another API charge.",
     "Този recovery запис вече е транскрибиран. Изберете „Изтрий“, за да не бъде таксуван повторно.": "This recovery item has already been transcribed. Choose Delete so it is not charged again.",

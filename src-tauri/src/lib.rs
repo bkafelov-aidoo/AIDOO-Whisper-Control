@@ -205,6 +205,9 @@ fn localized_native_error(error: &str, english: bool) -> String {
         "Текстът не можа да бъде поставен. Копиран е в клипборда." => {
             Some("The text could not be pasted. It remains copied to the clipboard.")
         }
+        "Аудио файлът е по-голям от лимита на OpenAI от 25 MB. Направете по-кратък запис." => {
+            Some("The audio file exceeds OpenAI's 25 MB limit. Make a shorter recording.")
+        }
         "Има запазен неуспешен запис. Изберете „Опитай отново“ или „Изтрий“, преди да започнете нова диктовка." => {
             Some("A failed recording is saved. Choose “Try again” or “Delete” before starting a new dictation.")
         }
@@ -927,7 +930,12 @@ async fn stop_and_transcribe_inner(app: &AppHandle) -> Result<TranscriptionCompl
             Ok(completed)
         }
         Err(error) => {
-            let failed = retain_failed_recording(&staged, captured.duration_seconds, &error, true)?;
+            let failed = retain_failed_recording(
+                &staged,
+                captured.duration_seconds,
+                &error,
+                transcription::failure_is_retryable(&error),
+            )?;
             let _ = std::fs::remove_file(&captured.path);
             store_failed_recording(app, &state, failed)?;
             Err(error)
@@ -1364,7 +1372,16 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
             if temporary_flac {
                 let _ = std::fs::remove_file(&staged);
             }
-            update_failed_recording_error(&state, &error);
+            if transcription::failure_is_retryable(&error) {
+                update_failed_recording_error(&state, &error);
+            } else {
+                mark_failed_recording_non_retryable(&state, &error);
+                if let Ok(current) = state.failed_recording.lock() {
+                    if let Some(failed) = current.as_ref() {
+                        let _ = app.emit("failed-recording:changed", failed);
+                    }
+                }
+            }
             set_error(&app, &error);
             Err(error)
         }
