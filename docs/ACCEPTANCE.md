@@ -23,6 +23,7 @@ The remaining checks below are behavioral and must be completed on the signed bu
 ## Dictation
 
 - Hold the shortcut and verify the overlay appears above the Dock on the active display.
+- After hiding the main window and after waking the Mac from sleep, confirm the overlay immediately catches up with the native recording state instead of remaining on an earlier status.
 - Confirm long status/error text wraps and remains readable.
 - Release, verify FLAC upload progress, clipboard content and automatic paste.
 - Use Stop from the menu bar while the overlay still says the microphone is starting; confirm the app proceeds to transcription or a clear short-recording error and never returns to the recording state.

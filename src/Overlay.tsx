@@ -73,6 +73,32 @@ export default function Overlay() {
   }, [snapshot.state]);
 
   useEffect(() => {
+    let disposed = false;
+    let inFlight = false;
+    const sync = async () => {
+      if (disposed || inFlight) return;
+      inFlight = true;
+      try {
+        const current = await invoke<RecordingSnapshot>("current_recording_snapshot");
+        if (!disposed) setSnapshot(current);
+      } catch {
+        // Native events remain the primary path; the poll only repairs missed wake-up events.
+      } finally {
+        inFlight = false;
+      }
+    };
+    const onVisibilityChange = () => { if (!document.hidden) void sync(); };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    void sync();
+    const timer = window.setInterval(() => void sync(), snapshot.state === "idle" ? 5000 : 150);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [snapshot.state]);
+
+  useEffect(() => {
     const height = Math.max(132, Math.min(260, (card.current?.scrollHeight ?? 84) + 48));
     void getCurrentWindow().setSize(new LogicalSize(552, height)).then(() => invoke("reposition_overlay"));
   }, [snapshot.state, snapshot.error, snapshot.progress.stage, notice]);
