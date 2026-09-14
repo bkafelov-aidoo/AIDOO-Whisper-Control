@@ -333,6 +333,10 @@ fn localized_native_error(error: &str, english: bool) -> String {
             "Текстът е готов, но клипбордът не е достъпен:",
             "The text is ready, but the clipboard is unavailable:",
         ),
+        (
+            "Транскрипцията е завършена и текстът остава в клипборда, но",
+            "The transcription is complete and the text remains in the clipboard, but",
+        ),
     ];
     let mut translated = error.to_string();
     for (source, target) in prefixes {
@@ -352,6 +356,30 @@ fn localized_native_error(error: &str, english: bool) -> String {
         )
         .replace("не е наличен.", "is unavailable.")
         .replace("канала.", "channels.")
+        .replace(
+            "папката не може да бъде създадена:",
+            "the folder could not be created:",
+        )
+        .replace(
+            "FLAC файлът не може да бъде запазен:",
+            "the FLAC file could not be saved:",
+        )
+        .replace(
+            "TXT файлът не може да бъде запазен:",
+            "the TXT file could not be saved:",
+        )
+        .replace(
+            "историята е временно недостъпна.",
+            "history is temporarily unavailable.",
+        )
+        .replace(
+            "историята не можа да бъде запазена:",
+            "history could not be saved:",
+        )
+        .replace(
+            "Създадените локални файлове не са изтрити.",
+            "Created local files were not deleted.",
+        )
 }
 
 fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<Menu<tauri::Wry>> {
@@ -865,7 +893,7 @@ async fn stop_and_transcribe_inner(app: &AppHandle) -> Result<TranscriptionCompl
         Ok(path) => path,
         Err(error) => {
             let failed =
-                retain_failed_recording(&captured.path, captured.duration_seconds, &error)?;
+                retain_failed_recording(&captured.path, captured.duration_seconds, &error, true)?;
             store_failed_recording(app, &state, failed)?;
             return Err(error);
         }
@@ -881,11 +909,15 @@ async fn stop_and_transcribe_inner(app: &AppHandle) -> Result<TranscriptionCompl
                 match finalize_success(app, &settings, &staged, captured.duration_seconds, text) {
                     Ok(completed) => completed,
                     Err(error) => {
-                        let failed =
-                            retain_failed_recording(&staged, captured.duration_seconds, &error)?;
+                        let failed = retain_failed_recording(
+                            &staged,
+                            captured.duration_seconds,
+                            &error.message,
+                            error.retryable,
+                        )?;
                         store_failed_recording(app, &state, failed)?;
                         let _ = std::fs::remove_file(&captured.path);
-                        return Err(error);
+                        return Err(error.message);
                     }
                 };
             let _ = std::fs::remove_file(&captured.path);
@@ -895,7 +927,7 @@ async fn stop_and_transcribe_inner(app: &AppHandle) -> Result<TranscriptionCompl
             Ok(completed)
         }
         Err(error) => {
-            let failed = retain_failed_recording(&staged, captured.duration_seconds, &error)?;
+            let failed = retain_failed_recording(&staged, captured.duration_seconds, &error, true)?;
             let _ = std::fs::remove_file(&captured.path);
             store_failed_recording(app, &state, failed)?;
             Err(error)
@@ -921,26 +953,65 @@ fn safe_file_stem() -> String {
     )
 }
 
+struct FinalizationError {
+    message: String,
+    retryable: bool,
+}
+
+impl FinalizationError {
+    fn retryable(message: String) -> Self {
+        Self {
+            message,
+            retryable: true,
+        }
+    }
+
+    fn completed(message: String, files_created: bool) -> Self {
+        let preservation = if files_created {
+            " Създадените локални файлове не са изтрити."
+        } else {
+            ""
+        };
+        Self {
+            message: format!(
+                "Транскрипцията е завършена и текстът остава в клипборда, но {message}{preservation}"
+            ),
+            retryable: false,
+        }
+    }
+}
+
 fn finalize_success(
     app: &AppHandle,
     settings: &AppSettings,
     staged_audio: &Path,
     duration_seconds: f64,
     text: String,
-) -> Result<TranscriptionCompleted, String> {
-    text_insertion::copy(&text)
-        .map_err(|error| format!("Текстът е готов, но клипбордът не е достъпен: {error}"))?;
+) -> Result<TranscriptionCompleted, FinalizationError> {
+    text_insertion::copy(&text).map_err(|error| {
+        FinalizationError::retryable(format!(
+            "Текстът е готов, но клипбордът не е достъпен: {error}"
+        ))
+    })?;
 
     let output_dir = selected_output_dir(settings);
     if settings.save_audio || settings.save_text {
-        std::fs::create_dir_all(&output_dir)
-            .map_err(|error| format!("Папката не може да бъде създадена: {error}"))?;
+        std::fs::create_dir_all(&output_dir).map_err(|error| {
+            FinalizationError::completed(
+                format!("папката не може да бъде създадена: {error}"),
+                false,
+            )
+        })?;
     }
     let stem = safe_file_stem();
     let audio_path = if settings.save_audio {
         let path = output_dir.join(format!("{stem}.flac"));
-        copy_output_atomic(staged_audio, &path)
-            .map_err(|error| format!("FLAC файлът не може да бъде запазен: {error}"))?;
+        copy_output_atomic(staged_audio, &path).map_err(|error| {
+            FinalizationError::completed(
+                format!("FLAC файлът не може да бъде запазен: {error}"),
+                false,
+            )
+        })?;
         Some(path)
     } else {
         None
@@ -948,8 +1019,10 @@ fn finalize_success(
     let text_path = if settings.save_text {
         let path = output_dir.join(format!("{stem}.txt"));
         if let Err(error) = write_output_atomic(&path, format!("{text}\n").as_bytes()) {
-            remove_created_output(audio_path.as_deref(), None);
-            return Err(format!("TXT файлът не може да бъде запазен: {error}"));
+            return Err(FinalizationError::completed(
+                format!("TXT файлът не може да бъде запазен: {error}"),
+                audio_path.is_some(),
+            ));
         }
         Some(path)
     } else {
@@ -975,16 +1048,20 @@ fn finalize_success(
         let mut history = match state.history.lock() {
             Ok(history) => history,
             Err(_) => {
-                remove_created_output(audio_path.as_deref(), text_path.as_deref());
-                return Err("Историята е заключена.".into());
+                return Err(FinalizationError::completed(
+                    "историята е временно недостъпна.".into(),
+                    audio_path.is_some() || text_path.is_some(),
+                ));
             }
         };
         let mut next_history = history.clone();
         next_history.insert(0, entry.clone());
         next_history.truncate(10);
         if let Err(error) = storage::save_history(&next_history) {
-            remove_created_output(audio_path.as_deref(), text_path.as_deref());
-            return Err(format!("Историята не можа да бъде запазена: {error}"));
+            return Err(FinalizationError::completed(
+                format!("историята не можа да бъде запазена: {error}"),
+                audio_path.is_some() || text_path.is_some(),
+            ));
         }
         *history = next_history;
         Some(entry)
@@ -1013,12 +1090,6 @@ fn finalize_success(
         paste_succeeded,
         paste_error,
     })
-}
-
-fn remove_created_output(audio_path: Option<&Path>, text_path: Option<&Path>) {
-    for path in [audio_path, text_path].into_iter().flatten() {
-        let _ = std::fs::remove_file(path);
-    }
 }
 
 fn temporary_output_path(target: &Path) -> PathBuf {
@@ -1070,6 +1141,7 @@ fn retain_failed_recording(
     path: &Path,
     duration_seconds: f64,
     error: &str,
+    retryable: bool,
 ) -> Result<FailedRecording, String> {
     storage::ensure_directories()?;
     let extension = path
@@ -1094,7 +1166,7 @@ fn retain_failed_recording(
         created_at: Utc::now().to_rfc3339(),
         duration_seconds,
         error: error.into(),
-        retryable: true,
+        retryable,
     })
 }
 
@@ -1104,7 +1176,7 @@ fn retain_captured_failure(
     captured: &audio::CapturedAudio,
     error: &str,
 ) -> Result<(), String> {
-    let failed = retain_failed_recording(&captured.path, captured.duration_seconds, error)?;
+    let failed = retain_failed_recording(&captured.path, captured.duration_seconds, error, true)?;
     store_failed_recording(app, state, failed)
 }
 
@@ -1241,9 +1313,18 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
                         if temporary_flac {
                             let _ = std::fs::remove_file(&staged);
                         }
-                        update_failed_recording_error(&state, &error);
-                        set_error(&app, &error);
-                        return Err(error);
+                        if error.retryable {
+                            update_failed_recording_error(&state, &error.message);
+                        } else {
+                            mark_failed_recording_non_retryable(&state, &error.message);
+                        }
+                        if let Ok(current) = state.failed_recording.lock() {
+                            if let Some(failed) = current.as_ref() {
+                                let _ = app.emit("failed-recording:changed", failed);
+                            }
+                        }
+                        set_error(&app, &error.message);
+                        return Err(error.message);
                     }
                 };
             let recovery_cleared = match resolve_failed_recording_after_success(&state) {
@@ -1354,8 +1435,8 @@ async fn retranscribe_history_item(
             ) {
                 Ok(completed) => completed,
                 Err(error) => {
-                    set_error(&app, &error);
-                    return Err(error);
+                    set_error(&app, &error.message);
+                    return Err(error.message);
                 }
             };
             set_recording_state(&app, "done");

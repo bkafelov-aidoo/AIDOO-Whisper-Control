@@ -344,6 +344,7 @@ export function errorMessage(reason: unknown, language: AppLanguage) {
     ["Ключът не можа да бъде запазен в Keychain:", "The key could not be saved in Keychain:"],
     ["Ключът не можа да бъде изтрит:", "The key could not be deleted:"],
     ["Текстът е готов, но клипбордът не е достъпен:", "The text is ready, but the clipboard is unavailable:"],
+    ["Транскрипцията е завършена и текстът остава в клипборда, но", "The transcription is complete and the text remains in the clipboard, but"],
     ["Добавете и проверете OpenAI API ключ.", "Add and verify an OpenAI API key."],
     ["Липсва Accessibility разрешение за автоматично поставяне. Натиснете „Разреши Accessibility“ в Aidoo; разпознатият текст е запазен в Историята и clipboard.", "Accessibility permission for automatic paste is missing. Grant Accessibility permission in AIDOO; the recognized text remains in History and the clipboard."],
   ];
@@ -355,6 +356,12 @@ export function errorMessage(reason: unknown, language: AppLanguage) {
     ["Микрофонът", "Microphone"],
     ["не е наличен.", "is unavailable."],
     ["канала.", "channels."],
+    ["папката не може да бъде създадена:", "the folder could not be created:"],
+    ["FLAC файлът не може да бъде запазен:", "the FLAC file could not be saved:"],
+    ["TXT файлът не може да бъде запазен:", "the TXT file could not be saved:"],
+    ["историята е временно недостъпна.", "history is temporarily unavailable."],
+    ["историята не можа да бъде запазена:", "history could not be saved:"],
+    ["Създадените локални файлове не са изтрити.", "Created local files were not deleted."],
   ];
   return fragments.reduce((result, [source, target]) => result.replace(source, target), translated);
 }
