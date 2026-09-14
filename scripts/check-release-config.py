@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import plistlib
 import re
@@ -11,6 +12,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 EXPECTED_IDENTITY = "Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)"
+EXPECTED_PRODUCT_ICON_SHA256 = (
+    "d9cd1ed91661c76ce7a7e6d3fed82c3bc95c5335f5081f708f73182ea9d539e9"
+)
 
 
 def main() -> int:
@@ -43,6 +47,11 @@ def main() -> int:
         errors.append("The macOS release must produce exactly app and dmg bundles")
     if "icons/icon.icns" not in bundle.get("icon", []):
         errors.append("The original macOS icon is missing from the bundle configuration")
+    icon_hash = hashlib.sha256(
+        (ROOT / "src-tauri/icons/icon.png").read_bytes()
+    ).hexdigest()
+    if icon_hash != EXPECTED_PRODUCT_ICON_SHA256:
+        errors.append("The original AIDOO product icon has been changed")
 
     with (ROOT / "src-tauri/Entitlements.plist").open("rb") as source:
         entitlements = plistlib.load(source)
