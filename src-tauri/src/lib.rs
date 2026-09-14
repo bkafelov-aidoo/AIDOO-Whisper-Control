@@ -1217,6 +1217,7 @@ async fn save_api_key(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let _operation = acquire_operation(&state)?;
+    let api_key = Zeroizing::new(api_key);
     let key = Zeroizing::new(api_key.trim().to_string());
     transcription::validate_api_key(&key).await?;
     keyring_entry()?
