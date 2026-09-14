@@ -40,7 +40,7 @@ The remaining checks below are behavioral and must be completed on the signed bu
 - Open FLAC/TXT from history, copy text and retranscribe saved audio.
 - Delete a history entry while keeping files, then delete another entry with its linked files.
 - Trigger an API/balance/network failure, restart the app, retry the retained audio, then test explicit deletion.
-- After a successful retry, make recovery-audio cleanup fail and confirm the completed text remains available, the old item is not silently presented as cleared, and a warning prevents an accidental second paid retry.
+- After a successful retry, make recovery-audio cleanup fail and confirm the completed text remains available, the old item is not silently presented as cleared, the Retry button disappears, and direct retry is rejected to prevent another API charge.
 - After restart with retained audio, confirm the main window and menu bar report that action is required; after retry or deletion, confirm they return to ready.
 
 ## App lifecycle and startup

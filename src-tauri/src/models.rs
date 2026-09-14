@@ -90,7 +90,7 @@ impl AppSettings {
 
 #[cfg(test)]
 mod tests {
-    use super::{AppSettings, ACCURACY_MODEL, ECONOMY_MODEL};
+    use super::{AppSettings, FailedRecording, ACCURACY_MODEL, ECONOMY_MODEL};
 
     #[test]
     fn production_model_aliases_remain_stable() {
@@ -124,6 +124,19 @@ mod tests {
         assert_eq!(settings.output_directory, None);
         assert_eq!(settings.microphone_name, None);
     }
+
+    #[test]
+    fn legacy_failed_recordings_remain_retryable() {
+        let recording: FailedRecording = serde_json::from_value(serde_json::json!({
+            "path": "/tmp/failed.flac",
+            "createdAt": "2026-09-14T00:00:00Z",
+            "durationSeconds": 2.0,
+            "error": "network"
+        }))
+        .unwrap();
+
+        assert!(recording.retryable);
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -146,6 +159,12 @@ pub struct FailedRecording {
     pub created_at: String,
     pub duration_seconds: f64,
     pub error: String,
+    #[serde(default = "default_true")]
+    pub retryable: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize)]

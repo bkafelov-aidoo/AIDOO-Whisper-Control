@@ -325,7 +325,7 @@ function Dashboard({ data, language, isBusy, onOpenOnboarding, onTest, onRetry, 
 
 function FailedCard({ failed, language, disabled, onRetry, onDelete }: { failed: FailedRecording; language: AppLanguage; disabled: boolean; onRetry: () => void; onDelete: () => void }) {
   const t = translator(language);
-  return <section className="failed-card" role="status"><AlertCircle /><div><strong>{t("failedTitle")}</strong><span>{t("failedBody")}</span><small>{errorMessage(failed.error, language)}</small></div><button className="secondary-button" disabled={disabled} onClick={onRetry}><RotateCcw />{t("retry")}</button><button className="icon-button danger" disabled={disabled} onClick={onDelete} aria-label={t("delete")}><Trash2 /></button></section>;
+  return <section className="failed-card" role="status"><AlertCircle /><div><strong>{t("failedTitle")}</strong><span>{t("failedBody")}</span><small>{errorMessage(failed.error, language)}</small></div>{failed.retryable && <button className="secondary-button" disabled={disabled} onClick={onRetry}><RotateCcw />{t("retry")}</button>}<button className="icon-button danger" disabled={disabled} onClick={onDelete} aria-label={t("delete")}><Trash2 /></button></section>;
 }
 
 function HistoryPage({ history, language, isBusy, onCopy, onOpen, onRetranscribe, onDelete }: { history: TranscriptEntry[]; language: AppLanguage; isBusy: boolean; onCopy: (text: string) => void; onOpen: (path: string) => void; onRetranscribe: (id: string) => void; onDelete: (entry: TranscriptEntry) => void }) {

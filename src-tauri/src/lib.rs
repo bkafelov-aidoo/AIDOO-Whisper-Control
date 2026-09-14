@@ -1094,6 +1094,7 @@ fn retain_failed_recording(
         created_at: Utc::now().to_rfc3339(),
         duration_seconds,
         error: error.into(),
+        retryable: true,
     })
 }
 
@@ -1194,6 +1195,9 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
         .map_err(|_| "Recovery състоянието е заключено.")?
         .clone()
         .ok_or_else(|| "Няма неуспешен запис за повторен опит.".to_string())?;
+    if !failed.retryable {
+        return Err("Този recovery запис вече е транскрибиран. Изберете „Изтрий“, за да не бъде таксуван повторно.".into());
+    }
     let settings = state
         .settings
         .lock()
@@ -1251,7 +1255,7 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
                     } else {
                         error_message
                     };
-                    update_failed_recording_error(&state, error_message);
+                    mark_failed_recording_non_retryable(&state, error_message);
                     if let Ok(mut current) = state.last_recording_error.lock() {
                         *current = Some(error_message.into());
                     }
@@ -1290,6 +1294,16 @@ fn update_failed_recording_error(state: &AppState, error: &str) {
     if let Ok(mut current) = state.failed_recording.lock() {
         if let Some(value) = current.as_mut() {
             value.error = error.into();
+            let _ = storage::save_failed_recording(value);
+        }
+    }
+}
+
+fn mark_failed_recording_non_retryable(state: &AppState, error: &str) {
+    if let Ok(mut current) = state.failed_recording.lock() {
+        if let Some(value) = current.as_mut() {
+            value.error = error.into();
+            value.retryable = false;
             let _ = storage::save_failed_recording(value);
         }
     }

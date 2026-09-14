@@ -32,6 +32,7 @@ export interface FailedRecording {
   createdAt: string;
   durationSeconds: number;
   error: string;
+  retryable: boolean;
 }
 
 export interface MicrophoneProbe {

@@ -288,6 +288,7 @@ export function errorMessage(reason: unknown, language: AppLanguage) {
     "Текстът не можа да бъде поставен. Копиран е в клипборда.": "The text could not be pasted. It remains copied to the clipboard.",
     "Има запазен неуспешен запис. Изберете „Опитай отново“ или „Изтрий“, преди да започнете нова диктовка.": "A failed recording is saved. Choose “Try again” or “Delete” before starting a new dictation.",
     "Транскрипцията е готова, но старият recovery запис не можа да бъде изчистен. Изберете „Изтрий“; нов опит може да доведе до повторно API таксуване.": "The transcription succeeded, but the old recovery item could not be cleared. Choose Delete; another retry may create another API charge.",
+    "Този recovery запис вече е транскрибиран. Изберете „Изтрий“, за да не бъде таксуван повторно.": "This recovery item has already been transcribed. Choose Delete so it is not charged again.",
     "Завършете или отменете избора на shortcut, преди да започнете диктовка.": "Finish or cancel shortcut selection before starting dictation.",
     "Изчакайте текущата операция да приключи.": "Wait for the current operation to finish.",
     "Записът е прекалено кратък. Задръжте shortcut-а и говорете поне половин секунда.": "The recording is too short. Hold the shortcut and speak for at least half a second.",
