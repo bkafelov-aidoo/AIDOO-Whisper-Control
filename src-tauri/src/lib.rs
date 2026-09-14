@@ -592,7 +592,9 @@ fn start_recording_inner(app: &AppHandle) -> Result<audio::AudioStartInfo, Strin
                 );
                 let _ = app.emit("toast", message);
             }
-            set_recording_state(app, "recording");
+            if !state.stop_requested.load(Ordering::Acquire) {
+                set_recording_state(app, "recording");
+            }
             std::mem::forget(operation);
             Ok(info)
         }

@@ -25,6 +25,7 @@ The remaining checks below are behavioral and must be completed on the signed bu
 - Hold the shortcut and verify the overlay appears above the Dock on the active display.
 - Confirm long status/error text wraps and remains readable.
 - Release, verify FLAC upload progress, clipboard content and automatic paste.
+- Use Stop from the menu bar while the overlay still says the microphone is starting; confirm the app proceeds to transcription or a clear short-recording error and never returns to the recording state.
 - Deny Accessibility temporarily and confirm the exact clipboard fallback toast appears.
 - Test Bulgarian, English, automatic detection, Economy and Maximum accuracy.
 - With automatic fallback enabled, disconnect the selected microphone and confirm the system or another available microphone is used with a clear warning in the main window and overlay.
