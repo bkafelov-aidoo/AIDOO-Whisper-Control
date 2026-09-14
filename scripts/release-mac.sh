@@ -27,11 +27,16 @@ env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
 dmg="$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/dmg/AIDOO Whisper Lite_${version}_aarch64.dmg"
 app="$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/macos/AIDOO Whisper Lite.app"
 test -f "$dmg" && test -d "$app"
-"$project_root/scripts/notarize-app-mac.sh" "$app"
+codesign --verify --deep --strict --verbose=2 "$app"
 file "$app/Contents/MacOS/aidoo-whisper-lite" | grep -q 'arm64'
 test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = 'app.aidoo.whisper-lite'
 test "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$version"
 test "$(plutil -extract LSMinimumSystemVersion raw "$app/Contents/Info.plist")" = '13.0'
+signature="$(codesign -d --verbose=4 "$app" 2>&1)"
+printf '%s' "$signature" | grep -Fq 'Authority=Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)'
+printf '%s' "$signature" | grep -Fq 'TeamIdentifier=4KKVT2TUUA'
+printf '%s' "$signature" | grep -Eq '^CodeDirectory .*flags=.*runtime'
+"$project_root/scripts/notarize-app-mac.sh" "$app"
 
 # Rebuild the disk image from the stapled application so offline Gatekeeper validation
 # succeeds for the exact copy that users install from the AIDOO website.
