@@ -101,6 +101,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .history-actions button, .icon-button { width: 30px; height: 30px; border-radius: 8px; background: #f0f4f8; color: #6b7e91; display: grid; place-items: center; cursor: pointer; }
 .history-actions button:hover { background: #e5eef7; color: #356eaa; }
 .history-actions button.danger:hover, .icon-button.danger:hover { background: #fff0f2; color: var(--danger); }
+.history-actions button:disabled, .icon-button:disabled { opacity: .4; cursor: default; }
+.history-actions button:disabled:hover, .icon-button:disabled:hover { background: #f0f4f8; color: #6b7e91; }
 .history-actions svg { width: 14px; }
 .empty-state { min-height: 150px; color: #a1adba; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; font-size: 9px; }
 .empty-state svg { width: 30px; }

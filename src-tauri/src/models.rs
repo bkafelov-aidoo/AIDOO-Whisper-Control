@@ -77,7 +77,20 @@ impl AppSettings {
 
 #[cfg(test)]
 mod tests {
-    use super::{AppSettings, ECONOMY_MODEL};
+    use super::{AppSettings, ACCURACY_MODEL, ECONOMY_MODEL};
+
+    #[test]
+    fn production_model_aliases_remain_stable() {
+        assert_eq!(ECONOMY_MODEL, "gpt-4o-mini-transcribe");
+        assert_eq!(ACCURACY_MODEL, "gpt-transcribe");
+
+        let mut settings = AppSettings {
+            model: ACCURACY_MODEL.into(),
+            ..AppSettings::default()
+        };
+        settings.normalize();
+        assert_eq!(settings.model, ACCURACY_MODEL);
+    }
 
     #[test]
     fn normalize_rejects_unknown_model_and_language() {

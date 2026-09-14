@@ -9,7 +9,10 @@
     "dialog:allow-open",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://platform.openai.com/api-keys" }]
+      "allow": [
+        { "url": "https://platform.openai.com/api-keys" },
+        { "url": "https://github.com/bkafelov-aidoo/Aidoo-Whisper/issues" }
+      ]
     },
     "opener:allow-open-path",
     "autostart:default",

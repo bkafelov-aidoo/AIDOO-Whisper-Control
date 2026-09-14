@@ -26,5 +26,7 @@ fi
 xcrun stapler staple "$dmg_path"
 xcrun stapler validate "$dmg_path"
 spctl -a -vv --type open --context context:primary-signature "$dmg_path"
-shasum -a 256 "$dmg_path" | tee "$dmg_path.sha256"
+dmg_name="$(basename "$dmg_path")"
+dmg_hash="$(shasum -a 256 "$dmg_path" | awk '{print $1}')"
+printf '%s  %s\n' "$dmg_hash" "$dmg_name" | tee "$dmg_path.sha256"
 printf 'Notarized DMG: %s\n' "$dmg_path"

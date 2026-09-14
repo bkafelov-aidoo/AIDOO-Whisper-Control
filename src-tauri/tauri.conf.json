@@ -48,6 +48,9 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
+    "resources": [
+      "../resources/THIRD_PARTY_NOTICES.txt"
+    ],
     "targets": [
       "app",
       "dmg"

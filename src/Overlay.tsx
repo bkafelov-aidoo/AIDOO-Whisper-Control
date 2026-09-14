@@ -58,15 +58,19 @@ export default function Overlay() {
     void listen<string>("recording:error", ({ payload }) => setSnapshot((current) => ({ ...current, state: "error", error: payload }))).then((fn) => unlisten.push(fn));
     void listen<BootstrapState["settings"]>("settings:changed", ({ payload }) => setLanguage(resolveLanguage(payload.uiLanguage))).then((fn) => unlisten.push(fn));
     void listen<string>("toast", ({ payload }) => setNotice(payload)).then((fn) => unlisten.push(fn));
-    const timer = window.setInterval(() => {
-      setSnapshot((current) => current.state === "recording" ? { ...current, elapsedSeconds: current.elapsedSeconds + 0.1 } : current);
-    }, 100);
     return () => {
       disposed = true;
       unlisten.forEach((fn) => fn());
-      window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (snapshot.state !== "recording") return;
+    const timer = window.setInterval(() => {
+      setSnapshot((current) => current.state === "recording" ? { ...current, elapsedSeconds: current.elapsedSeconds + 0.1 } : current);
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [snapshot.state]);
 
   useEffect(() => {
     const height = Math.max(92, Math.min(220, (card.current?.scrollHeight ?? 112) + 18));

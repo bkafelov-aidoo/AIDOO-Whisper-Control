@@ -27,6 +27,7 @@ A focused macOS voice typing app. Hold a keyboard shortcut, speak, and release i
 
 ```sh
 npm ci
+python3 scripts/generate-third-party-notices.py
 npm run check
 CARGO_TARGET_DIR=/tmp/aidoo-whisper-lite-target npm run tauri dev
 ```
@@ -48,6 +49,6 @@ The script tests the app, builds the Apple Silicon app/DMG, notarizes and staple
 - `src/` — React interface, onboarding, settings, history and overlay.
 - `src-tauri/src/` — small native modules for audio, shortcuts, Keychain, local files and OpenAI requests.
 - `website/` — ready-to-publish privacy, support and release pages.
-- `docs/` — architecture, release and manual acceptance checklist.
+- `docs/` — architecture, model source, release and manual acceptance checklist.
 
 The Windows implementation will be created as a separate sibling project after the Mac behavior is accepted, so its native shortcut, paste, storage, signing and installer code can follow Windows conventions.

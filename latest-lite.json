@@ -1,10 +1,10 @@
 {
   "version": "1.0.0",
   "notes": "AIDOO Whisper Lite 1.0.0",
-  "pub_date": "2026-09-13T23:55:31Z",
+  "pub_date": "2026-09-14T00:31:01Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVROEEzOTlHVDA3YUFPVWVTS3Z5NktadnlEMnFNcFpSVjVJLzMyRWFhZFUySTRKREJ1dHdPdXZUdXJEQWNBRlhjSW04b0FMLzhCOUQrQTFXRkVCVUowVzNxS1V1bWxmSUFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5MzQzNzAwCWZpbGU6QUlET08gV2hpc3BlciBMaXRlLmFwcC50YXIuZ3oKdzFUQjhTWElYNkQrZWlnUzdBRldzejRvNVNuQmMyYmI1bHJzblJ2SHUyZG1MVzk4eG40NVRhaW5GTWtPekpvbmNKdmZGWTlKY3QyaHJnbFdqbndLRHc9PQo=",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVROEEzOTlHVDA3YUZjS21YcDU1Z1BHbTFtcXV4dTRrQitCR2VIRWUyT21DRzhTYlNKODEzY3o5UnJOV0N6Zk5scWJHVVhMV0xmMC8vYSt4dUZlbXFaTlpvNEFhUHJoSmdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5MzQ1ODMxCWZpbGU6QUlET08gV2hpc3BlciBMaXRlLmFwcC50YXIuZ3oKaDFvYXNxaGR4b0NQMnlBL3B5TXp2Z2tUNFFnY2Y5UDlPV05lOEZ5RUloZG5GOXovcWhDTURlTXlzMkJqb0N5WHlkcUpDNVVBRm5zRWJJN3llNGNFRFE9PQo=",
       "url": "https://github.com/bkafelov-aidoo/Aidoo-Whisper/releases/download/lite-v1.0.0/AIDOO%20Whisper%20Lite.app.tar.gz"
     }
   }

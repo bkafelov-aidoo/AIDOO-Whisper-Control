@@ -31,11 +31,12 @@
 
 ## App lifecycle and updates
 
-- Close the main window and confirm the menu bar icon and shortcut remain active.
+- Close the main window and confirm the menu bar icon and shortcut remain active; reopen the window from both the Dock icon and menu bar.
 - Confirm menu bar state, stop action, error details, settings and Quit.
 - Enable and disable Launch at Login.
-- Confirm automatic update check runs at most daily, manual check works, and installation cannot start during recording.
-- Create a diagnostics package and inspect that it has no API key, transcript text or audio.
+- Confirm automatic update check runs at most daily and the manual check works.
+- Start recording immediately before choosing Install and confirm installation is refused; then start an installation while idle and confirm the global shortcut cannot begin recording until the app restarts or the update fails.
+- Create a diagnostics package and inspect that it has no API key, transcript text or audio; confirm the separate support button opens the AIDOO Whisper GitHub Issues page without uploading anything automatically.
 
 ## Distribution
 

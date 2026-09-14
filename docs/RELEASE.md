@@ -8,7 +8,7 @@ The bundle identifier is `app.aidoo.whisper-lite`, the minimum system version is
 
 ## Version and local release
 
-Keep the same semantic version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`. Update `website/release-notes.html`, commit, and create a `lite-vX.Y.Z` tag.
+Keep the same semantic version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`. Update `website/release-notes.html`, regenerate `resources/THIRD_PARTY_NOTICES.txt`, commit, and create a `lite-vX.Y.Z` tag.
 
 Run `npm run release:mac`. The script retrieves the updater-key password from Keychain without putting it in the repository. It produces:
 

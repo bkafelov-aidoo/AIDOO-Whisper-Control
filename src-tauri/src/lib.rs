@@ -36,6 +36,7 @@ struct AppState {
     recording_started_at: Mutex<Option<std::time::Instant>>,
     recording_active: AtomicBool,
     operation_active: AtomicBool,
+    update_install_active: AtomicBool,
     stop_requested: AtomicBool,
     status_generation: AtomicU64,
     last_recording_error: Mutex<Option<String>>,
@@ -60,6 +61,7 @@ impl AppState {
             recording_started_at: Mutex::new(None),
             recording_active: AtomicBool::new(false),
             operation_active: AtomicBool::new(false),
+            update_install_active: AtomicBool::new(false),
             stop_requested: AtomicBool::new(false),
             status_generation: AtomicU64::new(0),
             last_recording_error: Mutex::new(None),
@@ -563,6 +565,13 @@ fn start_recording(app: AppHandle) -> Result<audio::AudioStartInfo, String> {
 
 #[tauri::command]
 async fn stop_and_transcribe(app: AppHandle) -> Result<TranscriptionCompleted, String> {
+    if !app
+        .state::<AppState>()
+        .recording_active
+        .load(Ordering::Acquire)
+    {
+        return Err("Няма активен запис.".into());
+    }
     if app
         .state::<AppState>()
         .stop_requested
@@ -808,17 +817,36 @@ fn clear_failed_recording_state(state: &AppState, remove_audio: bool) -> Result<
         .lock()
         .map_err(|_| "Recovery състоянието е заключено.")?;
     let previous = current.clone();
-    storage::clear_failed_recording()?;
+    let staged_deletion = if remove_audio {
+        previous
+            .as_ref()
+            .map(|recording| PathBuf::from(&recording.path))
+            .filter(|path| path.exists())
+            .map(|path| {
+                let file_name = path
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or("recovery-audio");
+                let staged =
+                    path.with_file_name(format!(".{file_name}.deleting-{}", uuid::Uuid::new_v4()));
+                std::fs::rename(&path, &staged)
+                    .map(|_| (path, staged))
+                    .map_err(|error| format!("Recovery аудиото не можа да бъде изтрито: {error}"))
+            })
+            .transpose()?
+    } else {
+        None
+    };
+    if let Err(error) = storage::clear_failed_recording() {
+        if let Some((original, staged)) = staged_deletion.as_ref() {
+            let _ = std::fs::rename(staged, original);
+        }
+        return Err(error);
+    }
     *current = None;
-    if remove_audio {
-        if let Some(previous) = previous {
-            match std::fs::remove_file(previous.path) {
-                Ok(()) => {}
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => {
-                    return Err(format!("Recovery аудиото не можа да бъде изтрито: {error}"))
-                }
-            }
+    if let Some((_, staged)) = staged_deletion {
+        if let Err(error) = std::fs::remove_file(staged) {
+            storage::append_diagnostic(&format!("recovery staged cleanup failed: {error}"));
         }
     }
     Ok(())
@@ -945,13 +973,19 @@ async fn retranscribe_history_item(
     });
     match transcription::transcribe(Path::new(&audio_path), &key, &settings, Some(callback)).await {
         Ok(text) => {
-            let completed = finalize_success(
+            let completed = match finalize_success(
                 &app,
                 &settings,
                 Path::new(&audio_path),
                 entry.duration_seconds,
                 text,
-            )?;
+            ) {
+                Ok(completed) => completed,
+                Err(error) => {
+                    set_error(&app, &error);
+                    return Err(error);
+                }
+            };
             set_recording_state(&app, "done");
             let _ = app.emit("transcription:completed", &completed);
             Ok(completed)
@@ -965,7 +999,9 @@ async fn retranscribe_history_item(
 
 #[tauri::command]
 fn delete_failed_recording(app: AppHandle) -> Result<(), String> {
-    clear_failed_recording_state(&app.state::<AppState>(), true)?;
+    let state = app.state::<AppState>();
+    let _operation = acquire_operation(&state)?;
+    clear_failed_recording_state(&state, true)?;
     let _ = app.emit("failed-recording:changed", Option::<FailedRecording>::None);
     Ok(())
 }
@@ -1011,9 +1047,7 @@ fn update_settings(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<AppSettings, String> {
-    if state.operation_active.load(Ordering::Acquire) {
-        return Err("Изчакайте текущата диктовка да приключи.".into());
-    }
+    let _operation = acquire_operation(&state)?;
     let mut settings = settings;
     settings.normalize();
     shortcuts::validate_settings(&settings)?;
@@ -1049,9 +1083,7 @@ async fn save_api_key(api_key: String, state: State<'_, AppState>) -> Result<(),
 
 #[tauri::command]
 fn delete_api_key(state: State<'_, AppState>) -> Result<(), String> {
-    if state.operation_active.load(Ordering::Acquire) {
-        return Err("Изчакайте текущата диктовка да приключи.".into());
-    }
+    let _operation = acquire_operation(&state)?;
     match keyring_entry()?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => {}
         Err(error) => return Err(format!("Ключът не можа да бъде изтрит: {error}")),
@@ -1065,9 +1097,7 @@ fn delete_api_key(state: State<'_, AppState>) -> Result<(), String> {
 
 #[tauri::command]
 fn begin_shortcut_capture(state: State<'_, AppState>) -> Result<(), String> {
-    if state.operation_active.load(Ordering::Acquire) {
-        return Err("Изчакайте текущата диктовка да приключи.".into());
-    }
+    let _operation = acquire_operation(&state)?;
     shortcuts::begin_capture("dictation".into(), &state)
 }
 
@@ -1110,6 +1140,7 @@ fn delete_history_item(
     delete_files: bool,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
+    let _operation = acquire_operation(&state)?;
     let mut history = state.history.lock().map_err(|_| "Историята е заключена.")?;
     let removed = history.iter().find(|entry| entry.id == id).cloned();
     let mut next_history = history.clone();
@@ -1135,6 +1166,23 @@ fn delete_history_item(
         }
     }
     Ok(())
+}
+
+#[tauri::command]
+fn begin_update_install(state: State<'_, AppState>) -> Result<(), String> {
+    state
+        .operation_active
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .map_err(|_| "Изчакайте текущата операция да приключи.".to_string())?;
+    state.update_install_active.store(true, Ordering::Release);
+    Ok(())
+}
+
+#[tauri::command]
+fn cancel_update_install(state: State<'_, AppState>) {
+    if state.update_install_active.swap(false, Ordering::AcqRel) {
+        state.operation_active.store(false, Ordering::Release);
+    }
 }
 
 #[tauri::command]
@@ -1291,7 +1339,7 @@ fn install_tray(app: &tauri::App) -> tauri::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
@@ -1332,11 +1380,25 @@ pub fn run() {
             current_recording_snapshot,
             copy_text,
             delete_history_item,
+            begin_update_install,
+            cancel_update_install,
             open_accessibility_settings,
             refresh_accessibility_status,
             reposition_overlay,
             create_diagnostic_bundle
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running AIDOO Whisper Lite");
+        .build(tauri::generate_context!())
+        .expect("error while building AIDOO Whisper Lite");
+    app.run(|app, event| {
+        #[cfg(target_os = "macos")]
+        if matches!(
+            event,
+            tauri::RunEvent::Reopen {
+                has_visible_windows: false,
+                ..
+            }
+        ) {
+            show_main_window(app, false);
+        }
+    });
 }
