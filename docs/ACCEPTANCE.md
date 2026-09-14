@@ -30,13 +30,12 @@
 - Trigger an API/balance/network failure, restart the app, retry the retained audio, then test explicit deletion.
 - After restart with retained audio, confirm the main window and menu bar report that action is required; after retry or deletion, confirm they return to ready.
 
-## App lifecycle and updates
+## App lifecycle and startup
 
 - Close the main window and confirm the menu bar icon and shortcut remain active; reopen the window from both the Dock icon and menu bar.
 - Confirm menu bar state, stop action, error details, settings and Quit.
 - Enable and disable Launch at Login.
-- Confirm automatic update check runs at most daily and the manual check works.
-- Start recording immediately before choosing Install and confirm installation is refused; then start an installation while idle and confirm the global shortcut cannot begin recording until the app restarts or the update fails.
+- Confirm the application contains no in-app or background update checker; new versions are installed from the AIDOO website.
 - Create a diagnostics package, confirm Finder reveals it, and inspect that it has no API key, transcript text or audio; confirm the separate support button opens the AIDOO Whisper GitHub Issues page without uploading anything automatically.
 
 ## Distribution
@@ -44,4 +43,4 @@
 - Verify `codesign --verify --deep --strict --verbose=2` for the app.
 - Verify `xcrun stapler validate` and Gatekeeper acceptance for the DMG.
 - Install from the DMG on a second clean Mac and repeat the critical dictation path.
-- Verify the published SHA-256 checksum and signed updater from the previous public version.
+- Verify the published SHA-256 checksum for the website DMG.

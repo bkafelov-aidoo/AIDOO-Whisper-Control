@@ -148,7 +148,6 @@ fastrand 2.5.0 — Apache-2.0 OR MIT — https://github.com/smol-rs/fastrand
 fax 0.2.7 — MIT — https://github.com/pdf-rs/fax
 fdeflate 0.3.7 — MIT OR Apache-2.0 — https://github.com/image-rs/fdeflate
 field-offset 0.3.6 — MIT OR Apache-2.0 — https://github.com/Diggsey/rust-field-offset
-filetime 0.2.29 — MIT/Apache-2.0 — https://github.com/alexcrichton/filetime
 find-msvc-tools 0.1.12 — MIT OR Apache-2.0 — https://github.com/rust-lang/cc-rs
 flacenc 0.5.1 — Apache-2.0 — https://github.com/yotarok/flacenc-rs/
 flate2 1.1.10 — MIT OR Apache-2.0 — https://github.com/rust-lang/flate2-rs
@@ -240,8 +239,6 @@ jiff-static 0.2.37 — Unlicense OR MIT — https://github.com/BurntSushi/jiff
 jiff-tzdb 0.1.8 — Unlicense OR MIT — https://github.com/BurntSushi/jiff
 jiff-tzdb-platform 0.1.3 — Unlicense OR MIT — https://github.com/BurntSushi/jiff
 jni 0.21.1 — MIT/Apache-2.0 — https://github.com/jni-rs/jni-rs
-jni 0.22.4 — MIT OR Apache-2.0 — https://github.com/jni-rs/jni-rs
-jni-macros 0.22.4 — MIT OR Apache-2.0 — https://github.com/jni-rs/jni-rs
 jni-sys 0.3.1 — MIT OR Apache-2.0 — https://github.com/jni-rs/jni-sys
 jni-sys 0.4.1 — MIT OR Apache-2.0 — https://github.com/jni-rs/jni-sys
 jni-sys-macros 0.4.1 — MIT OR Apache-2.0 — https://github.com/jni-rs/jni-sys
@@ -274,7 +271,6 @@ memoffset 0.9.1 — MIT — https://github.com/Gilnaa/memoffset
 mime 0.3.17 — MIT OR Apache-2.0 — https://github.com/hyperium/mime
 mime_guess 2.0.5 — MIT — https://github.com/abonander/mime_guess
 minimal-lexical 0.2.1 — MIT/Apache-2.0 — https://github.com/Alexhuszagh/minimal-lexical
-minisign-verify 0.2.5 — MIT — https://github.com/jedisct1/rust-minisign-verify
 miniz_oxide 0.8.9 — MIT OR Zlib OR Apache-2.0 — https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide
 miniz_oxide 0.9.1 — MIT OR Zlib OR Apache-2.0 — https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide
 mio 1.2.3 — MIT — https://github.com/tokio-rs/mio
@@ -313,7 +309,6 @@ objc2-foundation 0.2.2 — MIT — https://github.com/madsmtm/objc2
 objc2-foundation 0.3.2 — MIT — https://github.com/madsmtm/objc2
 objc2-io-surface 0.3.2 — Zlib OR Apache-2.0 OR MIT — https://github.com/madsmtm/objc2
 objc2-metal 0.2.2 — MIT — https://github.com/madsmtm/objc2
-objc2-osa-kit 0.3.2 — Zlib OR Apache-2.0 OR MIT — https://github.com/madsmtm/objc2
 objc2-quartz-core 0.2.2 — MIT — https://github.com/madsmtm/objc2
 objc2-quartz-core 0.3.2 — Zlib OR Apache-2.0 OR MIT — https://github.com/madsmtm/objc2
 objc2-ui-kit 0.3.2 — Zlib OR Apache-2.0 OR MIT — https://github.com/madsmtm/objc2
@@ -323,10 +318,8 @@ oboe 0.6.1 — Apache-2.0 — https://github.com/katyo/oboe-rs
 oboe-sys 0.6.1 — Apache-2.0 — https://github.com/katyo/oboe-rs
 once_cell 1.21.4 — MIT OR Apache-2.0 — https://github.com/matklad/once_cell
 open 5.4.4 — MIT — https://github.com/Byron/open-rs
-openssl-probe 0.2.1 — MIT OR Apache-2.0 — https://github.com/rustls/openssl-probe
 option-ext 0.2.0 — MPL-2.0 — https://github.com/soc/option-ext.git
 ordered-stream 0.2.0 — MIT OR Apache-2.0 — https://github.com/danieldg/ordered-stream
-osakit 0.3.1 — MIT OR Apache-2.0 — https://github.com/mdevils/rust-osakit
 pango 0.18.3 — MIT — https://github.com/gtk-rs/gtk-rs-core
 pango-sys 0.18.0 — MIT — https://github.com/gtk-rs/gtk-rs-core
 parking 2.2.1 — Apache-2.0 OR MIT — https://github.com/smol-rs/parking
@@ -386,15 +379,11 @@ rustc-hash 2.1.3 — Apache-2.0 OR MIT — https://github.com/rust-lang/rustc-ha
 rustc_version 0.4.1 — MIT OR Apache-2.0 — https://github.com/djc/rustc-version-rs
 rustix 1.1.4 — Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT — https://github.com/bytecodealliance/rustix
 rustls 0.23.44 — Apache-2.0 OR ISC OR MIT — https://github.com/rustls/rustls
-rustls-native-certs 0.8.4 — Apache-2.0 OR ISC OR MIT — https://github.com/rustls/rustls-native-certs
 rustls-pki-types 1.15.1 — MIT OR Apache-2.0 — https://github.com/rustls/pki-types
-rustls-platform-verifier 0.7.0 — MIT OR Apache-2.0 — https://github.com/rustls/rustls-platform-verifier
-rustls-platform-verifier-android 0.1.1 — MIT OR Apache-2.0 — https://github.com/rustls/rustls-platform-verifier
 rustls-webpki 0.103.15 — ISC — https://github.com/rustls/webpki
 rustversion 1.0.23 — MIT OR Apache-2.0 — https://github.com/dtolnay/rustversion
 ryu 1.0.23 — Apache-2.0 OR BSL-1.0 — https://github.com/dtolnay/ryu
 same-file 1.0.6 — Unlicense/MIT — https://github.com/BurntSushi/same-file
-schannel 0.1.29 — MIT — https://github.com/steffengy/schannel-rs
 schemars 0.8.22 — MIT — https://github.com/GREsau/schemars
 schemars 0.9.0 — MIT — https://github.com/GREsau/schemars
 schemars 1.2.2 — MIT — https://github.com/GREsau/schemars
@@ -426,8 +415,6 @@ shlex 1.3.0 — MIT OR Apache-2.0 — https://github.com/comex/rust-shlex
 shlex 2.0.1 — MIT OR Apache-2.0 — https://github.com/comex/rust-shlex
 signal-hook-registry 1.4.8 — MIT OR Apache-2.0 — https://github.com/vorner/signal-hook
 simd-adler32 0.3.10 — MIT — https://github.com/mcountryman/simd-adler32
-simd_cesu8 1.2.0 — Apache-2.0 OR MIT — https://github.com/seancroach/simd_cesu8
-simdutf8 0.1.5 — MIT OR Apache-2.0 — https://github.com/rusticstuff/simdutf8
 siphasher 1.0.3 — MIT/Apache-2.0 — https://github.com/jedisct1/rust-siphash
 slab 0.4.12 — MIT — https://github.com/tokio-rs/slab
 smallvec 1.16.1 — MIT OR Apache-2.0 — https://github.com/servo/rust-smallvec
@@ -447,12 +434,9 @@ syn 3.0.5 — MIT OR Apache-2.0 — https://github.com/dtolnay/syn
 sync_wrapper 1.0.2 — Apache-2.0 — https://github.com/Actyx/sync_wrapper
 synstructure 0.13.2 — MIT — https://github.com/mystor/synstructure
 sys-locale 0.3.2 — MIT OR Apache-2.0 — https://github.com/1Password/sys-locale
-system-configuration 0.7.0 — MIT OR Apache-2.0 — https://github.com/mullvad/system-configuration-rs
-system-configuration-sys 0.6.0 — MIT OR Apache-2.0 — https://github.com/mullvad/system-configuration-rs
 system-deps 6.2.2 — MIT OR Apache-2.0 — https://github.com/gdesmott/system-deps
 tao 0.35.3 — Apache-2.0 — https://github.com/tauri-apps/tao
 tao-macros 0.1.4 — MIT OR Apache-2.0 — https://github.com/tauri-apps/tao
-tar 0.4.46 — MIT OR Apache-2.0 — https://github.com/composefs/tar-rs
 target-lexicon 0.12.16 — Apache-2.0 WITH LLVM-exception — https://github.com/bytecodealliance/target-lexicon
 tauri 2.11.5 — Apache-2.0 OR MIT — https://github.com/tauri-apps/tauri
 tauri-build 2.6.3 — Apache-2.0 OR MIT — https://github.com/tauri-apps/tauri
@@ -463,8 +447,6 @@ tauri-plugin-autostart 2.5.1 — Apache-2.0 OR MIT — https://github.com/tauri-
 tauri-plugin-dialog 2.7.3 — Apache-2.0 OR MIT — https://github.com/tauri-apps/plugins-workspace
 tauri-plugin-fs 2.5.2 — Apache-2.0 OR MIT — https://github.com/tauri-apps/plugins-workspace
 tauri-plugin-opener 2.5.5 — Apache-2.0 OR MIT — https://github.com/tauri-apps/plugins-workspace
-tauri-plugin-process 2.3.1 — Apache-2.0 OR MIT — https://github.com/tauri-apps/plugins-workspace
-tauri-plugin-updater 2.11.0 — Apache-2.0 OR MIT — https://github.com/tauri-apps/plugins-workspace
 tauri-runtime 2.11.3 — Apache-2.0 OR MIT — https://github.com/tauri-apps/tauri
 tauri-runtime-wry 2.11.4 — Apache-2.0 OR MIT — https://github.com/tauri-apps/tauri
 tauri-utils 2.9.3 — Apache-2.0 OR MIT — https://github.com/tauri-apps/tauri
@@ -542,7 +524,6 @@ web-time 1.1.0 — MIT OR Apache-2.0 — https://github.com/daxpedda/web-time
 web_atoms 0.2.6 — MIT OR Apache-2.0 — https://github.com/servo/html5ever
 webkit2gtk 2.0.2 — MIT — https://github.com/tauri-apps/webkit2gtk-rs
 webkit2gtk-sys 2.0.2 — MIT — https://github.com/tauri-apps/webkit2gtk-rs
-webpki-root-certs 1.0.9 — CDLA-Permissive-2.0 — https://github.com/rustls/webpki-roots
 webpki-roots 1.0.9 — CDLA-Permissive-2.0 — https://github.com/rustls/webpki-roots
 webview2-com 0.38.2 — MIT — https://github.com/wravery/webview2-rs
 webview2-com-macros 0.8.1 — MIT — https://github.com/wravery/webview2-rs
@@ -569,7 +550,6 @@ windows-interface 0.59.3 — MIT OR Apache-2.0 — https://github.com/microsoft/
 windows-link 0.1.3 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
 windows-link 0.2.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
 windows-numerics 0.2.0 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
-windows-registry 0.6.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
 windows-result 0.1.2 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
 windows-result 0.2.0 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
 windows-result 0.3.4 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
@@ -622,7 +602,6 @@ x11 2.21.0 — MIT — https://github.com/AltF02/x11-rs.git
 x11-dl 2.21.0 — MIT — https://github.com/AltF02/x11-rs.git
 x11rb 0.13.2 — MIT OR Apache-2.0 — https://github.com/psychon/x11rb
 x11rb-protocol 0.13.2 — MIT OR Apache-2.0 — https://github.com/psychon/x11rb
-xattr 1.6.1 — MIT OR Apache-2.0 — https://github.com/Stebalien/xattr
 xkbcommon 0.8.0 — MIT — https://github.com/rust-x-bindings/xkbcommon-rs
 xkeysym 0.2.1 — MIT OR Apache-2.0 OR Zlib — https://github.com/notgull/xkeysym
 yoke 0.8.3 — Unicode-3.0 — https://github.com/unicode-org/icu4x
@@ -656,8 +635,6 @@ JavaScript dependency inventory
 @tauri-apps/plugin-autostart 2.5.1 — MIT OR Apache-2.0 — https://github.com/tauri-apps/plugins-workspace
 @tauri-apps/plugin-dialog 2.7.3 — MIT OR Apache-2.0 — https://github.com/tauri-apps/plugins-workspace
 @tauri-apps/plugin-opener 2.5.5 — MIT OR Apache-2.0 — https://github.com/tauri-apps/plugins-workspace
-@tauri-apps/plugin-process 2.3.1 — MIT OR Apache-2.0 — https://github.com/tauri-apps/plugins-workspace
-@tauri-apps/plugin-updater 2.11.0 — MIT OR Apache-2.0 — https://github.com/tauri-apps/plugins-workspace
 lucide-react 0.468.0 — ISC — https://github.com/lucide-icons/lucide.git
 react 19.3.0 — MIT — https://github.com/react/react.git
 react-dom 19.3.0 — MIT — https://github.com/react/react.git
@@ -667,13 +644,13 @@ Packages without a separate license file
 ----------------------------------------
 
 Their declared license expression is included in the inventory above:
-alloc-stdlib 0.2.4, block 0.1.6, block2 0.5.1, block2 0.6.2, cesu8 1.1.0, clipboard-win 5.4.1, crc-catalog 2.5.0, dasp_sample 0.11.0, defmt-parser 1.0.0, dispatch2 0.3.1, dlopen2 0.8.2, dlopen2_derive 0.4.3, jni 0.22.4, jni-macros 0.22.4, jni-sys-macros 0.4.1, libappindicator-sys 0.9.0, malloc_buf 0.0.6, ndk 0.8.0, ndk 0.9.0, ndk-context 0.1.1, ndk-sys 0.5.0+25.2.9519653, ndk-sys 0.6.0+11769913, objc-sys 0.3.5, objc2 0.5.2, objc2 0.6.4, objc2-app-kit 0.2.2, objc2-app-kit 0.3.2, objc2-cloud-kit 0.3.2, objc2-core-data 0.2.2, objc2-core-data 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-core-image 0.2.2, objc2-core-image 0.3.2, objc2-core-location 0.3.2, objc2-core-text 0.3.2, objc2-encode 4.1.0, objc2-exception-helper 0.1.1, objc2-foundation 0.2.2, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.2.2, objc2-osa-kit 0.3.2, objc2-quartz-core 0.2.2, objc2-quartz-core 0.3.2, objc2-ui-kit 0.3.2, objc2-user-notifications 0.3.2, objc2-web-kit 0.3.2, oboe 0.6.1, oboe-sys 0.6.1, r-efi 5.3.0, r-efi 6.0.0, rustls-platform-verifier-android 0.1.1, selectors 0.36.1, tauri-plugin 2.6.3, unic-char-property 0.9.0, unic-char-range 0.9.0, unic-common 0.9.0, unic-ucd-ident 0.9.0, unic-ucd-version 0.9.0, webview2-com 0.38.2, webview2-com-macros 0.8.1, webview2-com-sys 0.38.2, winapi-i686-pc-windows-gnu 0.4.0, winapi-x86_64-pc-windows-gnu 0.4.0
+alloc-stdlib 0.2.4, block 0.1.6, block2 0.5.1, block2 0.6.2, cesu8 1.1.0, clipboard-win 5.4.1, crc-catalog 2.5.0, dasp_sample 0.11.0, defmt-parser 1.0.0, dispatch2 0.3.1, dlopen2 0.8.2, dlopen2_derive 0.4.3, jni-sys-macros 0.4.1, libappindicator-sys 0.9.0, malloc_buf 0.0.6, ndk 0.8.0, ndk 0.9.0, ndk-context 0.1.1, ndk-sys 0.5.0+25.2.9519653, ndk-sys 0.6.0+11769913, objc-sys 0.3.5, objc2 0.5.2, objc2 0.6.4, objc2-app-kit 0.2.2, objc2-app-kit 0.3.2, objc2-cloud-kit 0.3.2, objc2-core-data 0.2.2, objc2-core-data 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-core-image 0.2.2, objc2-core-image 0.3.2, objc2-core-location 0.3.2, objc2-core-text 0.3.2, objc2-encode 4.1.0, objc2-exception-helper 0.1.1, objc2-foundation 0.2.2, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.2.2, objc2-quartz-core 0.2.2, objc2-quartz-core 0.3.2, objc2-ui-kit 0.3.2, objc2-user-notifications 0.3.2, objc2-web-kit 0.3.2, oboe 0.6.1, oboe-sys 0.6.1, r-efi 5.3.0, r-efi 6.0.0, selectors 0.36.1, tauri-plugin 2.6.3, unic-char-property 0.9.0, unic-char-range 0.9.0, unic-common 0.9.0, unic-ucd-ident 0.9.0, unic-ucd-version 0.9.0, webview2-com 0.38.2, webview2-com-macros 0.8.1, webview2-com-sys 0.38.2, winapi-i686-pc-windows-gnu 0.4.0, winapi-x86_64-pc-windows-gnu 0.4.0
 
 Unique license and notice texts
 -------------------------------
 
-Notice 001 (LICENSE, LICENSE-APACHE, LICENSE-Apache, LICENSE-APACHE.md, LICENSE-APACHE.txt, LICENSE_APACHE-2.0)
-Used by: @tauri-apps/api 2.11.1, alsa 0.9.1, arboard 3.6.1, fdeflate 0.3.7, field-offset 0.3.6, half 2.7.1, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, simdutf8 0.1.5, sync_wrapper 1.0.2, tauri 2.11.5, tauri-build 2.6.3, tauri-codegen 2.6.3, tauri-macros 2.6.3, tauri-plugin-autostart 2.5.1, tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-opener 2.5.5, tauri-plugin-process 2.3.1, tauri-plugin-updater 2.11.0, tauri-runtime 2.11.3, tauri-runtime-wry 2.11.4, tauri-utils 2.9.3, time 0.3.55, time-core 0.1.9, time-macros 0.2.32
+Notice 001 (LICENSE, LICENSE-Apache, LICENSE-APACHE, LICENSE-APACHE.md, LICENSE-APACHE.txt, LICENSE_APACHE-2.0)
+Used by: @tauri-apps/api 2.11.1, alsa 0.9.1, arboard 3.6.1, fdeflate 0.3.7, field-offset 0.3.6, half 2.7.1, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, sync_wrapper 1.0.2, tauri 2.11.5, tauri-build 2.6.3, tauri-codegen 2.6.3, tauri-macros 2.6.3, tauri-plugin-autostart 2.5.1, tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-opener 2.5.5, tauri-runtime 2.11.3, tauri-runtime-wry 2.11.4, tauri-utils 2.9.3, time 0.3.55, time-core 0.1.9, time-macros 0.2.32
 
 Apache License
                            Version 2.0, January 2004
@@ -855,7 +832,7 @@ Apache License
 ==============================================================================
 
 Notice 002 (LICENSE_MIT)
-Used by: @tauri-apps/api 2.11.1, tauri 2.11.5, tauri-build 2.6.3, tauri-codegen 2.6.3, tauri-macros 2.6.3, tauri-plugin-autostart 2.5.1, tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-opener 2.5.5, tauri-plugin-process 2.3.1, tauri-plugin-updater 2.11.0, tauri-runtime 2.11.3, tauri-runtime-wry 2.11.4, tauri-utils 2.9.3
+Used by: @tauri-apps/api 2.11.1, tauri 2.11.5, tauri-build 2.6.3, tauri-codegen 2.6.3, tauri-macros 2.6.3, tauri-plugin-autostart 2.5.1, tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-opener 2.5.5, tauri-runtime 2.11.3, tauri-runtime-wry 2.11.4, tauri-utils 2.9.3
 
 MIT License
 
@@ -882,7 +859,7 @@ SOFTWARE.
 ==============================================================================
 
 Notice 003 (LICENSE.spdx)
-Used by: @tauri-apps/plugin-autostart 2.5.1, @tauri-apps/plugin-dialog 2.7.3, @tauri-apps/plugin-opener 2.5.5, @tauri-apps/plugin-process 2.3.1, @tauri-apps/plugin-updater 2.11.0, tauri-plugin-autostart 2.5.1, tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-opener 2.5.5, tauri-plugin-process 2.3.1, tauri-plugin-updater 2.11.0
+Used by: @tauri-apps/plugin-autostart 2.5.1, @tauri-apps/plugin-dialog 2.7.3, @tauri-apps/plugin-opener 2.5.5, tauri-plugin-autostart 2.5.1, tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-opener 2.5.5
 
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
@@ -1133,7 +1110,7 @@ limitations under the License.
 ==============================================================================
 
 Notice 006 (LICENSE, LICENSE-MIT)
-Used by: adler2 2.0.1, anyhow 1.0.104, async-channel 2.5.0, async-executor 1.14.0, async-io 2.6.0, async-lock 3.4.2, async-process 2.5.0, async-recursion 1.1.1, async-signal 0.2.14, async-task 4.7.1, async-trait 0.1.92, atomic-waker 1.1.2, blocking 1.7.0, camino 1.2.5, cargo-platform 0.1.9, cargo_metadata 0.19.2, concurrent-queue 2.5.0, displaydoc 0.2.7, dtoa 1.0.11, dyn-clone 1.0.20, endi 1.1.1, erased-serde 0.4.10, event-listener 5.4.2, event-listener-strategy 0.5.4, fastrand 2.5.0, futures-lite 2.6.1, hermit-abi 0.5.3, itoa 1.0.18, linux-raw-sys 0.12.1, minimal-lexical 0.2.1, num_enum 0.7.6, num_enum_derive 0.7.6, once_cell 1.21.4, ordered-stream 0.2.0, parking 2.2.1, pin-project-lite 0.2.17, piper 0.2.5, polling 3.11.0, portable-atomic 1.15.0, portable-atomic-util 0.2.8, proc-macro-crate 1.3.1, proc-macro-crate 2.0.2, proc-macro-crate 3.5.0, proc-macro2 1.0.107, quote 1.0.47, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.3, rustix 1.1.4, rustversion 1.0.23, semver 1.0.28, seq-macro 0.3.6, serde 1.0.229, serde-untagged 0.1.9, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.151, serde_repr 0.1.21, servo_arc 0.4.3, simd_cesu8 1.2.0, syn 1.0.109, syn 2.0.119, syn 3.0.5, system-deps 6.2.2, thiserror 1.0.69, thiserror 2.0.20, thiserror-impl 1.0.69, thiserror-impl 2.0.20, typeid 1.0.3, unicode-ident 1.0.24, wasi 0.11.1+wasi-snapshot-preview1, wasip2 1.0.4+wasi-0.2.12, wasm-streams 0.4.2, wasm-streams 0.5.0, wit-bindgen 0.57.1, x11 2.21.0, x11-dl 2.21.0, zmij 1.0.23, zvariant_utils 4.2.0
+Used by: adler2 2.0.1, anyhow 1.0.104, async-channel 2.5.0, async-executor 1.14.0, async-io 2.6.0, async-lock 3.4.2, async-process 2.5.0, async-recursion 1.1.1, async-signal 0.2.14, async-task 4.7.1, async-trait 0.1.92, atomic-waker 1.1.2, blocking 1.7.0, camino 1.2.5, cargo-platform 0.1.9, cargo_metadata 0.19.2, concurrent-queue 2.5.0, displaydoc 0.2.7, dtoa 1.0.11, dyn-clone 1.0.20, endi 1.1.1, erased-serde 0.4.10, event-listener 5.4.2, event-listener-strategy 0.5.4, fastrand 2.5.0, futures-lite 2.6.1, hermit-abi 0.5.3, itoa 1.0.18, linux-raw-sys 0.12.1, minimal-lexical 0.2.1, num_enum 0.7.6, num_enum_derive 0.7.6, once_cell 1.21.4, ordered-stream 0.2.0, parking 2.2.1, pin-project-lite 0.2.17, piper 0.2.5, polling 3.11.0, portable-atomic 1.15.0, portable-atomic-util 0.2.8, proc-macro-crate 1.3.1, proc-macro-crate 2.0.2, proc-macro-crate 3.5.0, proc-macro2 1.0.107, quote 1.0.47, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.3, rustix 1.1.4, rustversion 1.0.23, semver 1.0.28, seq-macro 0.3.6, serde 1.0.229, serde-untagged 0.1.9, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.151, serde_repr 0.1.21, servo_arc 0.4.3, syn 1.0.109, syn 2.0.119, syn 3.0.5, system-deps 6.2.2, thiserror 1.0.69, thiserror 2.0.20, thiserror-impl 1.0.69, thiserror-impl 2.0.20, typeid 1.0.3, unicode-ident 1.0.24, wasi 0.11.1+wasi-snapshot-preview1, wasip2 1.0.4+wasi-0.2.12, wasm-streams 0.4.2, wasm-streams 0.5.0, wit-bindgen 0.57.1, x11 2.21.0, x11-dl 2.21.0, zmij 1.0.23, zvariant_utils 4.2.0
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1345,7 +1322,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================
 
 Notice 015 (LICENSE-APACHE)
-Used by: anyhow 1.0.104, async-trait 0.1.92, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.10, itoa 1.0.18, libc 0.2.189, mach2 0.4.3, num_enum 0.7.6, num_enum_derive 0.7.6, osakit 0.3.1, proc-macro2 1.0.107, quote 1.0.47, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.3, rustversion 1.0.23, ryu 1.0.23, semver 1.0.28, seq-macro 0.3.6, serde 1.0.229, serde-untagged 0.1.9, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.151, serde_repr 0.1.21, serde_urlencoded 0.7.1, syn 2.0.119, syn 3.0.5, thiserror 1.0.69, thiserror 2.0.20, thiserror-impl 1.0.69, thiserror-impl 2.0.20, typeid 1.0.3, unicode-ident 1.0.24, wasm-streams 0.4.2, wasm-streams 0.5.0
+Used by: anyhow 1.0.104, async-trait 0.1.92, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.10, itoa 1.0.18, libc 0.2.189, mach2 0.4.3, num_enum 0.7.6, num_enum_derive 0.7.6, proc-macro2 1.0.107, quote 1.0.47, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.3, rustversion 1.0.23, ryu 1.0.23, semver 1.0.28, seq-macro 0.3.6, serde 1.0.229, serde-untagged 0.1.9, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.151, serde_repr 0.1.21, serde_urlencoded 0.7.1, syn 2.0.119, syn 3.0.5, thiserror 1.0.69, thiserror 2.0.20, thiserror-impl 1.0.69, thiserror-impl 2.0.20, typeid 1.0.3, unicode-ident 1.0.24, wasm-streams 0.4.2, wasm-streams 0.5.0
 
 Apache License
                         Version 2.0, January 2004
@@ -1527,7 +1504,7 @@ END OF TERMS AND CONDITIONS
 ==============================================================================
 
 Notice 016 (LICENSE, LICENSE-APACHE)
-Used by: arbitrary 1.4.2, async-channel 2.5.0, async-executor 1.14.0, async-io 2.6.0, async-lock 3.4.2, async-process 2.5.0, async-recursion 1.1.1, async-signal 0.2.14, async-task 4.7.1, atomic-waker 1.1.2, autocfg 1.5.1, base64 0.21.7, base64 0.22.1, base64 0.23.1, bitflags 1.3.2, bitflags 2.13.2, blocking 1.7.0, bs58 0.5.1, bumpalo 3.20.3, camino 1.2.5, cc 1.4.6, cexpr 0.6.0, cfg-if 1.0.4, cocoa 0.22.0, concurrent-queue 2.5.0, core-foundation 0.10.1, core-foundation 0.7.0, core-foundation 0.9.4, core-foundation-sys 0.7.0, core-foundation-sys 0.8.7, core-graphics 0.19.2, core-graphics 0.21.0, core-graphics 0.24.0, core-graphics 0.25.0, core-graphics-types 0.2.0, coreaudio-rs 0.11.3, crossbeam-channel 0.5.17, crossbeam-utils 0.8.23, derive_arbitrary 1.4.2, displaydoc 0.2.7, either 1.18.0, equivalent 1.0.2, errno 0.3.14, event-listener 5.4.2, event-listener-strategy 0.5.4, fastrand 2.5.0, filetime 0.2.29, find-msvc-tools 0.1.12, flate2 1.1.10, fnv 1.0.7, form_urlencoded 1.2.2, futures-lite 2.6.1, gethostname 1.1.0, glob 0.3.4, hash32 0.3.1, hashbrown 0.12.3, hashbrown 0.17.1, heapless 0.8.0, heck 0.4.1, heck 0.5.0, hermit-abi 0.5.3, html5ever 0.38.0, httparse 1.10.1, hyper-rustls 0.27.9, idna 1.1.0, idna_adapter 1.2.2, indexmap 1.9.3, indexmap 2.14.2, itertools 0.13.0, jni 0.21.1, jobserver 0.1.35, js-sys 0.3.105, keyboard-types 0.7.0, lazy_static 1.5.0, libappindicator 0.9.0, linux-raw-sys 0.12.1, lock_api 0.4.14, log 0.4.34, markup5ever 0.38.0, mime 0.3.17, muda 0.19.3, num-derive 0.4.2, num-traits 0.2.19, once_cell 1.21.4, openssl-probe 0.2.1, ordered-stream 0.2.0, parking 2.2.1, parking_lot 0.12.5, parking_lot_core 0.9.12, percent-encoding 2.3.2, piper 0.2.5, pkg-config 0.3.34, png 0.17.16, png 0.18.1, polling 3.11.0, regex 1.13.1, regex-automata 0.4.18, regex-syntax 0.8.11, rustc_version 0.4.1, rustix 1.1.4, rustls 0.23.44, rustls-native-certs 0.8.4, scopeguard 1.2.0, security-framework 2.11.1, security-framework 3.7.0, security-framework-sys 2.17.0, serde_with 3.23.0, serde_with_macros 3.23.0, servo_arc 0.4.3, signal-hook-registry 1.4.8, simd_cesu8 1.2.0, smallvec 1.16.1, socket2 0.6.5, stable_deref_trait 1.2.1, string_cache 0.9.0, string_cache_codegen 0.6.1, syn 1.0.109, system-configuration 0.7.0, system-configuration-sys 0.6.0, system-deps 6.2.2, tao-macros 0.1.4, tar 0.4.46, tempfile 3.27.0, tendril 0.5.1, toml_datetime 0.6.3, tray-icon 0.24.2, unicase 2.9.0, unicode-segmentation 1.13.3, url 2.5.8, uuid 1.26.1, version_check 0.9.5, wasi 0.11.1+wasi-snapshot-preview1, wasip2 1.0.4+wasi-0.2.12, wasm-bindgen 0.2.128, wasm-bindgen-futures 0.4.78, wasm-bindgen-macro 0.2.128, wasm-bindgen-macro-support 0.2.128, wasm-bindgen-shared 0.2.128, web-sys 0.3.105, web_atoms 0.2.6, weezl 0.1.12, window-vibrancy 0.6.0, wit-bindgen 0.57.1, wry 0.55.1, xattr 1.6.1
+Used by: arbitrary 1.4.2, async-channel 2.5.0, async-executor 1.14.0, async-io 2.6.0, async-lock 3.4.2, async-process 2.5.0, async-recursion 1.1.1, async-signal 0.2.14, async-task 4.7.1, atomic-waker 1.1.2, autocfg 1.5.1, base64 0.21.7, base64 0.22.1, base64 0.23.1, bitflags 1.3.2, bitflags 2.13.2, blocking 1.7.0, bs58 0.5.1, bumpalo 3.20.3, camino 1.2.5, cc 1.4.6, cexpr 0.6.0, cfg-if 1.0.4, cocoa 0.22.0, concurrent-queue 2.5.0, core-foundation 0.10.1, core-foundation 0.7.0, core-foundation 0.9.4, core-foundation-sys 0.7.0, core-foundation-sys 0.8.7, core-graphics 0.19.2, core-graphics 0.21.0, core-graphics 0.24.0, core-graphics 0.25.0, core-graphics-types 0.2.0, coreaudio-rs 0.11.3, crossbeam-channel 0.5.17, crossbeam-utils 0.8.23, derive_arbitrary 1.4.2, displaydoc 0.2.7, either 1.18.0, equivalent 1.0.2, errno 0.3.14, event-listener 5.4.2, event-listener-strategy 0.5.4, fastrand 2.5.0, find-msvc-tools 0.1.12, flate2 1.1.10, fnv 1.0.7, form_urlencoded 1.2.2, futures-lite 2.6.1, gethostname 1.1.0, glob 0.3.4, hash32 0.3.1, hashbrown 0.12.3, hashbrown 0.17.1, heapless 0.8.0, heck 0.4.1, heck 0.5.0, hermit-abi 0.5.3, html5ever 0.38.0, httparse 1.10.1, hyper-rustls 0.27.9, idna 1.1.0, idna_adapter 1.2.2, indexmap 1.9.3, indexmap 2.14.2, itertools 0.13.0, jni 0.21.1, jobserver 0.1.35, js-sys 0.3.105, keyboard-types 0.7.0, lazy_static 1.5.0, libappindicator 0.9.0, linux-raw-sys 0.12.1, lock_api 0.4.14, log 0.4.34, markup5ever 0.38.0, mime 0.3.17, muda 0.19.3, num-derive 0.4.2, num-traits 0.2.19, once_cell 1.21.4, ordered-stream 0.2.0, parking 2.2.1, parking_lot 0.12.5, parking_lot_core 0.9.12, percent-encoding 2.3.2, piper 0.2.5, pkg-config 0.3.34, png 0.17.16, png 0.18.1, polling 3.11.0, regex 1.13.1, regex-automata 0.4.18, regex-syntax 0.8.11, rustc_version 0.4.1, rustix 1.1.4, rustls 0.23.44, scopeguard 1.2.0, security-framework 2.11.1, security-framework 3.7.0, security-framework-sys 2.17.0, serde_with 3.23.0, serde_with_macros 3.23.0, servo_arc 0.4.3, signal-hook-registry 1.4.8, smallvec 1.16.1, socket2 0.6.5, stable_deref_trait 1.2.1, string_cache 0.9.0, string_cache_codegen 0.6.1, syn 1.0.109, system-deps 6.2.2, tao-macros 0.1.4, tempfile 3.27.0, tendril 0.5.1, toml_datetime 0.6.3, tray-icon 0.24.2, unicase 2.9.0, unicode-segmentation 1.13.3, url 2.5.8, uuid 1.26.1, version_check 0.9.5, wasi 0.11.1+wasi-snapshot-preview1, wasip2 1.0.4+wasi-0.2.12, wasm-bindgen 0.2.128, wasm-bindgen-futures 0.4.78, wasm-bindgen-macro 0.2.128, wasm-bindgen-macro-support 0.2.128, wasm-bindgen-shared 0.2.128, web-sys 0.3.105, web_atoms 0.2.6, weezl 0.1.12, window-vibrancy 0.6.0, wit-bindgen 0.57.1, wry 0.55.1
 
 Apache License
                         Version 2.0, January 2004
@@ -3192,7 +3169,7 @@ DEALINGS IN THE SOFTWARE.
 ==============================================================================
 
 Notice 042 (LICENSE-MIT)
-Used by: cc 1.4.6, cfg-if 1.0.4, filetime 0.2.29, find-msvc-tools 0.1.12, jobserver 0.1.35, js-sys 0.3.105, openssl-probe 0.2.1, pkg-config 0.3.34, socket2 0.6.5, toml_datetime 0.6.3, wasm-bindgen 0.2.128, wasm-bindgen-futures 0.4.78, wasm-bindgen-macro 0.2.128, wasm-bindgen-macro-support 0.2.128, wasm-bindgen-shared 0.2.128, web-sys 0.3.105
+Used by: cc 1.4.6, cfg-if 1.0.4, find-msvc-tools 0.1.12, jobserver 0.1.35, js-sys 0.3.105, pkg-config 0.3.34, socket2 0.6.5, toml_datetime 0.6.3, wasm-bindgen 0.2.128, wasm-bindgen-futures 0.4.78, wasm-bindgen-macro 0.2.128, wasm-bindgen-macro-support 0.2.128, wasm-bindgen-shared 0.2.128, web-sys 0.3.105
 
 Copyright (c) 2014 Alex Crichton
 
@@ -3634,8 +3611,8 @@ limitations under the License.
 
 ==============================================================================
 
-Notice 050 (LICENSE, license, LICENSE-APACHE, LICENSE-APACHE.md, LICENSE.txt)
-Used by: clang-sys 1.9.1, cpal 0.15.3, embed_plist 1.2.2, flacenc 0.5.1, hound 3.5.1, lru-slab 0.1.3, quinn 0.11.11, quinn-proto 0.11.17, quinn-udp 0.5.15, rustls-platform-verifier 0.7.0, serialize-to-javascript 0.1.2, serialize-to-javascript-impl 0.1.2, sys-locale 0.3.2, tinyvec 1.13.2, utf8_iter 1.0.4, x11rb 0.13.2, x11rb-protocol 0.13.2, zeroize 1.9.0, zune-core 0.5.3, zune-jpeg 0.5.15
+Notice 050 (license, LICENSE, LICENSE-APACHE, LICENSE-APACHE.md, LICENSE.txt)
+Used by: clang-sys 1.9.1, cpal 0.15.3, embed_plist 1.2.2, flacenc 0.5.1, hound 3.5.1, lru-slab 0.1.3, quinn 0.11.11, quinn-proto 0.11.17, quinn-udp 0.5.15, serialize-to-javascript 0.1.2, serialize-to-javascript-impl 0.1.2, sys-locale 0.3.2, tinyvec 1.13.2, utf8_iter 1.0.4, x11rb 0.13.2, x11rb-protocol 0.13.2, zeroize 1.9.0, zune-core 0.5.3, zune-jpeg 0.5.15
 
 Apache License
                            Version 2.0, January 2004
@@ -7976,7 +7953,7 @@ DEALINGS IN THE SOFTWARE.
 ==============================================================================
 
 Notice 107 (LICENSE, LICENSE-MIT)
-Used by: half 2.7.1, ident_case 1.0.1, simdutf8 0.1.5
+Used by: half 2.7.1, ident_case 1.0.1
 
 MIT License
 
@@ -8501,7 +8478,7 @@ THE SOFTWARE.
 ==============================================================================
 
 Notice 119 (LICENSE-ISC)
-Used by: hyper-rustls 0.27.9, rustls 0.23.44, rustls-native-certs 0.8.4
+Used by: hyper-rustls 0.27.9, rustls 0.23.44
 
 ISC License (ISC)
 Copyright (c) 2016, Joseph Birr-Pixton <jpixton@gmail.com>
@@ -8522,7 +8499,7 @@ THIS SOFTWARE.
 ==============================================================================
 
 Notice 120 (LICENSE-MIT)
-Used by: hyper-rustls 0.27.9, rustls 0.23.44, rustls-native-certs 0.8.4
+Used by: hyper-rustls 0.27.9, rustls 0.23.44
 
 Copyright (c) 2016 Joseph Birr-Pixton <jpixton@gmail.com>
 
@@ -10794,71 +10771,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ==============================================================================
 
 Notice 162 (LICENSE)
-Used by: minisign-verify 0.2.5
-
-Copyright (c) 2019-2025 Frank Denis
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
---
-
-Code in the src/crypto folder is derived from the rust-crypto project:
-https://github.com/DaGenix/rust-crypto
-
-Original ISC license follows:
-
-Copyright (c) 2006-2009 Graydon Hoare
-Copyright (c) 2009-2013 Mozilla Foundation
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-==============================================================================
-
-Notice 163 (LICENSE)
 Used by: miniz_oxide 0.8.9, miniz_oxide 0.9.1
 
 MIT License
@@ -10889,7 +10801,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 164 (LICENSE-MIT.md)
+Notice 163 (LICENSE-MIT.md)
 Used by: miniz_oxide 0.8.9, miniz_oxide 0.9.1
 
 MIT License
@@ -10919,7 +10831,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 165 (LICENSE-ZLIB.md)
+Notice 164 (LICENSE-ZLIB.md)
 Used by: miniz_oxide 0.8.9, miniz_oxide 0.9.1
 
 Copyright 2013-2014 RAD Game Tools and Valve Software
@@ -10939,7 +10851,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 
 ==============================================================================
 
-Notice 166 (LICENSE)
+Notice 165 (LICENSE)
 Used by: mio 1.2.3
 
 Copyright (c) 2014 Carl Lerche and other MIO contributors
@@ -10964,7 +10876,7 @@ THE SOFTWARE.
 
 ==============================================================================
 
-Notice 167 (LICENSE-APACHE.md)
+Notice 166 (LICENSE-APACHE.md)
 Used by: moxcms 0.8.1, pxfm 0.1.30
 
 Apache License
@@ -11171,7 +11083,7 @@ Apache License
 
 ==============================================================================
 
-Notice 168 (LICENSE.md)
+Notice 167 (LICENSE.md)
 Used by: moxcms 0.8.1, pxfm 0.1.30
 
 Copyright (c) Radzivon Bartoshyk. All rights reserved.
@@ -11203,7 +11115,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ==============================================================================
 
-Notice 169 (LICENSE-MIT)
+Notice 168 (LICENSE-MIT)
 Used by: muda 0.19.3, tray-icon 0.24.2
 
 MIT License
@@ -11230,7 +11142,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 170 (LICENSE.spdx)
+Notice 169 (LICENSE.spdx)
 Used by: muda 0.19.3
 
 SPDXVersion: SPDX-2.1
@@ -11255,7 +11167,7 @@ Creator: Person: Daniel Thompson-Yvetot
 
 ==============================================================================
 
-Notice 171 (LICENSE-MIT)
+Notice 170 (LICENSE-MIT)
 Used by: new_debug_unreachable 1.0.6
 
 Copyright (c) 2015 Jonathan Reem
@@ -11286,7 +11198,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 172 (LICENSE)
+Notice 171 (LICENSE)
 Used by: nom 7.1.3
 
 Copyright (c) 2014-2019 Geoffroy Couprie
@@ -11312,7 +11224,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 173 (LICENSE-MIT)
+Notice 172 (LICENSE-MIT)
 Used by: num-conv 0.2.2
 
 Copyright (c) Jacob Pratt
@@ -11337,7 +11249,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 174 (LICENSE-BSD)
+Notice 173 (LICENSE-BSD)
 Used by: num_enum 0.7.6, num_enum_derive 0.7.6
 
 Copyright (c) 2018, Daniel Wagner-Hall
@@ -11370,7 +11282,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ==============================================================================
 
-Notice 175 (LICENSE.txt)
+Notice 174 (LICENSE.txt)
 Used by: objc 0.2.7
 
 MIT License
@@ -11397,7 +11309,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 176 (LICENSE.md)
+Notice 175 (LICENSE.md)
 Used by: open 5.4.4
 
 The MIT License (MIT)
@@ -11428,7 +11340,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 177 (LICENSE.txt)
+Notice 176 (LICENSE.txt)
 Used by: option-ext 0.2.0
 
 Mozilla Public License Version 2.0
@@ -11807,38 +11719,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 ==============================================================================
 
-Notice 178 (LICENSE-MIT)
-Used by: osakit 0.3.1
-
-Copyright (c) 2024 Marat Dulin
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-==============================================================================
-
-Notice 179 (LICENSE-THIRD-PARTY)
+Notice 177 (LICENSE-THIRD-PARTY)
 Used by: parking 2.2.1
 
 ===============================================================================
@@ -11853,7 +11734,7 @@ copied, modified, or distributed except according to those terms.
 
 ==============================================================================
 
-Notice 180 (LICENSE)
+Notice 178 (LICENSE)
 Used by: phf 0.13.1, phf_codegen 0.13.1, phf_generator 0.13.1, phf_macros 0.13.1, phf_shared 0.13.1
 
 The MIT License (MIT)
@@ -11879,7 +11760,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 181 (LICENCE)
+Notice 179 (LICENCE)
 Used by: plist 1.10.1
 
 Copyright (c) 2015 Edward Barnard
@@ -11904,7 +11785,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 182 (LICENSE-MIT)
+Notice 180 (LICENSE-MIT)
 Used by: png 0.17.16, png 0.18.1
 
 Copyright (c) 2015 nwin
@@ -11935,7 +11816,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 183 (LICENSE-Apache)
+Notice 181 (LICENSE-Apache)
 Used by: powerfmt 0.2.0
 
 Apache License
@@ -12142,7 +12023,7 @@ Apache License
 
 ==============================================================================
 
-Notice 184 (LICENSE-MIT)
+Notice 182 (LICENSE-MIT)
 Used by: powerfmt 0.2.0
 
 Copyright (c) 2023 Jacob Pratt et al.
@@ -12167,7 +12048,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 185 (LICENSE)
+Notice 183 (LICENSE)
 Used by: precomputed-hash 0.1.1
 
 MIT License
@@ -12194,7 +12075,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 186 (LICENSE-APACHE)
+Notice 184 (LICENSE-APACHE)
 Used by: proc-macro-error 1.0.4, proc-macro-error-attr 1.0.4
 
 Apache License
@@ -12401,7 +12282,7 @@ limitations under the License.
 
 ==============================================================================
 
-Notice 187 (LICENSE-MIT)
+Notice 185 (LICENSE-MIT)
 Used by: proc-macro-error 1.0.4, proc-macro-error-attr 1.0.4
 
 MIT License
@@ -12428,7 +12309,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 188 (LICENSE-MIT)
+Notice 186 (LICENSE-MIT)
 Used by: quick-error 2.0.1
 
 Copyright (c) 2015 The quick-error Developers
@@ -12453,7 +12334,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 189 (LICENSE-MIT.md)
+Notice 187 (LICENSE-MIT.md)
 Used by: quick-xml 0.42.0
 
 The MIT License (MIT)
@@ -12482,7 +12363,7 @@ THE SOFTWARE.
 
 ==============================================================================
 
-Notice 190 (LICENSE-MIT)
+Notice 188 (LICENSE-MIT)
 Used by: quinn 0.11.11, quinn-proto 0.11.17, quinn-udp 0.5.15
 
 Copyright (c) 2018 The quinn Developers
@@ -12495,7 +12376,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ==============================================================================
 
-Notice 191 (LICENSE-APACHE)
+Notice 189 (LICENSE-APACHE)
 Used by: rand 0.10.2
 
 Apache License
@@ -12677,7 +12558,7 @@ END OF TERMS AND CONDITIONS
 
 ==============================================================================
 
-Notice 192 (LICENSE-MIT)
+Notice 190 (LICENSE-MIT)
 Used by: rand 0.10.2
 
 Copyright 2018 Developers of the Rand project
@@ -12709,7 +12590,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 193 (LICENSE-APACHE)
+Notice 191 (LICENSE-APACHE)
 Used by: rand_core 0.10.1, rand_pcg 0.10.2
 
 Apache License
@@ -12902,7 +12783,7 @@ APPENDIX: How to apply the Apache License to your work.
 
 ==============================================================================
 
-Notice 194 (LICENSE-MIT)
+Notice 192 (LICENSE-MIT)
 Used by: rand_core 0.10.1
 
 Copyright (c) 2018-2026 The Rand Project Developers
@@ -12933,7 +12814,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 195 (LICENSE-MIT)
+Notice 193 (LICENSE-MIT)
 Used by: rand_pcg 0.10.2
 
 Copyright (c) 2014-2017 Melissa O'Neill and PCG Project contributors
@@ -12965,7 +12846,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 196 (LICENSE-MIT.md)
+Notice 194 (LICENSE-MIT.md)
 Used by: raw-window-handle 0.6.2
 
 MIT License
@@ -12992,7 +12873,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 197 (LICENSE-ZLIB.md)
+Notice 195 (LICENSE-ZLIB.md)
 Used by: raw-window-handle 0.6.2
 
 Copyright (c) 2020 Osspial
@@ -13009,7 +12890,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 
 ==============================================================================
 
-Notice 198 (LICENSE)
+Notice 196 (LICENSE)
 Used by: rdev 0.5.3
 
 MIT License
@@ -13036,7 +12917,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 199 (LICENSE)
+Notice 197 (LICENSE)
 Used by: react 19.3.0, react-dom 19.3.0, scheduler 0.28.0
 
 MIT License
@@ -13063,7 +12944,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 200 (LICENSE)
+Notice 198 (LICENSE)
 Used by: redox_syscall 0.5.18
 
 Copyright (c) 2017 Redox OS Developers
@@ -13091,7 +12972,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 201 (LICENSE)
+Notice 199 (LICENSE)
 Used by: redox_users 0.4.6, redox_users 0.5.2
 
 The MIT License (MIT)
@@ -13118,7 +12999,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 202 (LICENSE-APACHE)
+Notice 200 (LICENSE-APACHE)
 Used by: reqwest 0.12.28, reqwest 0.13.5
 
 Apache License
@@ -13325,7 +13206,7 @@ limitations under the License.
 
 ==============================================================================
 
-Notice 203 (LICENSE-MIT)
+Notice 201 (LICENSE-MIT)
 Used by: reqwest 0.12.28
 
 Copyright (c) 2016-2025 Sean McArthur
@@ -13350,7 +13231,7 @@ THE SOFTWARE.
 
 ==============================================================================
 
-Notice 204 (LICENSE-MIT)
+Notice 202 (LICENSE-MIT)
 Used by: reqwest 0.13.5
 
 Copyright (c) 2016-2026 Sean McArthur
@@ -13375,7 +13256,7 @@ THE SOFTWARE.
 
 ==============================================================================
 
-Notice 205 (LICENSE)
+Notice 203 (LICENSE)
 Used by: rfd 0.16.0
 
 MIT License
@@ -13402,7 +13283,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 206 (LICENSE)
+Notice 204 (LICENSE)
 Used by: ring 0.17.14
 
 *ring* uses an "ISC" license, like BoringSSL used to use, for new code
@@ -13417,7 +13298,7 @@ for the license to code that was sourced from the once_cell project.
 
 ==============================================================================
 
-Notice 207 (LICENSE-BoringSSL)
+Notice 205 (LICENSE-BoringSSL)
 Used by: ring 0.17.14
 
 Apache License
@@ -13694,7 +13575,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ==============================================================================
 
-Notice 208 (LICENSE-other-bits)
+Notice 206 (LICENSE-other-bits)
 Used by: ring 0.17.14
 
 Copyright 2015-2025 Brian Smith.
@@ -13713,22 +13594,7 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ==============================================================================
 
-Notice 209 (LICENSE)
-Used by: rustls-native-certs 0.8.4
-
-Rustls is distributed under the following three licenses:
-
-- Apache License version 2.0.
-- MIT license.
-- ISC license.
-
-These are included as LICENSE-APACHE, LICENSE-MIT and LICENSE-ISC
-respectively.  You may use this software under the terms of any
-of these licenses, at your option.
-
-==============================================================================
-
-Notice 210 (LICENSE-APACHE)
+Notice 207 (LICENSE-APACHE)
 Used by: rustls-pki-types 1.15.1
 
 Apache License
@@ -13935,7 +13801,7 @@ limitations under the License.
 
 ==============================================================================
 
-Notice 211 (LICENSE-MIT)
+Notice 208 (LICENSE-MIT)
 Used by: rustls-pki-types 1.15.1
 
 Copyright (c) 2023 Dirkjan Ochtman <dirkjan@ochtman.nl>
@@ -13966,34 +13832,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 212 (LICENSE-MIT)
-Used by: rustls-platform-verifier 0.7.0
-
-MIT License
-
-Copyright (c) 2022 1Password
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-==============================================================================
-
-Notice 213 (LICENSE)
+Notice 209 (LICENSE)
 Used by: rustls-webpki 0.103.15
 
 Except as otherwise noted, this project is licensed under the following
@@ -14018,7 +13857,7 @@ third-party/chromium/LICENSE.
 
 ==============================================================================
 
-Notice 214 (LICENSE-MIT)
+Notice 210 (LICENSE-MIT)
 Used by: same-file 1.0.6, winapi-util 0.1.11
 
 The MIT License (MIT)
@@ -14045,20 +13884,7 @@ THE SOFTWARE.
 
 ==============================================================================
 
-Notice 215 (LICENSE.md)
-Used by: schannel 0.1.29
-
-Copyright (c) 2015 steffengy
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-==============================================================================
-
-Notice 216 (LICENSE)
+Notice 211 (LICENSE)
 Used by: schemars 0.8.22, schemars 0.9.0, schemars 1.2.2, schemars_derive 0.8.22
 
 MIT License
@@ -14085,7 +13911,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 217 (LICENSE-MIT)
+Notice 212 (LICENSE-MIT)
 Used by: scopeguard 1.2.0
 
 Copyright (c) 2016-2019 Ulrik Sverdrup "bluss" and scopeguard developers
@@ -14116,7 +13942,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 218 (LICENSE-MIT)
+Notice 213 (LICENSE-MIT)
 Used by: security-framework 2.11.1, security-framework 3.7.0, security-framework-sys 2.17.0
 
 The MIT License (MIT)
@@ -14142,7 +13968,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 219 (LICENSE-MIT)
+Notice 214 (LICENSE-MIT)
 Used by: serde_spanned 0.6.9, serde_spanned 1.1.1, toml 0.8.2, toml 0.9.12+spec-1.1.0, toml 1.1.6+spec-1.1.0, toml_datetime 0.7.5+spec-1.1.0, toml_datetime 1.1.1+spec-1.1.0, toml_edit 0.19.15, toml_edit 0.20.2, toml_edit 0.25.15+spec-1.1.0, toml_parser 1.1.3+spec-1.1.0, toml_writer 1.1.2+spec-1.1.0
 
 Copyright (c) Individual contributors
@@ -14167,7 +13993,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 220 (LICENSE-MIT)
+Notice 215 (LICENSE-MIT)
 Used by: serde_urlencoded 0.7.1
 
 Copyright (c) 2016 Anthony Ramine
@@ -14198,7 +14024,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 221 (LICENSE-MIT)
+Notice 216 (LICENSE-MIT)
 Used by: serialize-to-javascript 0.1.2, serialize-to-javascript-impl 0.1.2
 
 MIT License
@@ -14225,7 +14051,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 222 (LICENSE-APACHE)
+Notice 217 (LICENSE-APACHE)
 Used by: shlex 1.3.0, shlex 2.0.1
 
 Copyright 2015 Nicholas Allegra (comex).
@@ -14244,7 +14070,7 @@ limitations under the License.
 
 ==============================================================================
 
-Notice 223 (LICENSE-MIT)
+Notice 218 (LICENSE-MIT)
 Used by: shlex 1.3.0, shlex 2.0.1
 
 The MIT License (MIT)
@@ -14271,7 +14097,7 @@ THE SOFTWARE.
 
 ==============================================================================
 
-Notice 224 (LICENSE-MIT)
+Notice 219 (LICENSE-MIT)
 Used by: signal-hook-registry 1.4.8
 
 Copyright (c) 2017 tokio-jsonrpc developers
@@ -14302,7 +14128,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 225 (LICENSE.md)
+Notice 220 (LICENSE.md)
 Used by: simd-adler32 0.3.10
 
 MIT License
@@ -14329,7 +14155,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 226 (COPYING)
+Notice 221 (COPYING)
 Used by: siphasher 1.0.3
 
 Copyright 2012-2016 The Rust Project Developers.
@@ -14342,7 +14168,7 @@ option.
 
 ==============================================================================
 
-Notice 227 (LICENSE)
+Notice 222 (LICENSE)
 Used by: slab 0.4.12
 
 Copyright (c) 2019 Carl Lerche
@@ -14373,7 +14199,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 228 (LICENSE-MIT)
+Notice 223 (LICENSE-MIT)
 Used by: smallvec 1.16.1
 
 Copyright (c) 2018 The Servo Project Developers
@@ -14404,7 +14230,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 229 (LICENSE-APACHE)
+Notice 224 (LICENSE-APACHE)
 Used by: softbuffer 0.4.8
 
 Apache License
@@ -14611,7 +14437,7 @@ Apache License
 
 ==============================================================================
 
-Notice 230 (LICENSE-MIT)
+Notice 225 (LICENSE-MIT)
 Used by: softbuffer 0.4.8
 
 Copyright 2022 Kirill Chibisov
@@ -14636,7 +14462,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 231 (LICENSE-MIT)
+Notice 226 (LICENSE-MIT)
 Used by: stable_deref_trait 1.2.1
 
 Copyright (c) 2017 Robert Grosse
@@ -14667,7 +14493,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 232 (LICENSE)
+Notice 227 (LICENSE)
 Used by: strsim 0.11.1
 
 The MIT License (MIT)
@@ -14696,7 +14522,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 233 (LICENSE)
+Notice 228 (LICENSE)
 Used by: subtle 2.6.1
 
 Copyright (c) 2016-2017 Isis Agora Lovecruft, Henry de Valence. All rights reserved.
@@ -14731,7 +14557,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ==============================================================================
 
-Notice 234 (LICENSE-APACHE)
+Notice 229 (LICENSE-APACHE)
 Used by: swift-rs 1.0.8
 
 Apache License
@@ -14938,7 +14764,7 @@ Apache License
 
 ==============================================================================
 
-Notice 235 (LICENSE-MIT)
+Notice 230 (LICENSE-MIT)
 Used by: swift-rs 1.0.8
 
 Copyright (c) 2023 The swift-rs Developers
@@ -14963,7 +14789,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 236 (LICENSE)
+Notice 231 (LICENSE)
 Used by: synstructure 0.13.2
 
 Copyright 2016 Nika Layzell
@@ -14976,7 +14802,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ==============================================================================
 
-Notice 237 (LICENSE-MIT)
+Notice 232 (LICENSE-MIT)
 Used by: sys-locale 0.3.2
 
 MIT License
@@ -15003,38 +14829,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 238 (LICENSE-MIT)
-Used by: system-configuration 0.7.0, system-configuration-sys 0.6.0
-
-Copyright (c) 2024 Mullvad VPN AB
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-==============================================================================
-
-Notice 239 (LICENSE.spdx)
+Notice 233 (LICENSE.spdx)
 Used by: tao 0.35.3
 
 SPDXVersion: SPDX-2.1
@@ -15058,7 +14853,7 @@ Creator: Person: Daniel Thompson-Yvetot
 
 ==============================================================================
 
-Notice 240 (LICENSE-MIT)
+Notice 234 (LICENSE-MIT)
 Used by: tao-macros 0.1.4
 
 MIT License
@@ -15085,7 +14880,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 241 (LICENSE.spdx)
+Notice 235 (LICENSE.spdx)
 Used by: tao-macros 0.1.4
 
 SPDXVersion: SPDX-2.1
@@ -15110,38 +14905,7 @@ Creator: Person: Daniel Thompson-Yvetot
 
 ==============================================================================
 
-Notice 242 (LICENSE-MIT)
-Used by: tar 0.4.46
-
-Copyright (c) The tar-rs Project Contributors
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-==============================================================================
-
-Notice 243 (LICENSE)
+Notice 236 (LICENSE)
 Used by: tauri-winres 0.3.6
 
 The MIT License (MIT)
@@ -15175,8 +14939,8 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 244 (LICENSE-MIT)
-Used by: tempfile 3.27.0, xattr 1.6.1
+Notice 237 (LICENSE-MIT)
+Used by: tempfile 3.27.0
 
 Copyright (c) 2015 Steven Allen
 
@@ -15206,7 +14970,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 245 (LICENSE-MIT)
+Notice 238 (LICENSE-MIT)
 Used by: tendril 0.5.1
 
 Copyright (c) 2015 Keegan McAllister
@@ -15237,7 +15001,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 246 (LICENSE)
+Notice 239 (LICENSE)
 Used by: tiff 0.11.3
 
 MIT License
@@ -15264,7 +15028,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 247 (LICENSE-MIT)
+Notice 240 (LICENSE-MIT)
 Used by: time 0.3.55, time-core 0.1.9, time-macros 0.2.32
 
 Copyright (c) Jacob Pratt et al.
@@ -15289,7 +15053,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 248 (LICENSE-APACHE.md)
+Notice 241 (LICENSE-APACHE.md)
 Used by: tinyvec_macros 0.1.1
 
 Apache License
@@ -15496,7 +15260,7 @@ Apache License
 
 ==============================================================================
 
-Notice 249 (LICENSE-MIT.md)
+Notice 242 (LICENSE-MIT.md)
 Used by: tinyvec_macros 0.1.1
 
 MIT License
@@ -15523,7 +15287,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 250 (LICENSE-ZLIB.md)
+Notice 243 (LICENSE-ZLIB.md)
 Used by: tinyvec_macros 0.1.1
 
 zlib License
@@ -15548,7 +15312,7 @@ freely, subject to the following restrictions:
 
 ==============================================================================
 
-Notice 251 (LICENSE)
+Notice 244 (LICENSE)
 Used by: tokio 1.53.1, tokio-util 0.7.19
 
 MIT License
@@ -15575,7 +15339,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 252 (LICENSE)
+Notice 245 (LICENSE)
 Used by: tokio-macros 2.7.2
 
 MIT License
@@ -15603,7 +15367,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 253 (LICENSE-APACHE)
+Notice 246 (LICENSE-APACHE)
 Used by: tokio-rustls 0.26.5
 
 Apache License
@@ -15810,7 +15574,7 @@ limitations under the License.
 
 ==============================================================================
 
-Notice 254 (LICENSE-MIT)
+Notice 247 (LICENSE-MIT)
 Used by: tokio-rustls 0.26.5
 
 Copyright (c) 2017 quininer kel
@@ -15841,7 +15605,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 255 (LICENSE)
+Notice 248 (LICENSE)
 Used by: tower 0.5.3, tower-layer 0.3.3, tower-service 0.3.3
 
 Copyright (c) 2019 Tower Contributors
@@ -15872,7 +15636,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 256 (LICENSE)
+Notice 249 (LICENSE)
 Used by: tower-http 0.6.11
 
 Copyright (c) 2019-2021 Tower Contributors
@@ -15903,7 +15667,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 257 (LICENSE)
+Notice 250 (LICENSE)
 Used by: tracing 0.1.44, tracing-attributes 0.1.31, tracing-core 0.1.36
 
 Copyright (c) 2019 Tokio Contributors
@@ -15934,7 +15698,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 258 (LICENSE.spdx)
+Notice 251 (LICENSE.spdx)
 Used by: tray-icon 0.24.2
 
 SPDXVersion: SPDX-2.1
@@ -15959,7 +15723,7 @@ Creator: Person: Daniel Thompson-Yvetot
 
 ==============================================================================
 
-Notice 259 (LICENSE)
+Notice 252 (LICENSE)
 Used by: try-lock 0.2.5
 
 Copyright (c) 2018-2023 Sean McArthur
@@ -15985,14 +15749,14 @@ THE SOFTWARE.
 
 ==============================================================================
 
-Notice 260 (LICENSE)
+Notice 253 (LICENSE)
 Used by: typenum 1.20.1
 
 MIT OR Apache-2.0
 
 ==============================================================================
 
-Notice 261 (LICENSE-APACHE)
+Notice 254 (LICENSE-APACHE)
 Used by: typenum 1.20.1
 
 Apache License
@@ -16199,7 +15963,7 @@ limitations under the License.
 
 ==============================================================================
 
-Notice 262 (LICENSE-MIT)
+Notice 255 (LICENSE-MIT)
 Used by: typenum 1.20.1
 
 The MIT License (MIT)
@@ -16226,7 +15990,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 263 (LICENSE)
+Notice 256 (LICENSE)
 Used by: uds_windows 1.2.1
 
 MIT License
@@ -16253,7 +16017,7 @@ MIT License
 
 ==============================================================================
 
-Notice 264 (LICENSE-UNICODE)
+Notice 257 (LICENSE-UNICODE)
 Used by: unicode-ident 1.0.24
 
 UNICODE LICENSE V3
@@ -16298,7 +16062,7 @@ authorization of the copyright holder.
 
 ==============================================================================
 
-Notice 265 (LICENSE.txt)
+Notice 258 (LICENSE.txt)
 Used by: untrusted 0.9.0
 
 // Copyright 2015-2016 Brian Smith.
@@ -16317,7 +16081,7 @@ Used by: untrusted 0.9.0
 
 ==============================================================================
 
-Notice 266 (LICENSE)
+Notice 259 (LICENSE)
 Used by: urlpattern 0.3.0
 
 MIT License
@@ -16344,7 +16108,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 267 (LICENSE-MIT)
+Notice 260 (LICENSE-MIT)
 Used by: utf8_iter 1.0.4
 
 Copyright Mozilla Foundation
@@ -16375,7 +16139,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 268 (LICENSE-MIT)
+Notice 261 (LICENSE-MIT)
 Used by: uuid 1.26.1
 
 Copyright (c) 2014 The Rust Project Developers
@@ -16407,7 +16171,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 269 (LICENSE)
+Notice 262 (LICENSE)
 Used by: version-compare 0.2.1
 
 Copyright (c) 2017 Tim Visée
@@ -16432,7 +16196,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 270 (LICENSE-MIT)
+Notice 263 (LICENSE-MIT)
 Used by: version_check 0.9.5
 
 The MIT License (MIT)
@@ -16457,7 +16221,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 271 (LICENSE)
+Notice 264 (LICENSE)
 Used by: vswhom 0.1.0, vswhom-sys 0.1.3
 
 The MIT License (MIT)
@@ -16484,7 +16248,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 272 (LICENSE)
+Notice 265 (LICENSE)
 Used by: want 0.3.1
 
 Copyright (c) 2018-2019 Sean McArthur
@@ -16509,7 +16273,7 @@ THE SOFTWARE.
 
 ==============================================================================
 
-Notice 273 (LICENSE-APACHE)
+Notice 266 (LICENSE-APACHE)
 Used by: web-time 1.1.0
 
 Apache License
@@ -16716,7 +16480,7 @@ Apache License
 
 ==============================================================================
 
-Notice 274 (LICENSE-MIT)
+Notice 267 (LICENSE-MIT)
 Used by: web-time 1.1.0
 
 MIT License
@@ -16743,7 +16507,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 275 (LICENSE)
+Notice 268 (LICENSE)
 Used by: webkit2gtk 2.0.2
 
 Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
@@ -16769,7 +16533,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 276 (LICENSE)
+Notice 269 (LICENSE)
 Used by: webkit2gtk-sys 2.0.2
 
 Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
@@ -16793,8 +16557,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 277 (LICENSE)
-Used by: webpki-root-certs 1.0.9, webpki-roots 1.0.9
+Notice 270 (LICENSE)
+Used by: webpki-roots 1.0.9
 
 # Community Data License Agreement - Permissive - Version 2.0
 
@@ -16860,7 +16624,7 @@ insights.
 
 ==============================================================================
 
-Notice 278 (LICENSE-MIT)
+Notice 271 (LICENSE-MIT)
 Used by: weezl 0.1.12
 
 The MIT License (MIT)
@@ -16887,7 +16651,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 279 (LICENSE-MIT)
+Notice 272 (LICENSE-MIT)
 Used by: winapi 0.3.9
 
 Copyright (c) 2015-2018 The winapi-rs Developers
@@ -16912,7 +16676,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 280 (LICENSE-MIT)
+Notice 273 (LICENSE-MIT)
 Used by: window-vibrancy 0.6.0
 
 MIT License
@@ -16939,7 +16703,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 281 (LICENSE.spdx)
+Notice 274 (LICENSE.spdx)
 Used by: window-vibrancy 0.6.0
 
 SPDXVersion: SPDX-2.1
@@ -16964,8 +16728,8 @@ Creator: Person: Daniel Thompson-Yvetot
 
 ==============================================================================
 
-Notice 282 (license-apache-2.0)
-Used by: windows 0.54.0, windows 0.58.0, windows 0.61.3, windows-collections 0.2.0, windows-core 0.54.0, windows-core 0.58.0, windows-core 0.61.2, windows-core 0.62.2, windows-future 0.2.1, windows-implement 0.58.0, windows-implement 0.60.2, windows-interface 0.58.0, windows-interface 0.59.3, windows-link 0.1.3, windows-link 0.2.1, windows-numerics 0.2.0, windows-registry 0.6.1, windows-result 0.1.2, windows-result 0.2.0, windows-result 0.3.4, windows-result 0.4.1, windows-strings 0.1.0, windows-strings 0.4.2, windows-strings 0.5.1, windows-sys 0.45.0, windows-sys 0.52.0, windows-sys 0.59.0, windows-sys 0.60.2, windows-sys 0.61.2, windows-targets 0.42.2, windows-targets 0.52.6, windows-targets 0.53.5, windows-threading 0.1.0, windows-version 0.1.7, windows_aarch64_gnullvm 0.42.2, windows_aarch64_gnullvm 0.52.6, windows_aarch64_gnullvm 0.53.1, windows_aarch64_msvc 0.42.2, windows_aarch64_msvc 0.52.6, windows_aarch64_msvc 0.53.1, windows_i686_gnu 0.42.2, windows_i686_gnu 0.52.6, windows_i686_gnu 0.53.1, windows_i686_gnullvm 0.52.6, windows_i686_gnullvm 0.53.1, windows_i686_msvc 0.42.2, windows_i686_msvc 0.52.6, windows_i686_msvc 0.53.1, windows_x86_64_gnu 0.42.2, windows_x86_64_gnu 0.52.6, windows_x86_64_gnu 0.53.1, windows_x86_64_gnullvm 0.42.2, windows_x86_64_gnullvm 0.52.6, windows_x86_64_gnullvm 0.53.1, windows_x86_64_msvc 0.42.2, windows_x86_64_msvc 0.52.6, windows_x86_64_msvc 0.53.1
+Notice 275 (license-apache-2.0)
+Used by: windows 0.54.0, windows 0.58.0, windows 0.61.3, windows-collections 0.2.0, windows-core 0.54.0, windows-core 0.58.0, windows-core 0.61.2, windows-core 0.62.2, windows-future 0.2.1, windows-implement 0.58.0, windows-implement 0.60.2, windows-interface 0.58.0, windows-interface 0.59.3, windows-link 0.1.3, windows-link 0.2.1, windows-numerics 0.2.0, windows-result 0.1.2, windows-result 0.2.0, windows-result 0.3.4, windows-result 0.4.1, windows-strings 0.1.0, windows-strings 0.4.2, windows-strings 0.5.1, windows-sys 0.45.0, windows-sys 0.52.0, windows-sys 0.59.0, windows-sys 0.60.2, windows-sys 0.61.2, windows-targets 0.42.2, windows-targets 0.52.6, windows-targets 0.53.5, windows-threading 0.1.0, windows-version 0.1.7, windows_aarch64_gnullvm 0.42.2, windows_aarch64_gnullvm 0.52.6, windows_aarch64_gnullvm 0.53.1, windows_aarch64_msvc 0.42.2, windows_aarch64_msvc 0.52.6, windows_aarch64_msvc 0.53.1, windows_i686_gnu 0.42.2, windows_i686_gnu 0.52.6, windows_i686_gnu 0.53.1, windows_i686_gnullvm 0.52.6, windows_i686_gnullvm 0.53.1, windows_i686_msvc 0.42.2, windows_i686_msvc 0.52.6, windows_i686_msvc 0.53.1, windows_x86_64_gnu 0.42.2, windows_x86_64_gnu 0.52.6, windows_x86_64_gnu 0.53.1, windows_x86_64_gnullvm 0.42.2, windows_x86_64_gnullvm 0.52.6, windows_x86_64_gnullvm 0.53.1, windows_x86_64_msvc 0.42.2, windows_x86_64_msvc 0.52.6, windows_x86_64_msvc 0.53.1
 
 Apache License
                            Version 2.0, January 2004
@@ -17171,8 +16935,8 @@ Apache License
 
 ==============================================================================
 
-Notice 283 (license-mit)
-Used by: windows 0.54.0, windows 0.58.0, windows 0.61.3, windows-collections 0.2.0, windows-core 0.54.0, windows-core 0.58.0, windows-core 0.61.2, windows-core 0.62.2, windows-future 0.2.1, windows-implement 0.58.0, windows-implement 0.60.2, windows-interface 0.58.0, windows-interface 0.59.3, windows-link 0.1.3, windows-link 0.2.1, windows-numerics 0.2.0, windows-registry 0.6.1, windows-result 0.1.2, windows-result 0.2.0, windows-result 0.3.4, windows-result 0.4.1, windows-strings 0.1.0, windows-strings 0.4.2, windows-strings 0.5.1, windows-sys 0.45.0, windows-sys 0.52.0, windows-sys 0.59.0, windows-sys 0.60.2, windows-sys 0.61.2, windows-targets 0.42.2, windows-targets 0.52.6, windows-targets 0.53.5, windows-threading 0.1.0, windows-version 0.1.7, windows_aarch64_gnullvm 0.42.2, windows_aarch64_gnullvm 0.52.6, windows_aarch64_gnullvm 0.53.1, windows_aarch64_msvc 0.42.2, windows_aarch64_msvc 0.52.6, windows_aarch64_msvc 0.53.1, windows_i686_gnu 0.42.2, windows_i686_gnu 0.52.6, windows_i686_gnu 0.53.1, windows_i686_gnullvm 0.52.6, windows_i686_gnullvm 0.53.1, windows_i686_msvc 0.42.2, windows_i686_msvc 0.52.6, windows_i686_msvc 0.53.1, windows_x86_64_gnu 0.42.2, windows_x86_64_gnu 0.52.6, windows_x86_64_gnu 0.53.1, windows_x86_64_gnullvm 0.42.2, windows_x86_64_gnullvm 0.52.6, windows_x86_64_gnullvm 0.53.1, windows_x86_64_msvc 0.42.2, windows_x86_64_msvc 0.52.6, windows_x86_64_msvc 0.53.1
+Notice 276 (license-mit)
+Used by: windows 0.54.0, windows 0.58.0, windows 0.61.3, windows-collections 0.2.0, windows-core 0.54.0, windows-core 0.58.0, windows-core 0.61.2, windows-core 0.62.2, windows-future 0.2.1, windows-implement 0.58.0, windows-implement 0.60.2, windows-interface 0.58.0, windows-interface 0.59.3, windows-link 0.1.3, windows-link 0.2.1, windows-numerics 0.2.0, windows-result 0.1.2, windows-result 0.2.0, windows-result 0.3.4, windows-result 0.4.1, windows-strings 0.1.0, windows-strings 0.4.2, windows-strings 0.5.1, windows-sys 0.45.0, windows-sys 0.52.0, windows-sys 0.59.0, windows-sys 0.60.2, windows-sys 0.61.2, windows-targets 0.42.2, windows-targets 0.52.6, windows-targets 0.53.5, windows-threading 0.1.0, windows-version 0.1.7, windows_aarch64_gnullvm 0.42.2, windows_aarch64_gnullvm 0.52.6, windows_aarch64_gnullvm 0.53.1, windows_aarch64_msvc 0.42.2, windows_aarch64_msvc 0.52.6, windows_aarch64_msvc 0.53.1, windows_i686_gnu 0.42.2, windows_i686_gnu 0.52.6, windows_i686_gnu 0.53.1, windows_i686_gnullvm 0.52.6, windows_i686_gnullvm 0.53.1, windows_i686_msvc 0.42.2, windows_i686_msvc 0.52.6, windows_i686_msvc 0.53.1, windows_x86_64_gnu 0.42.2, windows_x86_64_gnu 0.52.6, windows_x86_64_gnu 0.53.1, windows_x86_64_gnullvm 0.42.2, windows_x86_64_gnullvm 0.52.6, windows_x86_64_gnullvm 0.53.1, windows_x86_64_msvc 0.42.2, windows_x86_64_msvc 0.52.6, windows_x86_64_msvc 0.53.1
 
 MIT License
 
@@ -17198,7 +16962,7 @@ MIT License
 
 ==============================================================================
 
-Notice 284 (LICENSE-MIT)
+Notice 277 (LICENSE-MIT)
 Used by: winnow 0.5.40, winnow 0.7.15, winnow 1.0.4
 
 Permission is hereby granted, free of charge, to any person obtaining
@@ -17222,7 +16986,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 285 (LICENSE)
+Notice 278 (LICENSE)
 Used by: winreg 0.10.1, winreg 0.55.0
 
 Copyright (c) 2015 Igor Shaula
@@ -17247,7 +17011,7 @@ THE SOFTWARE.
 
 ==============================================================================
 
-Notice 286 (LICENSE-MIT)
+Notice 279 (LICENSE-MIT)
 Used by: wry 0.55.1
 
 MIT License
@@ -17274,7 +17038,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 287 (LICENSE.spdx)
+Notice 280 (LICENSE.spdx)
 Used by: wry 0.55.1
 
 SPDXVersion: SPDX-2.1
@@ -17300,7 +17064,7 @@ Creator: Person: Daniel Thompson-Yvetot
 
 ==============================================================================
 
-Notice 288 (LICENSE-MIT)
+Notice 281 (LICENSE-MIT)
 Used by: x11rb 0.13.2, x11rb-protocol 0.13.2
 
 Copyright 2019 x11rb Contributers
@@ -17331,7 +17095,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 289 (LICENSE)
+Notice 282 (LICENSE)
 Used by: xkbcommon 0.8.0
 
 Copyright (c) 2016 Remi Thebault <remi.thebault@gmail.com>
@@ -17362,7 +17126,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 290 (LICENSE-APACHE)
+Notice 283 (LICENSE-APACHE)
 Used by: xkeysym 0.2.1
 
 Apache License
@@ -17569,7 +17333,7 @@ Apache License
 
 ==============================================================================
 
-Notice 291 (LICENSE-MIT)
+Notice 284 (LICENSE-MIT)
 Used by: xkeysym 0.2.1
 
 Copyright (c) 2022-2023 John Nunley
@@ -17594,7 +17358,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 292 (LICENSE-ZLIB)
+Notice 285 (LICENSE-ZLIB)
 Used by: xkeysym 0.2.1
 
 Copyright (c) 2022-2023 John Nunley
@@ -17611,7 +17375,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 
 ==============================================================================
 
-Notice 293 (LICENSE)
+Notice 286 (LICENSE)
 Used by: zbus 5.19.0, zbus_macros 5.19.0, zbus_names 4.3.4, zvariant 5.15.0, zvariant_derive 5.15.0
 
 Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors
@@ -17642,7 +17406,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 294 (LICENSE)
+Notice 287 (LICENSE)
 Used by: zcheapstr 1.1.0
 
 Copyright (c) 2026 Zeeshan Ali Khan & zcheapstr contributors
@@ -17673,7 +17437,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 295 (LICENSE-APACHE)
+Notice 288 (LICENSE-APACHE)
 Used by: zerocopy 0.8.57, zerocopy-derive 0.8.57
 
 Apache License
@@ -17880,7 +17644,7 @@ Apache License
 
 ==============================================================================
 
-Notice 296 (LICENSE-BSD)
+Notice 289 (LICENSE-BSD)
 Used by: zerocopy 0.8.57, zerocopy-derive 0.8.57
 
 Copyright 2019 The Fuchsia Authors.
@@ -17910,7 +17674,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ==============================================================================
 
-Notice 297 (LICENSE-MIT)
+Notice 290 (LICENSE-MIT)
 Used by: zerocopy 0.8.57, zerocopy-derive 0.8.57
 
 Copyright 2023 The Fuchsia Authors
@@ -17941,7 +17705,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 298 (LICENSE-MIT)
+Notice 291 (LICENSE-MIT)
 Used by: zeroize 1.9.0
 
 Copyright (c) 2018-2026 The RustCrypto Project Developers
@@ -17972,7 +17736,7 @@ DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 
-Notice 299 (LICENSE)
+Notice 292 (LICENSE)
 Used by: zip 4.6.1
 
 The MIT License (MIT)
@@ -18002,7 +17766,7 @@ licences; see files named LICENSE.*.txt for details.
 
 ==============================================================================
 
-Notice 300 (LICENSE)
+Notice 293 (LICENSE)
 Used by: zlib-rs 0.6.7
 
 (C) 2024 Trifecta Tech Foundation
@@ -18027,7 +17791,7 @@ freely, subject to the following restrictions:
 
 ==============================================================================
 
-Notice 301 (COPYING)
+Notice 294 (COPYING)
 Used by: zopfli 0.8.3
 
 Apache License
@@ -18234,7 +17998,7 @@ Apache License
 
 ==============================================================================
 
-Notice 302 (LICENSE-MIT)
+Notice 295 (LICENSE-MIT)
 Used by: zune-core 0.5.3, zune-jpeg 0.5.15
 
 MIT License
@@ -18261,7 +18025,7 @@ SOFTWARE.
 
 ==============================================================================
 
-Notice 303 (LICENSE-ZLIB)
+Notice 296 (LICENSE-ZLIB)
 Used by: zune-core 0.5.3, zune-jpeg 0.5.15
 
 zlib License

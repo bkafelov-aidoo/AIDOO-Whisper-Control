@@ -36,7 +36,6 @@ struct AppState {
     recording_started_at: Mutex<Option<std::time::Instant>>,
     recording_active: AtomicBool,
     operation_active: AtomicBool,
-    update_install_active: AtomicBool,
     stop_requested: AtomicBool,
     status_generation: AtomicU64,
     last_recording_error: Mutex<Option<String>>,
@@ -69,7 +68,6 @@ impl AppState {
             recording_started_at: Mutex::new(None),
             recording_active: AtomicBool::new(false),
             operation_active: AtomicBool::new(false),
-            update_install_active: AtomicBool::new(false),
             stop_requested: AtomicBool::new(false),
             status_generation: AtomicU64::new(0),
             last_recording_error: Mutex::new(recovery_error),
@@ -1184,23 +1182,6 @@ fn delete_history_item(
 }
 
 #[tauri::command]
-fn begin_update_install(state: State<'_, AppState>) -> Result<(), String> {
-    state
-        .operation_active
-        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-        .map_err(|_| "Изчакайте текущата операция да приключи.".to_string())?;
-    state.update_install_active.store(true, Ordering::Release);
-    Ok(())
-}
-
-#[tauri::command]
-fn cancel_update_install(state: State<'_, AppState>) {
-    if state.update_install_active.swap(false, Ordering::AcqRel) {
-        state.operation_active.store(false, Ordering::Release);
-    }
-}
-
-#[tauri::command]
 fn open_accessibility_settings() -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
@@ -1459,8 +1440,6 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .manage(AppState::load())
         .on_window_event(|window, event| {
@@ -1497,8 +1476,6 @@ pub fn run() {
             current_recording_snapshot,
             copy_text,
             delete_history_item,
-            begin_update_install,
-            cancel_update_install,
             open_accessibility_settings,
             refresh_accessibility_status,
             reposition_overlay,

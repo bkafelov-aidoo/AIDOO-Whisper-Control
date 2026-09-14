@@ -14,8 +14,6 @@
         { "url": "https://github.com/bkafelov-aidoo/Aidoo-Whisper/issues" }
       ]
     },
-    "autostart:default",
-    "updater:default",
-    "process:allow-restart"
+    "autostart:default"
   ]
 }

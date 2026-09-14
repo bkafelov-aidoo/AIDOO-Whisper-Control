@@ -13,7 +13,7 @@ A focused macOS voice typing app. Hold a keyboard shortcut, speak, and release i
 - Automatic paste with a clear clipboard fallback message.
 - A static AIDOO menu bar icon and a bottom-center recording/status overlay.
 - Failed audio survives restarts until the user retries or deletes it.
-- Signed updates are checked at most once per day and installed only after the user chooses to update.
+- New versions are distributed as notarized DMG downloads from the AIDOO website.
 - No analytics. Diagnostics are created locally only when the user requests them.
 
 ## Requirements
@@ -36,13 +36,13 @@ The app bundle identifier is `app.aidoo.whisper-lite`. User-facing recordings de
 
 ## Release
 
-The local release path uses the installed Developer ID Application certificate, the `AIDOO_VIEWER_NOTARY` notarytool Keychain profile and the updater key stored outside this repository. Run:
+The local release path uses the installed Developer ID Application certificate and the `AIDOO_VIEWER_NOTARY` notarytool Keychain profile. Run:
 
 ```sh
 npm run release:mac
 ```
 
-The script tests the app, builds the Apple Silicon app/DMG, notarizes and staples both the application and DMG, rebuilds and signs the updater archive from the stapled app, verifies Gatekeeper and writes `latest-lite.json`. See [docs/RELEASE.md](docs/RELEASE.md) for website and GitHub release steps.
+The script tests the app, builds the Apple Silicon app/DMG, notarizes and staples both the application and DMG, verifies Gatekeeper and writes the DMG checksum. See [docs/RELEASE.md](docs/RELEASE.md) for website release steps.
 
 ## Source layout
 

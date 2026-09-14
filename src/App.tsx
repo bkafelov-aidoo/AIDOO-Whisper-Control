@@ -4,8 +4,6 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { disable, enable } from "@tauri-apps/plugin-autostart";
-import { check, type Update } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
 import {
   AlertCircle,
   AudioLines,
@@ -25,6 +23,7 @@ import {
   LoaderCircle,
   Mic,
   Play,
+  Power,
   RefreshCw,
   RotateCcw,
   Settings,
@@ -57,8 +56,6 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TranscriptEntry | null>(null);
-  const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
-  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
   const languageRef = useRef<AppLanguage>("bg");
 
@@ -108,13 +105,6 @@ export default function App() {
     };
   }, [refresh, showToast]);
 
-  useEffect(() => {
-    const previous = Number(localStorage.getItem("aidoo-lite-update-check") ?? 0);
-    if (Date.now() - previous < 86_400_000) return;
-    localStorage.setItem("aidoo-lite-update-check", String(Date.now()));
-    void check().then((update) => update && setAvailableUpdate(update)).catch(() => undefined);
-  }, []);
-
   const language = resolveLanguage(data?.settings.uiLanguage ?? "auto");
   languageRef.current = language;
   const t = translator(language);
@@ -141,17 +131,6 @@ export default function App() {
       }
     } catch (reason) {
       showToast(errorMessage(reason, language), "error");
-    }
-  };
-
-  const checkUpdates = async () => {
-    setUpdateMessage(null);
-    try {
-      const update = await check();
-      setAvailableUpdate(update);
-      setUpdateMessage(update ? t("updateAvailable", { version: update.version }) : t("upToDate"));
-    } catch (reason) {
-      setUpdateMessage(t("updateCheckFailed"));
     }
   };
 
@@ -231,8 +210,6 @@ export default function App() {
           <SettingsPage
             data={data}
             language={language}
-            availableUpdate={availableUpdate}
-            updateMessage={updateMessage}
             isBusy={isBusy}
             onSave={async (settings) => {
               const previousLaunchAtLogin = data.settings.launchAtLogin;
@@ -255,25 +232,6 @@ export default function App() {
               } catch (reason) { showToast(errorMessage(reason, language), "error"); }
             }}
             onRefresh={refresh}
-            onCheckUpdates={checkUpdates}
-            onInstallUpdate={async () => {
-              if (!availableUpdate) return;
-              if (isBusy) {
-                showToast(t("updateBusy"), "warning");
-                return;
-              }
-              let updateLock = false;
-              try {
-                await invoke("begin_update_install");
-                updateLock = true;
-                await availableUpdate.downloadAndInstall();
-                await relaunch();
-              } catch (reason) {
-                showToast(errorMessage(reason, language), "error");
-              } finally {
-                if (updateLock) await invoke("cancel_update_install").catch(() => undefined);
-              }
-            }}
             onToast={showToast}
             onOpenOnboarding={() => setShowOnboarding(true)}
           />
@@ -374,16 +332,12 @@ function EmptyHistory({ language }: { language: AppLanguage }) {
   return <div className="empty-state"><History /><strong>{t("emptyHistory")}</strong></div>;
 }
 
-function SettingsPage({ data, language, availableUpdate, updateMessage, isBusy, onSave, onRefresh, onCheckUpdates, onInstallUpdate, onToast, onOpenOnboarding }: {
+function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToast, onOpenOnboarding }: {
   data: BootstrapState;
   language: AppLanguage;
-  availableUpdate: Update | null;
-  updateMessage: string | null;
   isBusy: boolean;
   onSave: (settings: AppSettings) => Promise<void>;
   onRefresh: () => Promise<BootstrapState>;
-  onCheckUpdates: () => Promise<void>;
-  onInstallUpdate: () => Promise<void>;
   onToast: ToastHandler;
   onOpenOnboarding: () => void;
 }) {
@@ -429,9 +383,8 @@ function SettingsPage({ data, language, availableUpdate, updateMessage, isBusy, 
     <SettingsSection icon={<FolderOpen />} title={t("storage")}>
       <StorageControls settings={draft} language={language} outputPath={draft.outputDirectory ?? data.defaultOutputDirectory} onChange={setDraft} onChooseFolder={chooseFolder} />
     </SettingsSection>
-    <SettingsSection icon={<RefreshCw />} title={t("updates")}>
+    <SettingsSection icon={<Power />} title={t("startup")}>
       <SettingRow title={t("launchAtLogin")}><Toggle label={t("launchAtLogin")} checked={draft.launchAtLogin} onChange={(launchAtLogin) => setDraft({ ...draft, launchAtLogin })} /></SettingRow>
-      <div className="update-row"><button className="secondary-button" onClick={onCheckUpdates}><RefreshCw />{t("checkUpdates")}</button>{updateMessage && <span>{updateMessage}</span>}{availableUpdate && <button className="primary-button" disabled={isBusy} title={isBusy ? t("updateBusy") : undefined} onClick={onInstallUpdate}>{t("installUpdate")}</button>}</div>
     </SettingsSection>
     <SettingsSection icon={<ShieldCheck />} title={t("diagnostics")}>
       <p className="section-help">{t("diagnosticsHelp")}</p><div className="inline-actions"><button className="secondary-button" disabled={diagnosticBusy} onClick={async () => { setDiagnosticBusy(true); try { const path = await invoke<string>("create_diagnostic_bundle"); await invoke("open_local_path", { path, reveal: true }); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setDiagnosticBusy(false); } }}>{diagnosticBusy ? <LoaderCircle className="spin" /> : <FileText />}{t("createDiagnostics")}</button><button className="secondary-button" onClick={async () => { try { await openUrl("https://github.com/bkafelov-aidoo/Aidoo-Whisper/issues"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("openSupport")}</button></div>

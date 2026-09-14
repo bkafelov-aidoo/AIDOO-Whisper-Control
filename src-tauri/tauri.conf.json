@@ -47,7 +47,7 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "resources": [
       "../resources/THIRD_PARTY_NOTICES.txt"
     ],
@@ -68,14 +68,6 @@
       "minimumSystemVersion": "13.0",
       "signingIdentity": "Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)",
       "entitlements": "Entitlements.plist"
-    }
-  },
-  "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://github.com/bkafelov-aidoo/Aidoo-Whisper/releases/download/lite-stable/latest-lite.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY4M0IzRDE5N0Q3RjAzM0MKUldROEEzOTlHVDA3YUhlWnBvQ0V6SHdZNFJPU0tKdUJtOG9FZ1BjRmppKzJtWDdiLzJnZURvMzEK"
     }
   }
 }

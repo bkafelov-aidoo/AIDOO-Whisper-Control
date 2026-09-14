@@ -164,9 +164,7 @@ select { min-width: 190px; }
 .folder-picker { min-height: 62px; padding-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }
 .folder-picker > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .folder-picker span { max-width: 500px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.update-row { display: flex; align-items: center; gap: 10px; }
 .inline-actions { display: flex; align-items: center; gap: 7px; }
-.update-row span { margin-right: auto; color: #687c8f; font-size: 8px; }
 .settings-footer { padding: 20px 0 0; display: flex; justify-content: flex-end; }
 .success-note { margin-top: 10px; color: var(--success); display: flex; align-items: center; gap: 6px; font-size: 8px; }
 .success-note svg { width: 14px; }
