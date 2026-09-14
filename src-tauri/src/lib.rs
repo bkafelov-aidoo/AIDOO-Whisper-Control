@@ -907,13 +907,15 @@ fn retain_failed_recording(
         "failed-dictation-{}.{extension}",
         uuid::Uuid::new_v4()
     ));
-    std::fs::rename(path, &target)
-        .or_else(|_| {
-            std::fs::copy(path, &target)
-                .map(|_| ())
-                .and_then(|_| std::fs::remove_file(path))
-        })
-        .map_err(|error| format!("Неуспешният запис не можа да бъде запазен: {error}"))?;
+    if std::fs::rename(path, &target).is_err() {
+        copy_output_atomic(path, &target)
+            .map_err(|error| format!("Неуспешният запис не можа да бъде запазен: {error}"))?;
+        if let Err(error) = std::fs::remove_file(path) {
+            storage::append_diagnostic(&format!(
+                "temporary recording cleanup failed after recovery copy: {error}"
+            ));
+        }
+    }
     Ok(FailedRecording {
         path: target.to_string_lossy().to_string(),
         created_at: Utc::now().to_rfc3339(),
