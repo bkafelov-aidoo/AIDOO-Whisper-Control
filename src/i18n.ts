@@ -326,6 +326,7 @@ export function errorMessage(reason: unknown, language: AppLanguage) {
     ["Микрофонът", "Microphone"],
     ["Папката не може да бъде създадена:", "The folder could not be created:"],
     ["Папката не може да бъде използвана:", "The folder could not be used:"],
+    ["Частната папка на приложението не е валидна:", "The app's private data folder is invalid:"],
     ["Неподдържан аудио формат:", "Unsupported audio format:"],
     ["Записът не можа да се запише на диска:", "The recording could not be written to disk:"],
     ["Невалиден WAV файл:", "Invalid WAV file:"],

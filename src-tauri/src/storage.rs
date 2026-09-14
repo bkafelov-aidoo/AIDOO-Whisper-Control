@@ -4,7 +4,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 #[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 pub fn data_dir() -> PathBuf {
@@ -41,8 +41,25 @@ pub fn diagnostics_path() -> PathBuf {
 }
 
 pub fn ensure_directories() -> Result<(), String> {
-    fs::create_dir_all(data_dir()).map_err(|error| error.to_string())?;
-    fs::create_dir_all(recovery_dir()).map_err(|error| error.to_string())?;
+    let data = data_dir();
+    let recovery = recovery_dir();
+    ensure_private_directory(&data)?;
+    ensure_private_directory(&recovery)?;
+    Ok(())
+}
+
+fn ensure_private_directory(path: &Path) -> Result<(), String> {
+    fs::create_dir_all(path).map_err(|error| error.to_string())?;
+    let metadata = fs::symlink_metadata(path).map_err(|error| error.to_string())?;
+    if !metadata.file_type().is_dir() {
+        return Err(format!(
+            "Частната папка на приложението не е валидна: {}",
+            path.display()
+        ));
+    }
+    #[cfg(unix)]
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700))
+        .map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -109,11 +126,18 @@ pub fn append_diagnostic(message: &str) {
         return;
     }
     let sanitized = sanitize_diagnostic(message);
+    let path = diagnostics_path();
+    if fs::symlink_metadata(&path)
+        .ok()
+        .is_some_and(|metadata| !metadata.file_type().is_file())
+    {
+        return;
+    }
     let mut options = OpenOptions::new();
     options.create(true).append(true);
     #[cfg(unix)]
     options.mode(0o600);
-    if let Ok(mut file) = options.open(diagnostics_path()) {
+    if let Ok(mut file) = options.open(path) {
         let _ = writeln!(file, "{} {}", Utc::now().to_rfc3339(), sanitized);
     }
     trim_diagnostics();
@@ -183,13 +207,28 @@ fn trim_diagnostics() {
 }
 
 fn read_json<T: DeserializeOwned>(path: &Path) -> Option<T> {
+    if !path.parent().is_some_and(|parent| {
+        fs::symlink_metadata(parent)
+            .ok()
+            .is_some_and(|metadata| metadata.file_type().is_dir())
+    }) {
+        return None;
+    }
+    if !fs::symlink_metadata(path)
+        .ok()
+        .is_some_and(|metadata| metadata.file_type().is_file())
+    {
+        return None;
+    }
+    #[cfg(unix)]
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).ok()?;
     let bytes = fs::read(path).ok()?;
     serde_json::from_slice(&bytes).ok()
 }
 
 fn write_json_atomic<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<(), String> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        ensure_private_directory(parent)?;
     }
     let file_name = path
         .file_name()
