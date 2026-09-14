@@ -24,6 +24,7 @@ use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 const KEYRING_SERVICE: &str = "app.aidoo.whisper-lite";
 const KEYRING_USER: &str = "openai-api-key";
 const TRAY_ID: &str = "aidoo-whisper-lite";
+const MAX_RECORDING_DURATION: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 
 struct AppState {
     settings: Mutex<AppSettings>,
@@ -207,6 +208,9 @@ fn localized_native_error(error: &str, english: bool) -> String {
         }
         "Аудио файлът е по-голям от лимита на OpenAI от 25 MB. Направете по-кратък запис." => {
             Some("The audio file exceeds OpenAI's 25 MB limit. Make a shorter recording.")
+        }
+        "Достигнат е максималният запис от 5 минути. Спирам и транскрибирам." => {
+            Some("The 5-minute recording limit was reached. Stopping and transcribing.")
         }
         "Има запазен неуспешен запис. Изберете „Опитай отново“ или „Изтрий“, преди да започнете нова диктовка." => {
             Some("A failed recording is saved. Choose “Try again” or “Delete” before starting a new dictation.")
@@ -798,6 +802,22 @@ fn start_recording_inner(app: &AppHandle) -> Result<audio::AudioStartInfo, Strin
             }
             if !state.stop_requested.load(Ordering::Acquire) {
                 set_recording_state(app, "recording");
+                let recording_generation = state.status_generation.load(Ordering::Acquire);
+                let timeout_app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(MAX_RECORDING_DURATION).await;
+                    let timeout_state = timeout_app.state::<AppState>();
+                    if timeout_state.recording_active.load(Ordering::Acquire)
+                        && timeout_state.status_generation.load(Ordering::Acquire)
+                            == recording_generation
+                    {
+                        let _ = timeout_app.emit(
+                            "toast",
+                            "Достигнат е максималният запис от 5 минути. Спирам и транскрибирам.",
+                        );
+                        request_dictation_stop(&timeout_app);
+                    }
+                });
             }
             std::mem::forget(operation);
             Ok(info)
