@@ -39,9 +39,40 @@ def atomic_copy(source: Path, target: Path) -> None:
     temporary = target.with_name(f".{target.name}.tmp-{uuid.uuid4().hex}")
     try:
         shutil.copy2(source, temporary)
+        with temporary.open("rb") as copied:
+            os.fsync(copied.fileno())
         os.replace(temporary, target)
+        sync_directory(target.parent)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def atomic_write_text(target: Path, contents: str) -> None:
+    temporary = target.with_name(f".{target.name}.tmp-{uuid.uuid4().hex}")
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            descriptor = None
+            output.write(contents)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, target)
+        sync_directory(target.parent)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        temporary.unlink(missing_ok=True)
+
+
+def sync_directory(directory: Path) -> None:
+    if not hasattr(os, "O_DIRECTORY"):
+        return
+    descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def replace_website_directory(source: Path, target: Path) -> None:
@@ -56,6 +87,7 @@ def replace_website_directory(source: Path, target: Path) -> None:
         if target.exists():
             os.replace(target, previous)
         os.replace(temporary, target)
+        sync_directory(target.parent)
         if previous.exists():
             shutil.rmtree(previous)
     except Exception:
@@ -150,13 +182,11 @@ def main() -> int:
         if source_dmg != target_dmg:
             atomic_copy(source_dmg, target_dmg)
         checksum = release_dir / f"{DMG_NAME}.sha256"
-        checksum.write_text(f"{sha256(target_dmg)}  {DMG_NAME}\n")
+        atomic_write_text(checksum, f"{sha256(target_dmg)}  {DMG_NAME}\n")
         replace_website_directory(ROOT / "website", release_dir / "website")
         manifest = expected_manifest(release_dir)
         manifest_path = release_dir / "release-manifest.json"
-        temporary_manifest = manifest_path.with_suffix(".json.tmp")
-        temporary_manifest.write_text(json.dumps(manifest, indent=2) + "\n")
-        os.replace(temporary_manifest, manifest_path)
+        atomic_write_text(manifest_path, json.dumps(manifest, indent=2) + "\n")
 
     verify(release_dir)
     print(f"Website release package verified: {release_dir}")
