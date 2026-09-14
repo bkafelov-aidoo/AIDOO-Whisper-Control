@@ -6,6 +6,7 @@ Status date: 14 September 2026
 
 - The complete TypeScript production build passes.
 - All 70 representative backend error cases render without Bulgarian text in the English interface.
+- Current OpenAI documentation confirms the selected model aliases, displayed price estimates, FLAC transcription input and explicit ISO-639-1 language hint.
 - All 19 native unit tests pass and native linting reports no warnings.
 - The application and DMG are signed with `Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)`.
 - Apple notarization tickets are stapled to both the application and DMG.
