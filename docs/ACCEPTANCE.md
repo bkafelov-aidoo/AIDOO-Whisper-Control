@@ -44,6 +44,7 @@ The remaining checks below are behavioral and must be completed on the signed bu
 
 - Close the main window and confirm the menu bar icon and shortcut remain active; reopen the window from both the Dock icon and menu bar.
 - Confirm menu bar state, stop action, error details, settings and Quit.
+- While recording, transcribing, validating a key or capturing a shortcut, confirm Quit cannot discard the active operation and becomes available again after it finishes.
 - Enable and disable Launch at Login.
 - Change the Login Item or Accessibility permission in macOS System Settings, return to the app and confirm the displayed state refreshes; remove the API key and confirm both the main window and menu bar stop reporting ready.
 - Confirm the application contains no in-app or background update checker; new versions are installed from the AIDOO website.

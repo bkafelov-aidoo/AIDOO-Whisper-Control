@@ -184,6 +184,7 @@ fn compact_error(error: &str) -> String {
 
 fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<Menu<tauri::Wry>> {
     let english = uses_english_ui(app);
+    let operation_active = matches!(current, "starting" | "recording" | "transcribing");
     let status = MenuItem::with_id(
         app,
         "status",
@@ -228,7 +229,7 @@ fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<Menu<tauri::
         app,
         "quit",
         if english { "Quit" } else { "Изход" },
-        true,
+        !operation_active,
         None::<&str>,
     )?;
     let error = app
@@ -1771,16 +1772,26 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building AIDOO Whisper Lite");
-    app.run(|app, event| {
-        #[cfg(target_os = "macos")]
-        if matches!(
-            event,
-            tauri::RunEvent::Reopen {
-                has_visible_windows: false,
-                ..
-            }
-        ) {
-            show_main_window(app, false);
+    app.run(|app, event| match event {
+        tauri::RunEvent::ExitRequested { api, .. }
+            if app
+                .state::<AppState>()
+                .operation_active
+                .load(Ordering::Acquire) =>
+        {
+            api.prevent_exit();
+            let message = if uses_english_ui(app) {
+                "Wait for the current operation to finish before quitting."
+            } else {
+                "Изчакайте текущата операция да приключи, преди да затворите приложението."
+            };
+            let _ = app.emit("toast", message);
         }
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Reopen {
+            has_visible_windows: false,
+            ..
+        } => show_main_window(app, false),
+        _ => {}
     });
 }
