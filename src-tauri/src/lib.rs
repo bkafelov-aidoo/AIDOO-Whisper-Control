@@ -12,6 +12,8 @@ use models::{
 };
 use std::fs::File;
 use std::io::Write;
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -1926,11 +1928,25 @@ fn open_local_path(path: String, reveal: bool, state: State<'_, AppState>) -> Re
     Ok(())
 }
 
+struct PendingDiagnosticFile {
+    path: PathBuf,
+    committed: bool,
+}
+
+impl Drop for PendingDiagnosticFile {
+    fn drop(&mut self) {
+        if !self.committed {
+            let _ = std::fs::remove_file(&self.path);
+        }
+    }
+}
+
 #[tauri::command]
 fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
+    let state = app.state::<AppState>();
+    let _operation = acquire_operation(&state)?;
     storage::ensure_directories()?;
-    let transcript_texts = app
-        .state::<AppState>()
+    let transcript_texts = state
         .history
         .lock()
         .map_err(|_| "Историята е заключена.")?
@@ -1940,9 +1956,27 @@ fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
     let path = storage::data_dir().join(format!(
         "AIDOO-Whisper-Lite-Diagnostics-{}-{}.zip",
         Local::now().format("%Y%m%d-%H%M%S"),
-        &uuid::Uuid::new_v4().simple().to_string()[..6]
+        &uuid::Uuid::new_v4().simple().to_string()[..12]
     ));
-    let file = File::create(&path).map_err(|error| error.to_string())?;
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("diagnostics.zip");
+    let temporary = path.with_file_name(format!(
+        ".{file_name}.tmp-{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    let mut pending = PendingDiagnosticFile {
+        path: temporary.clone(),
+        committed: false,
+    };
+    let mut file_options = File::options();
+    file_options.write(true).create_new(true);
+    #[cfg(unix)]
+    file_options.mode(0o600);
+    let file = file_options
+        .open(&temporary)
+        .map_err(|error| error.to_string())?;
     let mut zip = ZipWriter::new(file);
     let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
     if let Ok(log) = std::fs::read(storage::diagnostics_path()) {
@@ -1989,8 +2023,7 @@ fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
             }
         }
     }
-    let settings = app
-        .state::<AppState>()
+    let settings = state
         .settings
         .lock()
         .map_err(|_| "Настройките са заключени.")?
@@ -2015,7 +2048,15 @@ fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
         .as_bytes(),
     )
     .map_err(|error| error.to_string())?;
-    zip.finish().map_err(|error| error.to_string())?;
+    let file = zip.finish().map_err(|error| error.to_string())?;
+    file.sync_all().map_err(|error| error.to_string())?;
+    drop(file);
+    std::fs::rename(&temporary, &path).map_err(|error| error.to_string())?;
+    pending.committed = true;
+    #[cfg(unix)]
+    File::open(storage::data_dir())
+        .and_then(|directory| directory.sync_all())
+        .map_err(|error| error.to_string())?;
     Ok(path.to_string_lossy().to_string())
 }
 

@@ -57,6 +57,7 @@ The remaining checks below are behavioral and must be completed on the signed bu
 - Change the Login Item or Accessibility permission in macOS System Settings, return to the app and confirm the displayed state refreshes; remove the API key and confirm both the main window and menu bar stop reporting ready.
 - Confirm the application contains no in-app or background update checker; new versions are installed from the AIDOO website.
 - Create a diagnostics package, confirm Finder reveals it, and inspect that it has no API key, transcript text or audio; confirm the separate support button opens the AIDOO Whisper GitHub Issues page without uploading anything automatically.
+- While a diagnostics package is being created, confirm Quit is unavailable and no temporary or partial ZIP remains after an injected write failure.
 
 ## Distribution
 
