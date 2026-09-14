@@ -8,7 +8,7 @@ The bundle identifier is `app.aidoo.whisper-lite`, the minimum system version is
 
 ## Version and local release
 
-Keep the same semantic version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`. Update `website/release-notes.html`, regenerate `resources/THIRD_PARTY_NOTICES.txt`, commit, and create a `lite-vX.Y.Z` tag.
+Keep the same semantic version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`. Update `website/release-notes.html`, regenerate `resources/THIRD_PARTY_NOTICES.txt`, commit, and create the exact `lite-vX.Y.Z` tag. CI rejects a tag whose version differs from the application before it imports the signing certificate.
 
 `npm run check:website` validates the three static public pages, their local links, required privacy/support/release content, matching product icon and release version. It also rejects active web elements and non-HTTPS external references.
 

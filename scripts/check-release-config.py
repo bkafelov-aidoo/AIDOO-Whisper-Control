@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import plistlib
 import re
 from pathlib import Path
@@ -30,6 +31,15 @@ def main() -> int:
     }
     if None in versions.values() or len(set(versions.values())) != 1:
         errors.append(f"Release versions differ: {versions}")
+
+    github_ref_type = os.environ.get("GITHUB_REF_TYPE")
+    github_ref_name = os.environ.get("GITHUB_REF_NAME")
+    if github_ref_type == "tag":
+        expected_tag = f"lite-v{versions['package.json']}"
+        if github_ref_name != expected_tag:
+            errors.append(
+                f"Release tag {github_ref_name!r} does not match {expected_tag!r}"
+            )
 
     bundle = tauri.get("bundle", {})
     macos = bundle.get("macOS", {})
