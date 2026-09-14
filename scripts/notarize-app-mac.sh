@@ -4,7 +4,6 @@ set -euo pipefail
 project_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$project_root"
 
-notary_profile="${NOTARY_PROFILE:-AIDOO_VIEWER_NOTARY}"
 app_path="${1:-}"
 if [[ -z "$app_path" || ! -d "$app_path" ]]; then
   echo "Подписаното .app приложение не е намерено." >&2
@@ -21,7 +20,10 @@ except FileNotFoundError:
 PY' EXIT
 
 ditto -c -k --keepParent "$app_path" "$submission_zip"
-result="$(xcrun notarytool submit "$submission_zip" --keychain-profile "$notary_profile" --wait --timeout 60m --output-format json)"
+# shellcheck source=notarytool-auth-mac.sh
+source "$project_root/scripts/notarytool-auth-mac.sh"
+configure_notary_auth
+result="$(xcrun notarytool submit "$submission_zip" "${notary_auth_args[@]}" --wait --timeout 60m --output-format json)"
 status="$(printf '%s' "$result" | plutil -extract status raw -o - - 2>/dev/null || true)"
 submission_id="$(printf '%s' "$result" | plutil -extract id raw -o - - 2>/dev/null || true)"
 if [[ "$status" != "Accepted" ]]; then

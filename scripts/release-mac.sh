@@ -11,7 +11,12 @@ python3 scripts/generate-third-party-notices.py
 npm run check
 cargo test --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml
 cargo clippy --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-npx tauri build --target aarch64-apple-darwin --bundles app,dmg
+# The release scripts notarize the stapled app first, then rebuild and notarize
+# the DMG. Keep Tauri's automatic notarization disabled so CI and local releases
+# use this exact sequence once.
+env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
+  -u APPLE_API_KEY -u APPLE_API_ISSUER -u APPLE_API_KEY_PATH \
+  npx tauri build --target aarch64-apple-darwin --bundles app,dmg
 
 dmg="$(find "$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/dmg" -maxdepth 1 -name '*.dmg' -print -quit)"
 app="$(find "$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/macos" -maxdepth 1 -name '*.app' -print -quit)"

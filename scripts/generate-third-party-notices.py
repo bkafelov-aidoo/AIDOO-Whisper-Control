@@ -14,6 +14,11 @@ OUTPUT = ROOT / "resources" / "THIRD_PARTY_NOTICES.txt"
 LICENSE_NAMES = ("license", "licence", "copying", "notice", "unlicense")
 
 
+def stable_text_key(value: object) -> tuple[str, str]:
+    text = str(value)
+    return (text.lower(), text)
+
+
 def license_files(directory: Path) -> list[Path]:
     return sorted(
         path
@@ -139,18 +144,18 @@ def render() -> str:
             "----------------------------------------",
             "",
             "Their declared license expression is included in the inventory above:",
-            ", ".join(sorted(missing_notices, key=str.lower)),
+            ", ".join(sorted(missing_notices, key=stable_text_key)),
             "",
         ])
 
     sections.extend(["Unique license and notice texts", "-------------------------------", ""])
     ordered = sorted(
         notices.items(),
-        key=lambda item: sorted(item[1]["packages"], key=str.lower)[0],  # type: ignore[arg-type]
+        key=lambda item: sorted(item[1]["packages"], key=stable_text_key)[0],  # type: ignore[arg-type]
     )
     for index, (_, notice) in enumerate(ordered, start=1):
-        packages = sorted(notice["packages"], key=str.lower)  # type: ignore[arg-type]
-        files = sorted(notice["files"], key=str.lower)  # type: ignore[arg-type]
+        packages = sorted(notice["packages"], key=stable_text_key)  # type: ignore[arg-type]
+        files = sorted(notice["files"], key=stable_text_key)  # type: ignore[arg-type]
         sections.extend([
             f"Notice {index:03d} ({', '.join(files)})",
             f"Used by: {', '.join(packages)}",
