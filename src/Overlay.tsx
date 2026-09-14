@@ -73,8 +73,8 @@ export default function Overlay() {
   }, [snapshot.state]);
 
   useEffect(() => {
-    const height = Math.max(92, Math.min(220, (card.current?.scrollHeight ?? 112) + 18));
-    void getCurrentWindow().setSize(new LogicalSize(480, height)).then(() => invoke("reposition_overlay"));
+    const height = Math.max(132, Math.min(260, (card.current?.scrollHeight ?? 84) + 48));
+    void getCurrentWindow().setSize(new LogicalSize(552, height)).then(() => invoke("reposition_overlay"));
   }, [snapshot.state, snapshot.error, snapshot.progress.stage, notice]);
 
   const label = stateText[language];
