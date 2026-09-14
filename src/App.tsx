@@ -151,16 +151,16 @@ export default function App() {
   };
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" aria-busy={isBusy}>
       <aside className="sidebar">
         <div className="brand">
           <img src="/app-icon.png" alt="" />
           <div><strong>AIDOO</strong><span>Whisper Lite</span></div>
         </div>
         <nav>
-          <NavButton active={page === "dictation"} icon={<Mic />} label={t("dictation")} onClick={() => setPage("dictation")} />
-          <NavButton active={page === "history"} icon={<History />} label={t("history")} badge={data.history.length || undefined} onClick={() => setPage("history")} />
-          <NavButton active={page === "settings"} icon={<Settings />} label={t("settings")} onClick={() => setPage("settings")} />
+          <NavButton active={page === "dictation"} disabled={isBusy} icon={<Mic />} label={t("dictation")} onClick={() => setPage("dictation")} />
+          <NavButton active={page === "history"} disabled={isBusy} icon={<History />} label={t("history")} badge={data.history.length || undefined} onClick={() => setPage("history")} />
+          <NavButton active={page === "settings"} disabled={isBusy} icon={<Settings />} label={t("settings")} onClick={() => setPage("settings")} />
         </nav>
         <div className={`sidebar-status ${isReady ? "ready" : "attention"}`}>
           <i />
@@ -283,8 +283,8 @@ export default function App() {
   );
 }
 
-function NavButton({ active, icon, label, badge, onClick }: { active: boolean; icon: React.ReactNode; label: string; badge?: number; onClick: () => void }) {
-  return <button className={active ? "active" : ""} aria-current={active ? "page" : undefined} onClick={onClick}>{icon}<span>{label}</span>{badge ? <em>{badge}</em> : null}</button>;
+function NavButton({ active, disabled, icon, label, badge, onClick }: { active: boolean; disabled: boolean; icon: React.ReactNode; label: string; badge?: number; onClick: () => void }) {
+  return <button className={active ? "active" : ""} aria-current={active ? "page" : undefined} disabled={disabled} onClick={onClick}>{icon}<span>{label}</span>{badge ? <em>{badge}</em> : null}</button>;
 }
 
 function Dashboard({ data, language, isBusy, onOpenOnboarding, onTest, onRetry, onDeleteFailed, onCopy, onOpen, onRetranscribe }: {
@@ -316,7 +316,7 @@ function Dashboard({ data, language, isBusy, onOpenOnboarding, onTest, onRetry, 
       </section>
       {data.failedRecording && <FailedCard failed={data.failedRecording} language={language} disabled={isBusy} onRetry={onRetry} onDelete={onDeleteFailed} />}
       <section className="section-card">
-        <header><div><h3>{t("recent")}</h3><p>{t("saveHistoryHelp")}</p></div><button className="text-button" onClick={() => data.history[0] && onCopy(data.history[0].text)} disabled={!data.history[0]}><Clipboard />{t("copy")}</button></header>
+        <header><div><h3>{t("recent")}</h3><p>{t("saveHistoryHelp")}</p></div><button className="text-button" onClick={() => data.history[0] && onCopy(data.history[0].text)} disabled={isBusy || !data.history[0]}><Clipboard />{t("copy")}</button></header>
         {data.history.length ? data.history.slice(0, 4).map((entry) => <HistoryRow key={entry.id} entry={entry} language={language} actionBusy={isBusy} onCopy={onCopy} onOpen={onOpen} onRetranscribe={onRetranscribe} />) : <EmptyHistory language={language} />}
       </section>
     </div>
@@ -335,7 +335,7 @@ function HistoryPage({ history, language, isBusy, onCopy, onOpen, onRetranscribe
 
 function HistoryRow({ entry, language, expanded = false, actionBusy = false, onCopy, onOpen, onRetranscribe, onDelete }: { entry: TranscriptEntry; language: AppLanguage; expanded?: boolean; actionBusy?: boolean; onCopy: (text: string) => void; onOpen: (path: string) => void; onRetranscribe: (id: string) => void; onDelete?: () => void }) {
   const t = translator(language);
-  return <article className={`history-row ${expanded ? "expanded" : ""}`}><div className="history-icon"><AudioLines /></div><div className="history-copy"><p>{entry.text}</p><span><Clock3 />{formatDate(entry.createdAt, language)} · {formatDuration(entry.durationSeconds)} · {modelLabel(entry.model, language)}</span></div><div className="history-actions"><button title={t("copy")} aria-label={t("copy")} onClick={() => onCopy(entry.text)}><Clipboard /></button>{entry.audioPath && <button title={t("retranscribe")} aria-label={t("retranscribe")} disabled={actionBusy} onClick={() => onRetranscribe(entry.id)}><RotateCcw /></button>}{entry.audioPath && <button title={t("openAudio")} aria-label={t("openAudio")} onClick={() => onOpen(entry.audioPath!)}><FileAudio /></button>}{entry.textPath && <button title={t("openText")} aria-label={t("openText")} onClick={() => onOpen(entry.textPath!)}><FileText /></button>}{onDelete && <button className="danger" title={t("delete")} aria-label={t("delete")} disabled={actionBusy} onClick={onDelete}><Trash2 /></button>}</div></article>;
+  return <article className={`history-row ${expanded ? "expanded" : ""}`}><div className="history-icon"><AudioLines /></div><div className="history-copy"><p>{entry.text}</p><span><Clock3 />{formatDate(entry.createdAt, language)} · {formatDuration(entry.durationSeconds)} · {modelLabel(entry.model, language)}</span></div><div className="history-actions"><button title={t("copy")} aria-label={t("copy")} disabled={actionBusy} onClick={() => onCopy(entry.text)}><Clipboard /></button>{entry.audioPath && <button title={t("retranscribe")} aria-label={t("retranscribe")} disabled={actionBusy} onClick={() => onRetranscribe(entry.id)}><RotateCcw /></button>}{entry.audioPath && <button title={t("openAudio")} aria-label={t("openAudio")} disabled={actionBusy} onClick={() => onOpen(entry.audioPath!)}><FileAudio /></button>}{entry.textPath && <button title={t("openText")} aria-label={t("openText")} disabled={actionBusy} onClick={() => onOpen(entry.textPath!)}><FileText /></button>}{onDelete && <button className="danger" title={t("delete")} aria-label={t("delete")} disabled={actionBusy} onClick={onDelete}><Trash2 /></button>}</div></article>;
 }
 
 function EmptyHistory({ language }: { language: AppLanguage }) {

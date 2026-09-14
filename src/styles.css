@@ -43,6 +43,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .sidebar nav button { min-height: 42px; padding: 0 12px; border-radius: 10px; background: transparent; color: #536577; display: flex; align-items: center; gap: 10px; cursor: pointer; text-align: left; font-size: 13px; font-weight: 600; transition: background .15s ease, color .15s ease; }
 .sidebar nav button:hover { background: #edf2f7; color: #263b50; }
 .sidebar nav button.active { color: var(--accent-dark); background: #e6f1ff; }
+.sidebar nav button:disabled { opacity: .52; cursor: default; }
 .sidebar nav svg { width: 17px; }
 .sidebar nav em { margin-left: auto; min-width: 21px; height: 21px; padding: 0 6px; border-radius: 8px; background: #d4e8ff; display: grid; place-items: center; font-style: normal; font-size: 10px; font-weight: 700; }
 .sidebar-status { margin-top: auto; min-height: 70px; padding: 12px; border: 1px solid var(--border); border-radius: 13px; background: #f7f9fb; display: grid; grid-template-columns: 8px 1fr; align-items: center; gap: 8px; -webkit-app-region: no-drag; }
