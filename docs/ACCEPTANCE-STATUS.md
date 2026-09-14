@@ -18,7 +18,7 @@ Status date: 14 September 2026
 - The signed bundle includes verified English and Bulgarian macOS Microphone permission explanations, plus the third-party notices at the application resource root.
 - Product and website icons match; no updater is configured.
 - `npm audit --omit=dev` reports no production dependency vulnerabilities.
-- RustSec reports no known vulnerabilities in the locked Rust dependency graph. Its macOS-target dependency tree excludes the separately reported Linux-only `glib` advisory.
+- RustSec reports no status-failing vulnerabilities in the locked dependency graph. It reports the informational Linux-only `glib` advisory `RUSTSEC-2024-0429`; an independent release check proves that the affected package is absent from the Apple Silicon macOS graph.
 - The GitHub macOS release workflow repeats both dependency audits and runs the same app-first stapling, DMG rebuild, notarization and signed-DMG audit used locally before storing a website artifact.
 - The release audit passes against `release/1.0.0/AIDOO Whisper Lite_1.0.0_aarch64.dmg`.
 - The website release package contains the audited DMG, matching checksum, exact privacy/support/release pages and a verified SHA-256 manifest for every staged file.
