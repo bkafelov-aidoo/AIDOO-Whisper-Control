@@ -16,7 +16,7 @@ Status date: 14 September 2026
 - RustSec reports no known vulnerabilities in the locked Rust dependency graph. Its macOS-target dependency tree excludes the separately reported Linux-only `glib` advisory.
 - The GitHub macOS release workflow repeats both dependency audits and runs the same signed-DMG audit used locally before storing a website artifact.
 - The release audit passes against `release/1.0.0/AIDOO Whisper Lite_1.0.0_aarch64.dmg`.
-- SHA-256: `17b8801c2f1e57a548ebec6b05936518fd82c1919c936ab86ed7da4eb02bf163`.
+- SHA-256: `47e1d71c51ea10072ee9c00f3114932e08599cf08c5d15118cbda5991b620aad`.
 
 Earlier interactive checks on this Mac covered onboarding, settings, shortcut capture, the overlay state flow, FLAC/TXT/history persistence, recovery after a failed transcription, clipboard copy, and the close/reopen lifecycle. They were not repeated after the final privacy-only change because microphone tests were paused at the user's request.
 
