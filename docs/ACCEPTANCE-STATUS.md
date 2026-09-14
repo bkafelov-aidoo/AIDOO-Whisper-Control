@@ -2,7 +2,9 @@
 
 Status date: 14 September 2026
 
-## Verified on the development Apple Silicon Mac
+> The artifact recorded below is the last fully audited candidate. It is superseded by newer source changes and must not be published. Produce and audit a fresh signed build before launch, then replace this note and checksum with the final artifact evidence.
+
+## Last audited candidate on the development Apple Silicon Mac
 
 - The complete TypeScript production build passes.
 - All 70 representative backend error cases render without Bulgarian text in the English interface.
@@ -27,6 +29,7 @@ Earlier interactive checks on this Mac covered onboarding, settings, shortcut ca
 
 ## Required before public launch
 
+- Build, sign, notarize, staple and audit a fresh candidate from the current source, then record its checksum here.
 - Complete every behavioral item in [ACCEPTANCE.md](ACCEPTANCE.md) on the signed build while a tester is present.
 - Complete the critical onboarding and dictation path on a second Mac or clean macOS account.
 - Upload the exact audited DMG and matching checksum to the AIDOO website with the privacy, support, and release-notes pages.

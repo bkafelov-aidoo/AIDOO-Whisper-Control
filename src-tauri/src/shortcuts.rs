@@ -174,12 +174,14 @@ pub fn begin_capture(target: String, state: &AppState) -> Result<(), String> {
     Ok(())
 }
 
-pub fn cancel_capture(state: &AppState) -> Result<(), String> {
-    *state
+pub fn cancel_capture(state: &AppState) -> Result<bool, String> {
+    let removed = state
         .shortcut_capture
         .lock()
-        .map_err(|_| "Shortcut recorder-ът е заключен.")? = None;
-    Ok(())
+        .map_err(|_| "Shortcut recorder-ът е заключен.")?
+        .take()
+        .is_some();
+    Ok(removed)
 }
 
 pub fn install(app: AppHandle) {
@@ -271,10 +273,15 @@ fn process_capture_key(app: &AppHandle, modifiers: &ModifierState, code: &str, p
         return;
     }
     if code == "escape" {
-        if let Ok(mut capture) = app.state::<AppState>().shortcut_capture.lock() {
-            if let Some(target) = capture.take() {
-                let _ = app.emit("shortcut:capture-cancelled", target);
-            }
+        let target = app
+            .state::<AppState>()
+            .shortcut_capture
+            .lock()
+            .ok()
+            .and_then(|mut capture| capture.take());
+        if let Some(target) = target {
+            crate::release_shortcut_capture_operation(app);
+            let _ = app.emit("shortcut:capture-cancelled", target);
         }
         return;
     }
@@ -300,13 +307,6 @@ fn try_finish_capture(app: &AppHandle, binding: ShortcutBinding) {
         let _ = app.emit("shortcut:capture-error", error);
         return;
     }
-    let target = app
-        .state::<AppState>()
-        .shortcut_capture
-        .lock()
-        .ok()
-        .and_then(|capture| capture.clone());
-    let Some(target) = target else { return };
     let settings = app
         .state::<AppState>()
         .settings
@@ -322,9 +322,14 @@ fn try_finish_capture(app: &AppHandle, binding: ShortcutBinding) {
         let _ = app.emit("shortcut:capture-error", error);
         return;
     }
-    if let Ok(mut capture) = app.state::<AppState>().shortcut_capture.lock() {
-        *capture = None;
-    }
+    let target = app
+        .state::<AppState>()
+        .shortcut_capture
+        .lock()
+        .ok()
+        .and_then(|mut capture| capture.take());
+    let Some(target) = target else { return };
+    crate::release_shortcut_capture_operation(app);
     let _ = app.emit(
         "shortcut:captured",
         ShortcutCapturedPayload { target, binding },

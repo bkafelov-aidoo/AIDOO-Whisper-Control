@@ -3,6 +3,8 @@ use chrono::Utc;
 use serde::{de::DeserializeOwned, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
 pub fn data_dir() -> PathBuf {
@@ -66,7 +68,28 @@ pub fn save_history(history: &[TranscriptEntry]) -> Result<(), String> {
 }
 
 pub fn load_failed_recording() -> Option<FailedRecording> {
-    read_json(&failed_recording_path())
+    let recording: FailedRecording = read_json(&failed_recording_path())?;
+    let path = PathBuf::from(&recording.path);
+    let name = path.file_name()?.to_str()?;
+    let extension = path.extension()?.to_str()?;
+    let valid_name = name.starts_with("failed-dictation-")
+        || matches!(
+            name,
+            "last-failed-dictation.flac" | "last-failed-dictation.wav"
+        );
+    let recovery = recovery_dir();
+    let is_regular_file = fs::symlink_metadata(&path)
+        .ok()
+        .is_some_and(|metadata| metadata.file_type().is_file());
+    if path.parent() == Some(recovery.as_path())
+        && valid_name
+        && matches!(extension.to_ascii_lowercase().as_str(), "flac" | "wav")
+        && is_regular_file
+    {
+        Some(recording)
+    } else {
+        None
+    }
 }
 
 pub fn save_failed_recording(recording: &FailedRecording) -> Result<(), String> {
@@ -86,11 +109,11 @@ pub fn append_diagnostic(message: &str) {
         return;
     }
     let sanitized = sanitize_diagnostic(message);
-    if let Ok(mut file) = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(diagnostics_path())
-    {
+    let mut options = OpenOptions::new();
+    options.create(true).append(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    if let Ok(mut file) = options.open(diagnostics_path()) {
         let _ = writeln!(file, "{} {}", Utc::now().to_rfc3339(), sanitized);
     }
     trim_diagnostics();
@@ -168,10 +191,35 @@ fn write_json_atomic<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<()
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
-    let temporary = path.with_extension("tmp");
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("aidoo-data");
+    let temporary = path.with_file_name(format!(
+        ".{file_name}.tmp-{}",
+        uuid::Uuid::new_v4().simple()
+    ));
     let bytes = serde_json::to_vec_pretty(value).map_err(|error| error.to_string())?;
-    fs::write(&temporary, bytes).map_err(|error| error.to_string())?;
-    fs::rename(&temporary, path).map_err(|error| error.to_string())
+    let result = (|| {
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        options.mode(0o600);
+        let mut file = options.open(&temporary)?;
+        file.write_all(&bytes)?;
+        file.sync_all()?;
+        drop(file);
+        fs::rename(&temporary, path)?;
+        #[cfg(unix)]
+        if let Some(parent) = path.parent() {
+            fs::File::open(parent)?.sync_all()?;
+        }
+        Ok::<(), std::io::Error>(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result.map_err(|error| error.to_string())
 }
 
 #[cfg(test)]

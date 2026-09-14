@@ -107,7 +107,7 @@ export default function Overlay() {
           </div>
         )}
         {snapshot.state === "transcribing" && (
-          <div className={`overlay-progress ${snapshot.progress.determinate ? "" : "indeterminate"}`} aria-label={`${snapshot.progress.percent}%`}>
+          <div className={`overlay-progress ${snapshot.progress.determinate ? "" : "indeterminate"}`} role="progressbar" aria-label={stage} aria-valuemin={snapshot.progress.determinate ? 0 : undefined} aria-valuemax={snapshot.progress.determinate ? 100 : undefined} aria-valuenow={snapshot.progress.determinate ? snapshot.progress.percent : undefined}>
             <i style={{ width: snapshot.progress.determinate ? `${snapshot.progress.percent}%` : "38%" }} />
           </div>
         )}

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 pub const ECONOMY_MODEL: &str = "gpt-4o-mini-transcribe";
 pub const ACCURACY_MODEL: &str = "gpt-transcribe";
@@ -72,6 +73,18 @@ impl AppSettings {
         if !matches!(self.ui_language.as_str(), "auto" | "bg" | "en") {
             self.ui_language = "auto".into();
         }
+        if self.output_directory.as_deref().is_some_and(|directory| {
+            directory.trim().is_empty() || !Path::new(directory).is_absolute()
+        }) {
+            self.output_directory = None;
+        }
+        if self
+            .microphone_name
+            .as_deref()
+            .is_some_and(|name| name.trim().is_empty())
+        {
+            self.microphone_name = None;
+        }
     }
 }
 
@@ -98,6 +111,8 @@ mod tests {
             model: "unknown-model".into(),
             language: "made-up-language".into(),
             ui_language: "unsupported".into(),
+            output_directory: Some("relative/output".into()),
+            microphone_name: Some("   ".into()),
             ..AppSettings::default()
         };
 
@@ -106,6 +121,8 @@ mod tests {
         assert_eq!(settings.model, ECONOMY_MODEL);
         assert_eq!(settings.language, "auto");
         assert_eq!(settings.ui_language, "auto");
+        assert_eq!(settings.output_directory, None);
+        assert_eq!(settings.microphone_name, None);
     }
 }
 

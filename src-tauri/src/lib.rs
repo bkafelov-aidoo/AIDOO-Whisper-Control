@@ -157,6 +157,8 @@ fn status_label(state: &str, english: bool) -> &'static str {
         (true, "transcribing") => "Status: transcribing",
         (true, "done") => "Status: text is ready",
         (true, "error") => "Status: error",
+        (true, "recovery") => "Status: action required",
+        (true, "setup") => "Status: finish setup",
         (true, "permission") => "Status: permission required",
         (true, _) => "Status: ready for dictation",
         (false, "starting") => "Състояние: стартирам микрофона",
@@ -164,6 +166,8 @@ fn status_label(state: &str, english: bool) -> &'static str {
         (false, "transcribing") => "Състояние: транскрибирам",
         (false, "done") => "Състояние: текстът е готов",
         (false, "error") => "Състояние: грешка",
+        (false, "recovery") => "Състояние: нужно е действие",
+        (false, "setup") => "Състояние: довършете настройката",
         (false, "permission") => "Състояние: нужно е разрешение",
         (false, _) => "Състояние: готов за диктовка",
     }
@@ -284,10 +288,16 @@ fn update_tray_menu(app: &AppHandle, current: &str) {
             (true, "recording") => "AIDOO Whisper Lite — recording",
             (true, "transcribing") => "AIDOO Whisper Lite — transcribing",
             (true, "error") => "AIDOO Whisper Lite — error",
+            (true, "recovery") => "AIDOO Whisper Lite — action required",
+            (true, "setup") => "AIDOO Whisper Lite — finish setup",
+            (true, "permission") => "AIDOO Whisper Lite — permission required",
             (true, _) => "AIDOO Whisper Lite — ready",
             (false, "recording") => "AIDOO Whisper Lite — записвам",
             (false, "transcribing") => "AIDOO Whisper Lite — транскрибирам",
             (false, "error") => "AIDOO Whisper Lite — грешка",
+            (false, "recovery") => "AIDOO Whisper Lite — нужно е действие",
+            (false, "setup") => "AIDOO Whisper Lite — довършете настройката",
+            (false, "permission") => "AIDOO Whisper Lite — нужно е разрешение",
             (false, _) => "AIDOO Whisper Lite — готов",
         };
         let _ = tray.set_tooltip(Some(tooltip));
@@ -299,23 +309,59 @@ fn update_tray_menu(app: &AppHandle, current: &str) {
 
 fn refresh_tray_menu(app: &AppHandle) {
     let granted = accessibility_granted();
-    let current = app
-        .state::<AppState>()
+    let state = app.state::<AppState>();
+    let current = state
         .recording_status
         .lock()
         .map(|value| value.clone())
         .unwrap_or_else(|_| "idle".into());
-    let tray_state = if matches!(
-        current.as_str(),
-        "starting" | "recording" | "transcribing" | "done" | "error"
-    ) {
-        current.as_str()
-    } else if granted {
+    let has_recovery = state
+        .failed_recording
+        .lock()
+        .map(|recording| recording.is_some())
+        .unwrap_or(true);
+    let setup_ready = if matches!(current.as_str(), "idle") {
+        tray_setup_ready(&state)
+    } else {
+        true
+    };
+    let tray_state = resolved_tray_state(&current, granted, setup_ready, has_recovery);
+    update_tray_menu(app, tray_state);
+}
+
+fn tray_setup_ready(state: &AppState) -> bool {
+    let onboarding_complete = state
+        .settings
+        .lock()
+        .map(|settings| settings.onboarding_complete)
+        .unwrap_or(false);
+    let has_api_key = state
+        .api_key
+        .lock()
+        .map(|api_key| api_key.is_some())
+        .unwrap_or(false);
+    onboarding_complete && has_api_key && !audio::microphone_names().is_empty()
+}
+
+fn resolved_tray_state(
+    current: &str,
+    accessibility_granted: bool,
+    setup_ready: bool,
+    has_recovery: bool,
+) -> &str {
+    if matches!(current, "starting" | "recording" | "transcribing") {
+        current
+    } else if has_recovery {
+        "recovery"
+    } else if matches!(current, "done" | "error") {
+        current
+    } else if !setup_ready {
+        "setup"
+    } else if accessibility_granted {
         "idle"
     } else {
         "permission"
-    };
-    update_tray_menu(app, tray_state);
+    }
 }
 
 fn set_recording_state(app: &AppHandle, next: &str) {
@@ -331,7 +377,7 @@ fn set_recording_state(app: &AppHandle, next: &str) {
         }
     }
     let generation = state.status_generation.fetch_add(1, Ordering::Relaxed) + 1;
-    update_tray_menu(app, next);
+    refresh_tray_menu(app);
     let _ = app.emit("recording:state", next);
     match next {
         "starting" | "recording" | "transcribing" | "done" | "error" => show_recording_overlay(app),
@@ -421,6 +467,23 @@ fn selected_output_dir(settings: &AppSettings) -> PathBuf {
         .unwrap_or_else(storage::default_output_dir)
 }
 
+fn ensure_output_directory_writable(directory: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(directory)
+        .map_err(|error| format!("Папката не може да бъде използвана: {error}"))?;
+    let probe = directory.join(format!(
+        ".aidoo-whisper-write-test-{}",
+        uuid::Uuid::new_v4()
+    ));
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&probe)
+        .map_err(|error| format!("Папката не може да бъде използвана: {error}"))?;
+    drop(file);
+    std::fs::remove_file(&probe)
+        .map_err(|error| format!("Папката не може да бъде използвана: {error}"))
+}
+
 fn api_key_from_state(state: &AppState) -> Result<Zeroizing<String>, String> {
     if let Ok(cache) = state.api_key.lock() {
         if let Some(value) = cache.as_ref() {
@@ -436,19 +499,23 @@ fn api_key_from_state(state: &AppState) -> Result<Zeroizing<String>, String> {
     Ok(Zeroizing::new(password))
 }
 
-fn readiness_error(state: &AppState) -> Option<String> {
-    let settings = state.settings.lock().ok()?.clone();
+fn ready_dictation_settings(state: &AppState) -> Result<AppSettings, String> {
+    let settings = state
+        .settings
+        .lock()
+        .map_err(|_| "Настройките са заключени.")?
+        .clone();
     if !settings.onboarding_complete {
-        return Some("Завършете началната настройка, преди да използвате диктовката.".into());
+        return Err("Завършете началната настройка, преди да използвате диктовката.".into());
     }
     if api_key_from_state(state).is_err() {
-        return Some("Добавете и проверете OpenAI API ключ.".into());
+        return Err("Добавете и проверете OpenAI API ключ.".into());
     }
     if audio::microphone_names().is_empty() {
-        return Some("Не е намерен микрофон.".into());
+        return Err("Не е намерен микрофон.".into());
     }
     if !accessibility_granted() {
-        return Some(
+        return Err(
             "Разрешете Accessibility, за да работят shortcut-ът и автоматичното поставяне.".into(),
         );
     }
@@ -458,7 +525,7 @@ fn readiness_error(state: &AppState) -> Option<String> {
         .map(|capture| capture.is_some())
         .unwrap_or(true)
     {
-        return Some(
+        return Err(
             "Завършете или отменете избора на shortcut, преди да започнете диктовка.".into(),
         );
     }
@@ -468,12 +535,12 @@ fn readiness_error(state: &AppState) -> Option<String> {
         .map(|recording| recording.is_some())
         .unwrap_or(true)
     {
-        return Some(
+        return Err(
             "Има запазен неуспешен запис. Изберете „Опитай отново“ или „Изтрий“, преди да започнете нова диктовка."
                 .into(),
         );
     }
-    None
+    Ok(settings)
 }
 
 struct OperationGuard<'a>(&'a AtomicBool);
@@ -492,15 +559,18 @@ fn acquire_operation(state: &AppState) -> Result<OperationGuard<'_>, String> {
         .map_err(|_| "Изчакайте текущата операция да приключи.".into())
 }
 
+pub(crate) fn release_shortcut_capture_operation(app: &AppHandle) {
+    app.state::<AppState>()
+        .operation_active
+        .store(false, Ordering::Release);
+}
+
 fn start_recording_inner(app: &AppHandle) -> Result<audio::AudioStartInfo, String> {
     let state = app.state::<AppState>();
     let operation = acquire_operation(&state)?;
+    let settings = ready_dictation_settings(&state)?;
     if state.recording_active.swap(true, Ordering::AcqRel) {
         return Err("Вече има активен запис.".into());
-    }
-    if let Some(error) = readiness_error(&state) {
-        state.recording_active.store(false, Ordering::Release);
-        return Err(error);
     }
     state.stop_requested.store(false, Ordering::Release);
     if let Ok(mut error) = state.last_recording_error.lock() {
@@ -508,11 +578,6 @@ fn start_recording_inner(app: &AppHandle) -> Result<audio::AudioStartInfo, Strin
     }
     set_progress(app, 0, "starting_microphone", false);
     set_recording_state(app, "starting");
-    let settings = state
-        .settings
-        .lock()
-        .map_err(|_| "Настройките са заключени.")?
-        .clone();
     let routing = audio::MicrophoneRoutingConfig {
         preferred_name: settings.microphone_name,
         automatic_fallback: settings.automatic_microphone_fallback,
@@ -604,12 +669,21 @@ async fn stop_and_transcribe_inner(app: &AppHandle) -> Result<TranscriptionCompl
                 .into(),
         );
     }
-    let settings = state
-        .settings
-        .lock()
-        .map_err(|_| "Настройките са заключени.")?
-        .clone();
-    let api_key = api_key_from_state(&state)?;
+    let settings = match state.settings.lock() {
+        Ok(settings) => settings.clone(),
+        Err(_) => {
+            let error = "Настройките са заключени.".to_string();
+            retain_captured_failure(app, &state, &captured, &error)?;
+            return Err(error);
+        }
+    };
+    let api_key = match api_key_from_state(&state) {
+        Ok(api_key) => api_key,
+        Err(error) => {
+            retain_captured_failure(app, &state, &captured, &error)?;
+            return Err(error);
+        }
+    };
     set_progress(app, 5, "compressing_audio", false);
     let staged = match prepare_flac(&captured.path).await {
         Ok(path) => path,
@@ -689,7 +763,7 @@ fn finalize_success(
     let stem = safe_file_stem();
     let audio_path = if settings.save_audio {
         let path = output_dir.join(format!("{stem}.flac"));
-        std::fs::copy(staged_audio, &path)
+        copy_output_atomic(staged_audio, &path)
             .map_err(|error| format!("FLAC файлът не може да бъде запазен: {error}"))?;
         Some(path)
     } else {
@@ -697,7 +771,7 @@ fn finalize_success(
     };
     let text_path = if settings.save_text {
         let path = output_dir.join(format!("{stem}.txt"));
-        if let Err(error) = std::fs::write(&path, format!("{text}\n")) {
+        if let Err(error) = write_output_atomic(&path, format!("{text}\n").as_bytes()) {
             remove_created_output(audio_path.as_deref(), None);
             return Err(format!("TXT файлът не може да бъде запазен: {error}"));
         }
@@ -771,22 +845,65 @@ fn remove_created_output(audio_path: Option<&Path>, text_path: Option<&Path>) {
     }
 }
 
+fn temporary_output_path(target: &Path) -> PathBuf {
+    let name = target
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("aidoo-output");
+    target.with_file_name(format!(".{name}.tmp-{}", uuid::Uuid::new_v4()))
+}
+
+fn copy_output_atomic(source: &Path, target: &Path) -> std::io::Result<()> {
+    let temporary = temporary_output_path(target);
+    let result = (|| {
+        let mut source = std::fs::File::open(source)?;
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)?;
+        std::io::copy(&mut source, &mut file)?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&temporary, target)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    result
+}
+
+fn write_output_atomic(target: &Path, contents: &[u8]) -> std::io::Result<()> {
+    let temporary = temporary_output_path(target);
+    let result = (|| {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)?;
+        file.write_all(contents)?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&temporary, target)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    result
+}
+
 fn retain_failed_recording(
     path: &Path,
     duration_seconds: f64,
     error: &str,
 ) -> Result<FailedRecording, String> {
     storage::ensure_directories()?;
-    for extension in ["flac", "wav"] {
-        let _ = std::fs::remove_file(
-            storage::recovery_dir().join(format!("last-failed-dictation.{extension}")),
-        );
-    }
     let extension = path
         .extension()
         .and_then(|value| value.to_str())
         .unwrap_or("flac");
-    let target = storage::recovery_dir().join(format!("last-failed-dictation.{extension}"));
+    let target = storage::recovery_dir().join(format!(
+        "failed-dictation-{}.{extension}",
+        uuid::Uuid::new_v4()
+    ));
     std::fs::rename(path, &target)
         .or_else(|_| {
             std::fs::copy(path, &target)
@@ -800,6 +917,16 @@ fn retain_failed_recording(
         duration_seconds,
         error: error.into(),
     })
+}
+
+fn retain_captured_failure(
+    app: &AppHandle,
+    state: &AppState,
+    captured: &audio::CapturedAudio,
+    error: &str,
+) -> Result<(), String> {
+    let failed = retain_failed_recording(&captured.path, captured.duration_seconds, error)?;
+    store_failed_recording(app, state, failed)
 }
 
 fn store_failed_recording(
@@ -875,7 +1002,9 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
         .clone();
     let key = api_key_from_state(&state)?;
     let source = PathBuf::from(&failed.path);
-    if !source.is_file() {
+    if !is_regular_file_with_extension(&source, "flac")
+        && !is_regular_file_with_extension(&source, "wav")
+    {
         return Err("Запазеният неуспешен аудио файл не е намерен.".into());
     }
     set_recording_state(&app, "transcribing");
@@ -966,7 +1095,9 @@ async fn retranscribe_history_item(
     let audio_path = entry
         .audio_path
         .ok_or_else(|| "За тази транскрипция няма запазен аудио файл.".to_string())?;
-    if !Path::new(&audio_path).is_file() {
+    if !is_managed_output_path(Path::new(&audio_path), "flac")
+        || !is_regular_file_with_extension(Path::new(&audio_path), "flac")
+    {
         return Err("Свързаният аудио файл не е намерен.".into());
     }
     let settings = state
@@ -1066,8 +1197,7 @@ fn update_settings(
     shortcuts::validate_settings(&settings)?;
     if settings.save_audio || settings.save_text {
         let directory = selected_output_dir(&settings);
-        std::fs::create_dir_all(&directory)
-            .map_err(|error| format!("Папката не може да бъде използвана: {error}"))?;
+        ensure_output_directory_writable(&directory)?;
     }
     storage::save_settings(&settings)?;
     *state
@@ -1080,7 +1210,11 @@ fn update_settings(
 }
 
 #[tauri::command]
-async fn save_api_key(api_key: String, state: State<'_, AppState>) -> Result<(), String> {
+async fn save_api_key(
+    api_key: String,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     let _operation = acquire_operation(&state)?;
     let key = Zeroizing::new(api_key.trim().to_string());
     transcription::validate_api_key(&key).await?;
@@ -1091,11 +1225,12 @@ async fn save_api_key(api_key: String, state: State<'_, AppState>) -> Result<(),
         .api_key
         .lock()
         .map_err(|_| "API key cache е заключен.")? = Some(key);
+    refresh_tray_menu(&app);
     Ok(())
 }
 
 #[tauri::command]
-fn delete_api_key(state: State<'_, AppState>) -> Result<(), String> {
+fn delete_api_key(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let _operation = acquire_operation(&state)?;
     match keyring_entry()?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => {}
@@ -1105,18 +1240,33 @@ fn delete_api_key(state: State<'_, AppState>) -> Result<(), String> {
         .api_key
         .lock()
         .map_err(|_| "API key cache е заключен.")? = None;
+    refresh_tray_menu(&app);
     Ok(())
 }
 
 #[tauri::command]
-fn begin_shortcut_capture(state: State<'_, AppState>) -> Result<(), String> {
-    let _operation = acquire_operation(&state)?;
-    shortcuts::begin_capture("dictation".into(), &state)
+fn begin_shortcut_capture(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    let operation = acquire_operation(&state)?;
+    shortcuts::begin_capture("dictation".into(), &state)?;
+    std::mem::forget(operation);
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        let state = app.state::<AppState>();
+        if shortcuts::cancel_capture(&state).unwrap_or(false) {
+            release_shortcut_capture_operation(&app);
+            let _ = app.emit("shortcut:capture-cancelled", "dictation");
+        }
+    });
+    Ok(())
 }
 
 #[tauri::command]
 fn cancel_shortcut_capture(state: State<'_, AppState>) -> Result<(), String> {
-    shortcuts::cancel_capture(&state)
+    if shortcuts::cancel_capture(&state)? {
+        state.operation_active.store(false, Ordering::Release);
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1163,11 +1313,26 @@ fn delete_history_item(
     if delete_files {
         if let Some(entry) = removed {
             let mut failures = Vec::new();
-            for path in [entry.audio_path, entry.text_path].into_iter().flatten() {
-                match std::fs::remove_file(&path) {
-                    Ok(()) => {}
+            for (path, expected_extension) in [(entry.audio_path, "flac"), (entry.text_path, "txt")]
+                .into_iter()
+                .filter_map(|(path, extension)| path.map(|path| (path, extension)))
+            {
+                let path_ref = Path::new(&path);
+                if !is_managed_output_path(path_ref, expected_extension) {
+                    failures.push(format!("{path}: invalid linked file"));
+                    continue;
+                }
+                match std::fs::symlink_metadata(path_ref) {
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                     Err(error) => failures.push(format!("{path}: {error}")),
+                    Ok(metadata) if !metadata.file_type().is_file() => {
+                        failures.push(format!("{path}: invalid linked file"));
+                    }
+                    Ok(_) => match std::fs::remove_file(path_ref) {
+                        Ok(()) => {}
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                        Err(error) => failures.push(format!("{path}: {error}")),
+                    },
                 }
             }
             if !failures.is_empty() {
@@ -1206,12 +1371,13 @@ fn path_is_authorized_for_open(
     data_directory: &Path,
 ) -> bool {
     let is_history_file = history.iter().any(|entry| {
-        entry
-            .audio_path
-            .as_deref()
-            .into_iter()
-            .chain(entry.text_path.as_deref())
-            .any(|saved| Path::new(saved) == requested)
+        entry.audio_path.as_deref().is_some_and(|saved| {
+            let saved = Path::new(saved);
+            saved == requested && is_managed_output_path(saved, "flac")
+        }) || entry.text_path.as_deref().is_some_and(|saved| {
+            let saved = Path::new(saved);
+            saved == requested && is_managed_output_path(saved, "txt")
+        })
     });
     let is_diagnostic_bundle = requested.parent() == Some(data_directory)
         && requested
@@ -1221,6 +1387,33 @@ fn path_is_authorized_for_open(
                 name.starts_with("AIDOO-Whisper-Lite-Diagnostics-") && name.ends_with(".zip")
             });
     is_history_file || is_diagnostic_bundle
+}
+
+fn is_regular_file_with_extension(path: &Path, expected_extension: &str) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case(expected_extension))
+        && std::fs::symlink_metadata(path)
+            .ok()
+            .is_some_and(|metadata| metadata.file_type().is_file())
+}
+
+fn is_managed_output_path(path: &Path, expected_extension: &str) -> bool {
+    path.is_absolute()
+        && path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .is_some_and(|name| name.starts_with("AIDOO-Whisper-"))
+        && path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case(expected_extension))
+}
+
+fn is_regular_local_file(path: &Path) -> bool {
+    std::fs::symlink_metadata(path)
+        .ok()
+        .is_some_and(|metadata| metadata.file_type().is_file())
 }
 
 fn diagnostic_settings(settings: &AppSettings) -> serde_json::Value {
@@ -1243,7 +1436,10 @@ fn diagnostic_settings(settings: &AppSettings) -> serde_json::Value {
 
 #[cfg(test)]
 mod local_path_tests {
-    use super::{diagnostic_settings, path_is_authorized_for_open, AppSettings, TranscriptEntry};
+    use super::{
+        diagnostic_settings, is_managed_output_path, path_is_authorized_for_open,
+        resolved_tray_state, AppSettings, TranscriptEntry,
+    };
     use std::path::Path;
 
     fn history_entry() -> TranscriptEntry {
@@ -1254,8 +1450,12 @@ mod local_path_tests {
             duration_seconds: 1.0,
             model: "gpt-4o-mini-transcribe".into(),
             language: "bg".into(),
-            audio_path: Some("/Volumes/External/AIDOO/sample.flac".into()),
-            text_path: Some("/Volumes/External/AIDOO/sample.txt".into()),
+            audio_path: Some(
+                "/Volumes/External/AIDOO/AIDOO-Whisper-2026-09-14_00-00-00-abcdef.flac".into(),
+            ),
+            text_path: Some(
+                "/Volumes/External/AIDOO/AIDOO-Whisper-2026-09-14_00-00-00-abcdef.txt".into(),
+            ),
         }
     }
 
@@ -1265,7 +1465,7 @@ mod local_path_tests {
         let data = Path::new("/Users/example/Library/Application Support/AIDOO Whisper Lite");
 
         assert!(path_is_authorized_for_open(
-            Path::new("/Volumes/External/AIDOO/sample.flac"),
+            Path::new("/Volumes/External/AIDOO/AIDOO-Whisper-2026-09-14_00-00-00-abcdef.flac"),
             &history,
             data
         ));
@@ -1283,6 +1483,18 @@ mod local_path_tests {
             &data.join("settings.json"),
             &history,
             data
+        ));
+
+        let mut tampered = history_entry();
+        tampered.audio_path = Some("/Users/example/secret.flac".into());
+        assert!(!path_is_authorized_for_open(
+            Path::new("/Users/example/secret.flac"),
+            &[tampered],
+            data
+        ));
+        assert!(!is_managed_output_path(
+            Path::new("AIDOO-Whisper-relative.flac"),
+            "flac"
         ));
     }
 
@@ -1302,6 +1514,22 @@ mod local_path_tests {
         assert!(!serialized.contains("Owner's Studio Microphone"));
         assert!(!serialized.contains("/Users/example"));
     }
+
+    #[test]
+    fn recovery_remains_visible_in_the_tray_until_it_is_resolved() {
+        assert_eq!(resolved_tray_state("idle", true, true, true), "recovery");
+        assert_eq!(resolved_tray_state("error", true, true, true), "recovery");
+        assert_eq!(
+            resolved_tray_state("transcribing", true, true, true),
+            "transcribing"
+        );
+        assert_eq!(resolved_tray_state("idle", true, true, false), "idle");
+        assert_eq!(
+            resolved_tray_state("idle", false, true, false),
+            "permission"
+        );
+        assert_eq!(resolved_tray_state("idle", true, false, false), "setup");
+    }
 }
 
 #[tauri::command]
@@ -1311,7 +1539,7 @@ fn open_local_path(path: String, reveal: bool, state: State<'_, AppState>) -> Re
     if !path_is_authorized_for_open(&requested, &history, &storage::data_dir()) {
         return Err("Този локален файл не е разрешен за отваряне.".into());
     }
-    if !requested.is_file() {
+    if !is_regular_local_file(&requested) {
         return Err("Локалният файл вече не съществува.".into());
     }
     let mut command = std::process::Command::new("open");
@@ -1340,8 +1568,9 @@ fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
         .map(|entry| entry.text.clone())
         .collect::<Vec<_>>();
     let path = storage::data_dir().join(format!(
-        "AIDOO-Whisper-Lite-Diagnostics-{}.zip",
-        Local::now().format("%Y%m%d-%H%M%S")
+        "AIDOO-Whisper-Lite-Diagnostics-{}-{}.zip",
+        Local::now().format("%Y%m%d-%H%M%S"),
+        &uuid::Uuid::new_v4().simple().to_string()[..6]
     ));
     let file = File::create(&path).map_err(|error| error.to_string())?;
     let mut zip = ZipWriter::new(file);
@@ -1365,6 +1594,9 @@ fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
                 name.contains("aidoo whisper lite") || name.contains("aidoo-whisper-lite")
             })
             .filter_map(|entry| {
+                if !entry.file_type().ok()?.is_file() {
+                    return None;
+                }
                 let modified = entry.metadata().ok()?.modified().ok()?;
                 Some((modified, entry.path()))
             })
@@ -1435,17 +1667,20 @@ fn install_tray(app: &tauri::App) -> tauri::Result<()> {
         .lock()
         .map(|recording| recording.is_some())
         .unwrap_or(true);
-    let status = if has_recovery {
-        "error"
-    } else if accessibility_granted() {
-        "idle"
-    } else {
-        "permission"
-    };
+    let status = resolved_tray_state(
+        "idle",
+        accessibility_granted(),
+        tray_setup_ready(&app.state::<AppState>()),
+        has_recovery,
+    );
     let menu = build_tray_menu(app.handle(), status)?;
     let initial_tooltip = match (uses_english_ui(app.handle()), status) {
-        (true, "error") => "AIDOO Whisper Lite — action required",
-        (false, "error") => "AIDOO Whisper Lite — нужно е действие",
+        (true, "recovery") => "AIDOO Whisper Lite — action required",
+        (false, "recovery") => "AIDOO Whisper Lite — нужно е действие",
+        (true, "setup") => "AIDOO Whisper Lite — finish setup",
+        (false, "setup") => "AIDOO Whisper Lite — довършете настройката",
+        (true, "permission") => "AIDOO Whisper Lite — permission required",
+        (false, "permission") => "AIDOO Whisper Lite — нужно е разрешение",
         (true, _) => "AIDOO Whisper Lite — ready",
         (false, _) => "AIDOO Whisper Lite — готов",
     };

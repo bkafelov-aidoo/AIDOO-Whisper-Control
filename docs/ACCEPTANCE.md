@@ -18,6 +18,7 @@ The remaining checks below are behavioral and must be completed on the signed bu
 - Confirm the key exists in Keychain and is absent from settings, diagnostics and application files.
 - Test the selected microphone and grant Accessibility.
 - Capture Right Option and one modified shortcut; confirm mouse buttons are ignored and never become the shortcut.
+- Start shortcut capture without pressing a key and confirm it cancels after one minute without leaving settings locked.
 
 ## Dictation
 
@@ -28,7 +29,7 @@ The remaining checks below are behavioral and must be completed on the signed bu
 - Test Bulgarian, English, automatic detection, Economy and Maximum accuracy.
 - With automatic fallback enabled, disconnect the selected microphone and confirm the system or another available microphone is used with a clear warning in the main window and overlay.
 - Disable automatic fallback, disconnect the selected microphone and confirm recording is refused with a clear error.
-- While recording or transcribing, confirm API key, microphone, shortcut and settings changes are disabled and rejected by the native layer.
+- With Settings or the reopened onboarding visible, start dictation and confirm API key, microphone, shortcut and every settings control becomes disabled while recording or transcribing; confirm the native layer also rejects direct mutations.
 
 ## Local data
 
@@ -44,6 +45,7 @@ The remaining checks below are behavioral and must be completed on the signed bu
 - Close the main window and confirm the menu bar icon and shortcut remain active; reopen the window from both the Dock icon and menu bar.
 - Confirm menu bar state, stop action, error details, settings and Quit.
 - Enable and disable Launch at Login.
+- Change the Login Item or Accessibility permission in macOS System Settings, return to the app and confirm the displayed state refreshes; remove the API key and confirm both the main window and menu bar stop reporting ready.
 - Confirm the application contains no in-app or background update checker; new versions are installed from the AIDOO website.
 - Create a diagnostics package, confirm Finder reveals it, and inspect that it has no API key, transcript text or audio; confirm the separate support button opens the AIDOO Whisper GitHub Issues page without uploading anything automatically.
 

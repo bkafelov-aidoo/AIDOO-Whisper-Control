@@ -189,6 +189,11 @@ fn start(routing: &MicrophoneRoutingConfig) -> Result<(ActiveRecording, AudioSta
     let default_name = host
         .default_input_device()
         .and_then(|device| device.name().ok());
+    let primary_name = routing
+        .preferred_name
+        .as_deref()
+        .or(default_name.as_deref())
+        .map(str::to_owned);
     let plan = microphone_plan(
         routing.preferred_name.as_deref(),
         &available,
@@ -203,10 +208,7 @@ fn start(routing: &MicrophoneRoutingConfig) -> Result<(ActiveRecording, AudioSta
         let result = device_named(&candidate).and_then(start_on_device);
         match result {
             Ok(recording) => {
-                let used_fallback = routing
-                    .preferred_name
-                    .as_ref()
-                    .is_some_and(|preferred| preferred != &candidate);
+                let used_fallback = uses_fallback(primary_name.as_deref(), &candidate);
                 return Ok((
                     recording,
                     AudioStartInfo {
@@ -447,6 +449,10 @@ fn microphone_plan(
     plan
 }
 
+fn uses_fallback(primary_name: Option<&str>, selected_name: &str) -> bool {
+    primary_name.is_some_and(|primary| primary != selected_name)
+}
+
 fn finish(mut recording: ActiveRecording) -> Result<CapturedAudio, String> {
     recording.stream.take();
     if let Some(error) = recording
@@ -519,6 +525,16 @@ mod tests {
             true,
         );
         assert_eq!(plan, vec!["MacBook Microphone", "Studio USB"]);
+    }
+
+    #[test]
+    fn automatic_mode_can_identify_a_non_default_fallback() {
+        assert!(!uses_fallback(
+            Some("MacBook Microphone"),
+            "MacBook Microphone"
+        ));
+        assert!(uses_fallback(Some("MacBook Microphone"), "Studio USB"));
+        assert!(!uses_fallback(None, "Studio USB"));
     }
 
     #[test]
