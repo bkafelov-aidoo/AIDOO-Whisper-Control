@@ -14,6 +14,7 @@ Status date: 14 September 2026
 - Product and website icons match; no updater is configured.
 - `npm audit --omit=dev` reports no production dependency vulnerabilities.
 - RustSec reports no known vulnerabilities in the locked Rust dependency graph. Its macOS-target dependency tree excludes the separately reported Linux-only `glib` advisory.
+- The GitHub macOS release workflow repeats both dependency audits and runs the same signed-DMG audit used locally before storing a website artifact.
 - The release audit passes against `release/1.0.0/AIDOO Whisper Lite_1.0.0_aarch64.dmg`.
 - SHA-256: `17b8801c2f1e57a548ebec6b05936518fd82c1919c936ab86ed7da4eb02bf163`.
 

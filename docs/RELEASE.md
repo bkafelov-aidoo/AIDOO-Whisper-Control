@@ -23,7 +23,7 @@ Publish the DMG and checksum links on the product website. Publish `website/priv
 
 ## GitHub secrets for CI
 
-The included workflow expects `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `KEYCHAIN_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD` and `APPLE_TEAM_ID`. Export the Developer ID Application identity with its private key as a password-protected `.p12`; store only its base64 value and password as repository secrets. Use an Apple app-specific password for notarization.
+The included workflow expects `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `KEYCHAIN_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD` and `APPLE_TEAM_ID`. Export the Developer ID Application identity with its private key as a password-protected `.p12`; store only its base64 value and password as repository secrets. Use an Apple app-specific password for notarization. The workflow audits the locked Rust and production JavaScript dependencies, then applies the same `audit:mac` checks used for a local release to the exact DMG artifact.
 
 The local notarized release remains the reference path until those secrets are configured and a CI artifact passes the acceptance checklist.
 
