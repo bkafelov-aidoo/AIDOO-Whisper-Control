@@ -5,6 +5,6 @@
   <key>CFBundleIconName</key>
   <string>icon</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>AIDOO Whisper Lite използва избрания микрофон само докато задържате shortcut-а за диктовка или тествате микрофона.</string>
+  <string>AIDOO Whisper Lite uses your selected microphone only while you hold the dictation shortcut or test the microphone.</string>
 </dict>
 </plist>

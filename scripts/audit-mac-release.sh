@@ -34,6 +34,8 @@ required = [
     root / "website/support.html",
     root / "website/release-notes.html",
     root / "resources/THIRD_PARTY_NOTICES.txt",
+    root / "src-tauri/infoplist/bg.lproj/InfoPlist.strings",
+    root / "src-tauri/infoplist/en.lproj/InfoPlist.strings",
 ]
 missing = [str(path) for path in required if not path.is_file() or path.stat().st_size == 0]
 if missing:
@@ -88,6 +90,10 @@ spctl --assess --verbose=2 --type open --context context:primary-signature "$dmg
 file "$app/Contents/MacOS/aidoo-whisper-lite" | grep -q 'arm64'
 test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = 'app.aidoo.whisper-lite'
 test "$(plutil -extract LSMinimumSystemVersion raw "$app/Contents/Info.plist")" = '13.0'
+test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Info.plist")" = 'AIDOO Whisper Lite uses your selected microphone only while you hold the dictation shortcut or test the microphone.'
+test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Resources/en.lproj/InfoPlist.strings")" = 'AIDOO Whisper Lite uses your selected microphone only while you hold the dictation shortcut or test the microphone.'
+test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Resources/bg.lproj/InfoPlist.strings")" = 'AIDOO Whisper Lite използва избрания микрофон само докато задържате shortcut-а за диктовка или тествате микрофона.'
+test -f "$app/Contents/Resources/THIRD_PARTY_NOTICES.txt"
 
 entitlements="$(codesign -d --entitlements :- "$app" 2>/dev/null)"
 printf '%s' "$entitlements" | grep -q 'com.apple.security.device.audio-input'
