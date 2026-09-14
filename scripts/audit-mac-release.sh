@@ -4,7 +4,13 @@ set -euo pipefail
 project_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$project_root"
 
-dmg="${1:-$project_root/release/1.0.0/AIDOO Whisper Lite_1.0.0_aarch64.dmg}"
+version="$(python3 - "$project_root/package.json" <<'PY'
+from pathlib import Path
+import json, sys
+print(json.loads(Path(sys.argv[1]).read_text())["version"])
+PY
+)"
+dmg="${1:-$project_root/release/$version/AIDOO Whisper Lite_${version}_aarch64.dmg}"
 checksum="$dmg.sha256"
 test -f "$dmg"
 test -f "$checksum"

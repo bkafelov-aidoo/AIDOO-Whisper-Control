@@ -42,7 +42,7 @@ The local release path uses the installed Developer ID Application certificate a
 npm run release:mac
 ```
 
-The script tests the app, builds the Apple Silicon app/DMG, notarizes and staples both the application and DMG, verifies Gatekeeper and writes the DMG checksum. See [docs/RELEASE.md](docs/RELEASE.md) for website release steps.
+The script tests the app, builds the Apple Silicon app/DMG, notarizes and staples both the application and DMG, verifies Gatekeeper, writes the DMG checksum and independently audits the exact website assets under `release/<version>/`. See [docs/RELEASE.md](docs/RELEASE.md) for website release steps.
 
 ## Source layout
 

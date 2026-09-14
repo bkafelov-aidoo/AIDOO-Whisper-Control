@@ -61,4 +61,17 @@ spctl --assess --verbose=2 --type execute "$installed_app"
 hdiutil detach "$verify_mount" -quiet
 mounted=false
 
-printf 'Release assets:\n%s\n%s\n' "$dmg" "$dmg.sha256"
+version="$(python3 - "$project_root/package.json" <<'PY'
+from pathlib import Path
+import json, sys
+print(json.loads(Path(sys.argv[1]).read_text())["version"])
+PY
+)"
+release_dir="$project_root/release/$version"
+release_dmg="$release_dir/$(basename "$dmg")"
+mkdir -p "$release_dir"
+ditto "$dmg" "$release_dmg"
+cp "$dmg.sha256" "$release_dmg.sha256"
+"$project_root/scripts/audit-mac-release.sh" "$release_dmg"
+
+printf 'Release assets:\n%s\n%s\n' "$release_dmg" "$release_dmg.sha256"
