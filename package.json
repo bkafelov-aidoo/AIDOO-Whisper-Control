@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "check": "tsc --noEmit && npm run check:i18n",
+    "check": "tsc --noEmit && npm run check:i18n && npm run check:website",
     "check:i18n": "node scripts/check-i18n-errors.mjs",
+    "check:website": "python3 scripts/check-website.py",
     "tauri": "tauri",
     "bundle:mac": "tauri build --target aarch64-apple-darwin --bundles app,dmg",
     "notarize:mac": "bash scripts/notarize-mac.sh",
