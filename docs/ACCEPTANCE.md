@@ -1,5 +1,11 @@
 # Mac acceptance checklist
 
+## Automated release audit
+
+Run `npm run audit:mac` against the website DMG before publication. It verifies the published checksum, Apple Silicon architecture, macOS 13 minimum, bundle ID, entitlements, Developer ID signature, notarization tickets, Gatekeeper acceptance, removal of updater configuration, required website documents and matching product/website icons. The audit does not launch the application or access the microphone.
+
+The remaining checks below are behavioral and must be completed on the signed build. Microphone checks require a person at the Mac; the final clean-install path requires a second or clean macOS account.
+
 ## First run
 
 - Launch on a clean macOS 13+ Apple Silicon account.

@@ -17,6 +17,8 @@ Run `npm run release:mac`. It produces:
 
 Upload the DMG and checksum to the AIDOO website. Users install a new version by downloading the newer notarized DMG from the website; the application does not perform background or in-app update checks.
 
+Run `npm run audit:mac` on the exact DMG selected for upload. This independent check mounts the distribution image and revalidates its checksum, architecture, deployment target, identity, entitlements, notarization and Gatekeeper status without launching the application.
+
 Publish the DMG and checksum links on the product website. Publish `website/privacy.html`, `website/support.html` and `website/release-notes.html` alongside it.
 
 ## GitHub secrets for CI

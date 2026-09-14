@@ -129,6 +129,22 @@ pub(crate) fn redact_openai_keys(message: &str) -> String {
     value
 }
 
+pub(crate) fn sanitize_support_text(message: &str, transcripts: &[String]) -> String {
+    let mut value = redact_openai_keys(message);
+    if let Some(home) = dirs::home_dir().and_then(|path| path.to_str().map(str::to_owned)) {
+        value = value.replace(&home, "~");
+    }
+    let mut transcripts = transcripts
+        .iter()
+        .filter(|text| !text.trim().is_empty())
+        .collect::<Vec<_>>();
+    transcripts.sort_by_key(|text| std::cmp::Reverse(text.len()));
+    for transcript in transcripts {
+        value = value.replace(transcript, "[transcript redacted]");
+    }
+    value
+}
+
 fn trim_diagnostics() {
     let path = diagnostics_path();
     let Ok(metadata) = fs::metadata(&path) else {
@@ -160,7 +176,7 @@ fn write_json_atomic<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<()
 
 #[cfg(test)]
 mod tests {
-    use super::sanitize_diagnostic;
+    use super::{sanitize_diagnostic, sanitize_support_text};
 
     #[test]
     fn diagnostics_redact_openai_keys() {
@@ -168,5 +184,24 @@ mod tests {
         let value = sanitize_diagnostic(&format!("request failed for key={key}, retry"));
         assert!(!value.contains("sk-example"));
         assert!(value.contains("[redacted]"));
+    }
+
+    #[test]
+    fn support_text_redacts_keys_transcripts_and_home_path() {
+        let key = ["sk", "example-secret-value"].join("-");
+        let transcript = "A private dictated sentence".to_string();
+        let home = dirs::home_dir().unwrap();
+        let value = sanitize_support_text(
+            &format!(
+                "failure in {}/Documents: {transcript}; key={key}",
+                home.display()
+            ),
+            std::slice::from_ref(&transcript),
+        );
+        assert!(!value.contains(&key));
+        assert!(!value.contains(&transcript));
+        assert!(!value.contains(&home.to_string_lossy().to_string()));
+        assert!(value.contains("[transcript redacted]"));
+        assert!(value.contains("~/Documents"));
     }
 }

@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+cd "$project_root"
+
+dmg="${1:-$project_root/release/1.0.0/AIDOO Whisper Lite_1.0.0_aarch64.dmg}"
+checksum="$dmg.sha256"
+test -f "$dmg"
+test -f "$checksum"
+
+python3 - "$project_root" <<'PY'
+from pathlib import Path
+import json, re, sys
+
+root = Path(sys.argv[1])
+package_version = json.loads((root / "package.json").read_text())["version"]
+tauri_version = json.loads((root / "src-tauri/tauri.conf.json").read_text())["version"]
+cargo = (root / "src-tauri/Cargo.toml").read_text()
+match = re.search(r'^version\s*=\s*"([^"]+)"', cargo, re.MULTILINE)
+if not match:
+    raise SystemExit("Cargo package version is missing")
+if len({package_version, tauri_version, match.group(1)}) != 1:
+    raise SystemExit("package.json, tauri.conf.json and Cargo.toml versions differ")
+
+required = [
+    root / "website/privacy.html",
+    root / "website/support.html",
+    root / "website/release-notes.html",
+    root / "resources/THIRD_PARTY_NOTICES.txt",
+]
+missing = [str(path) for path in required if not path.is_file() or path.stat().st_size == 0]
+if missing:
+    raise SystemExit("Missing release files: " + ", ".join(missing))
+
+sources = "\n".join(
+    path.read_text(errors="replace")
+    for path in [
+        root / "package.json",
+        root / "src-tauri/Cargo.toml",
+        root / "src-tauri/tauri.conf.json",
+        root / "src-tauri/capabilities/default.json",
+    ]
+)
+for forbidden in ("@tauri-apps/plugin-updater", "tauri-plugin-updater", "createUpdaterArtifacts\": true"):
+    if forbidden in sources:
+        raise SystemExit(f"Updater artifact remains configured: {forbidden}")
+
+if (root / "public/app-icon.png").read_bytes() != (root / "website/app-icon.png").read_bytes():
+    raise SystemExit("Website and product icons differ")
+PY
+
+checksum_dir="$(dirname -- "$checksum")"
+(cd "$checksum_dir" && shasum -a 256 -c "$(basename -- "$checksum")")
+
+mount_dir="$(mktemp -d -t aidoo-whisper-lite-audit)"
+mounted=false
+cleanup() {
+  if [[ "$mounted" == true ]]; then
+    hdiutil detach "$mount_dir" -quiet || true
+  fi
+  python3 - "$mount_dir" <<'PY'
+from pathlib import Path
+import shutil, sys
+path = Path(sys.argv[1])
+if path.exists():
+    shutil.rmtree(path)
+PY
+}
+trap cleanup EXIT
+
+hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mount_dir" -quiet
+mounted=true
+app="$(find "$mount_dir" -maxdepth 1 -name '*.app' -print -quit)"
+test -n "$app"
+
+codesign --verify --deep --strict --verbose=2 "$app"
+xcrun stapler validate "$app"
+xcrun stapler validate "$dmg"
+spctl --assess --verbose=2 --type execute "$app"
+spctl --assess --verbose=2 --type open --context context:primary-signature "$dmg"
+file "$app/Contents/MacOS/aidoo-whisper-lite" | grep -q 'arm64'
+test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = 'app.aidoo.whisper-lite'
+test "$(plutil -extract LSMinimumSystemVersion raw "$app/Contents/Info.plist")" = '13.0'
+
+entitlements="$(codesign -d --entitlements :- "$app" 2>/dev/null)"
+printf '%s' "$entitlements" | grep -q 'com.apple.security.device.audio-input'
+printf '%s' "$entitlements" | grep -q 'com.apple.security.network.client'
+
+printf 'AIDOO Whisper Lite macOS release audit passed: %s\n' "$dmg"

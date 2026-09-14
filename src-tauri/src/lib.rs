@@ -1223,9 +1223,27 @@ fn path_is_authorized_for_open(
     is_history_file || is_diagnostic_bundle
 }
 
+fn diagnostic_settings(settings: &AppSettings) -> serde_json::Value {
+    serde_json::json!({
+        "onboardingComplete": settings.onboarding_complete,
+        "uiLanguage": settings.ui_language,
+        "language": settings.language,
+        "model": settings.model,
+        "autoPaste": settings.auto_paste,
+        "saveAudio": settings.save_audio,
+        "saveText": settings.save_text,
+        "historyEnabled": settings.history_enabled,
+        "outputDirectory": if settings.output_directory.is_some() { "custom" } else { "default" },
+        "launchAtLogin": settings.launch_at_login,
+        "microphone": if settings.microphone_name.is_some() { "custom" } else { "system-default" },
+        "automaticMicrophoneFallback": settings.automatic_microphone_fallback,
+        "dictationShortcut": settings.dictation_shortcut,
+    })
+}
+
 #[cfg(test)]
 mod local_path_tests {
-    use super::{path_is_authorized_for_open, TranscriptEntry};
+    use super::{diagnostic_settings, path_is_authorized_for_open, AppSettings, TranscriptEntry};
     use std::path::Path;
 
     fn history_entry() -> TranscriptEntry {
@@ -1267,6 +1285,23 @@ mod local_path_tests {
             data
         ));
     }
+
+    #[test]
+    fn diagnostic_settings_exclude_private_device_and_path_details() {
+        let settings = AppSettings {
+            output_directory: Some("/Users/example/Private Transcripts".into()),
+            microphone_name: Some("Owner's Studio Microphone".into()),
+            ..AppSettings::default()
+        };
+
+        let serialized = diagnostic_settings(&settings).to_string();
+
+        assert!(serialized.contains("\"outputDirectory\":\"custom\""));
+        assert!(serialized.contains("\"microphone\":\"custom\""));
+        assert!(!serialized.contains("Private Transcripts"));
+        assert!(!serialized.contains("Owner's Studio Microphone"));
+        assert!(!serialized.contains("/Users/example"));
+    }
 }
 
 #[tauri::command]
@@ -1296,6 +1331,14 @@ fn open_local_path(path: String, reveal: bool, state: State<'_, AppState>) -> Re
 #[tauri::command]
 fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
     storage::ensure_directories()?;
+    let transcript_texts = app
+        .state::<AppState>()
+        .history
+        .lock()
+        .map_err(|_| "Историята е заключена.")?
+        .iter()
+        .map(|entry| entry.text.clone())
+        .collect::<Vec<_>>();
     let path = storage::data_dir().join(format!(
         "AIDOO-Whisper-Lite-Diagnostics-{}.zip",
         Local::now().format("%Y%m%d-%H%M%S")
@@ -1306,7 +1349,10 @@ fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
     if let Ok(log) = std::fs::read(storage::diagnostics_path()) {
         zip.start_file("diagnostics.log", options)
             .map_err(|error| error.to_string())?;
-        zip.write_all(&log).map_err(|error| error.to_string())?;
+        let sanitized =
+            storage::sanitize_support_text(&String::from_utf8_lossy(&log), &transcript_texts);
+        zip.write_all(sanitized.as_bytes())
+            .map_err(|error| error.to_string())?;
     }
     if let Some(home) = dirs::home_dir() {
         let crash_directory = home.join("Library/Logs/DiagnosticReports");
@@ -1330,7 +1376,10 @@ fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
             };
             if let Ok(contents) = std::fs::read(&report) {
                 let bounded = &contents[..contents.len().min(1_000_000)];
-                let sanitized = storage::redact_openai_keys(&String::from_utf8_lossy(bounded));
+                let sanitized = storage::sanitize_support_text(
+                    &String::from_utf8_lossy(bounded),
+                    &transcript_texts,
+                );
                 zip.start_file(format!("crash-reports/{name}"), options)
                     .map_err(|error| error.to_string())?;
                 zip.write_all(sanitized.as_bytes())
@@ -1346,8 +1395,11 @@ fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
         .clone();
     zip.start_file("settings.json", options)
         .map_err(|error| error.to_string())?;
-    zip.write_all(&serde_json::to_vec_pretty(&settings).map_err(|error| error.to_string())?)
-        .map_err(|error| error.to_string())?;
+    let diagnostic_settings = diagnostic_settings(&settings);
+    zip.write_all(
+        &serde_json::to_vec_pretty(&diagnostic_settings).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
     zip.start_file("system.txt", options)
         .map_err(|error| error.to_string())?;
     zip.write_all(
