@@ -182,6 +182,178 @@ fn compact_error(error: &str) -> String {
     }
 }
 
+fn localized_native_error(error: &str, english: bool) -> String {
+    if !english {
+        return error.into();
+    }
+    let exact = match error {
+        "Ключът трябва да започва с sk-." => Some("The key must start with sk-."),
+        "Не е намерен микрофон." => Some("No microphone was found."),
+        "Не е намерен микрофон. Свържете устройство и опитайте отново." => {
+            Some("No microphone was found. Connect an input device and try again.")
+        }
+        "Вече има активен запис." => Some("A recording is already active."),
+        "Транскрипцията вече е стартирана." => Some("Transcription has already started."),
+        "Няма активен запис." => Some("There is no active recording."),
+        "Не беше разпозната реч." => Some("No speech was detected."),
+        "Няма неуспешен запис за повторен опит." => {
+            Some("There is no failed recording to retry.")
+        }
+        "Запазеният неуспешен аудио файл не е намерен." => {
+            Some("The saved failed audio recording could not be found.")
+        }
+        "Текстът не можа да бъде поставен. Копиран е в клипборда." => {
+            Some("The text could not be pasted. It remains copied to the clipboard.")
+        }
+        "Има запазен неуспешен запис. Изберете „Опитай отново“ или „Изтрий“, преди да започнете нова диктовка." => {
+            Some("A failed recording is saved. Choose “Try again” or “Delete” before starting a new dictation.")
+        }
+        "Транскрипцията е готова, но старият recovery запис не можа да бъде изчистен. Изберете „Изтрий“; нов опит може да доведе до повторно API таксуване." => {
+            Some("The transcription succeeded, but the old recovery item could not be cleared. Choose Delete; another retry may create another API charge.")
+        }
+        "Завършете или отменете избора на shortcut, преди да започнете диктовка." => {
+            Some("Finish or cancel shortcut selection before starting dictation.")
+        }
+        "Изчакайте текущата операция да приключи." => {
+            Some("Wait for the current operation to finish.")
+        }
+        "Записът е прекалено кратък. Задръжте shortcut-а и говорете поне половин секунда." => {
+            Some("The recording is too short. Hold the shortcut and speak for at least half a second.")
+        }
+        "Записът е прекалено кратък. Задръжте клавиша и говорете." => {
+            Some("The recording is too short. Hold the key and speak.")
+        }
+        "Завършете началната настройка, преди да използвате диктовката." => {
+            Some("Finish the initial setup before using dictation.")
+        }
+        "Разрешете Accessibility, за да работят shortcut-ът и автоматичното поставяне." => {
+            Some("Grant Accessibility permission so the shortcut and automatic paste can work.")
+        }
+        "Няма достъпен OpenAI API ключ. Отворете настройките и го добавете." => {
+            Some("No OpenAI API key is available. Open Settings and add one.")
+        }
+        "Добавете и проверете OpenAI API ключ." => {
+            Some("Add and verify an OpenAI API key.")
+        }
+        "Настройките са заключени." => {
+            Some("Settings are temporarily unavailable. Try again.")
+        }
+        "Историята е заключена." => {
+            Some("History is temporarily unavailable. Try again.")
+        }
+        "Recovery състоянието е заключено." => {
+            Some("Recovery is temporarily unavailable. Try again.")
+        }
+        "Аудио услугата не работи." => {
+            Some("The audio service is unavailable. Restart the app and try again.")
+        }
+        "Аудио услугата не отговори." => {
+            Some("The audio service did not respond. Restart the app and try again.")
+        }
+        "Аудио файлът е заключен." => {
+            Some("The audio file is temporarily unavailable. Try again.")
+        }
+        "Липсва Accessibility разрешение за автоматично поставяне. Натиснете „Разреши Accessibility“ в Aidoo; разпознатият текст е запазен в Историята и clipboard." => {
+            Some("Accessibility permission for automatic paste is missing. Grant Accessibility permission in AIDOO; the recognized text remains in History and the clipboard.")
+        }
+        _ => None,
+    };
+    if let Some(translated) = exact {
+        return translated.into();
+    }
+    let prefixes = [
+        ("Няма връзка с OpenAI:", "Could not connect to OpenAI:"),
+        (
+            "OpenAI връзката не можа да бъде подготвена:",
+            "The OpenAI connection could not be prepared:",
+        ),
+        ("API ключът не беше приет:", "The API key was not accepted:"),
+        ("Транскрипцията не успя:", "Transcription failed:"),
+        (
+            "OpenAI върна невалиден отговор:",
+            "OpenAI returned an invalid response:",
+        ),
+        ("Не е намерен микрофон.", "No microphone was found."),
+        (
+            "Нито един микрофон не можа да стартира.",
+            "No microphone could be started.",
+        ),
+        (
+            "Избраният микрофон не е наличен. Използвам",
+            "The selected microphone is unavailable. Using",
+        ),
+        ("Микрофонът", "Microphone"),
+        (
+            "Папката не може да бъде създадена:",
+            "The folder could not be created:",
+        ),
+        (
+            "Папката не може да бъде използвана:",
+            "The folder could not be used:",
+        ),
+        (
+            "Частната папка на приложението не е валидна:",
+            "The app's private data folder is invalid:",
+        ),
+        ("Неподдържан аудио формат:", "Unsupported audio format:"),
+        (
+            "Записът не можа да се запише на диска:",
+            "The recording could not be written to disk:",
+        ),
+        ("Невалиден WAV файл:", "Invalid WAV file:"),
+        (
+            "FLAC поддържа mono/stereo, а записът има",
+            "FLAC supports mono/stereo, but the recording has",
+        ),
+        (
+            "FLAC процесът беше прекъснат:",
+            "The FLAC process was interrupted:",
+        ),
+        (
+            "FLAC файлът не може да бъде запазен:",
+            "The FLAC file could not be saved:",
+        ),
+        (
+            "TXT файлът не може да бъде запазен:",
+            "The TXT file could not be saved:",
+        ),
+        (
+            "Историята не можа да бъде запазена:",
+            "History could not be saved:",
+        ),
+        (
+            "Recovery аудиото не можа да бъде изтрито:",
+            "The recovery audio could not be deleted:",
+        ),
+        (
+            "Неуспешният запис не можа да бъде запазен:",
+            "The failed recording could not be retained:",
+        ),
+        (
+            "Текстът е готов, но клипбордът не е достъпен:",
+            "The text is ready, but the clipboard is unavailable:",
+        ),
+    ];
+    let mut translated = error.to_string();
+    for (source, target) in prefixes {
+        if let Some(remainder) = error.strip_prefix(source) {
+            translated = format!("{target}{remainder}");
+            break;
+        }
+    }
+    translated
+        .replace(
+            "невалиден или изтрит API ключ.",
+            "invalid or deleted API key.",
+        )
+        .replace(
+            "няма наличен API баланс или е достигнат лимитът.",
+            "no API balance is available or the limit has been reached.",
+        )
+        .replace("не е наличен.", "is unavailable.")
+        .replace("канала.", "channels.")
+}
+
 fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<Menu<tauri::Wry>> {
     let english = uses_english_ui(app);
     let operation_active = matches!(current, "starting" | "recording" | "transcribing");
@@ -239,6 +411,7 @@ fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<Menu<tauri::
         .ok()
         .and_then(|value| value.clone());
     if let Some(error) = error {
+        let error = localized_native_error(&error, english);
         let error_item = MenuItem::with_id(
             app,
             "last-error",
@@ -990,6 +1163,27 @@ fn clear_failed_recording_state(state: &AppState, remove_audio: bool) -> Result<
     Ok(())
 }
 
+fn resolve_failed_recording_after_success(state: &AppState) -> Result<(), String> {
+    let mut current = state
+        .failed_recording
+        .lock()
+        .map_err(|_| "Recovery състоянието е заключено.")?;
+    let previous = current.clone();
+    storage::clear_failed_recording()?;
+    *current = None;
+    if let Some(recording) = previous {
+        let path = PathBuf::from(recording.path);
+        match std::fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => storage::append_diagnostic(&format!(
+                "resolved recovery audio cleanup failed: {error}"
+            )),
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompleted, String> {
     let state = app.state::<AppState>();
@@ -1048,17 +1242,36 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
                         return Err(error);
                     }
                 };
-            if let Err(error) = clear_failed_recording_state(&state, true) {
-                storage::append_diagnostic(&format!("recovery cleanup failed: {error}"));
-            }
+            let recovery_cleared = match resolve_failed_recording_after_success(&state) {
+                Ok(()) => true,
+                Err(error) => {
+                    let error_message = "Транскрипцията е готова, но старият recovery запис не можа да бъде изчистен. Изберете „Изтрий“; нов опит може да доведе до повторно API таксуване.";
+                    let toast_message = if uses_english_ui(&app) {
+                        "The transcription succeeded, but the old recovery item could not be cleared. Choose Delete; another retry may create another API charge."
+                    } else {
+                        error_message
+                    };
+                    update_failed_recording_error(&state, error_message);
+                    if let Ok(mut current) = state.last_recording_error.lock() {
+                        *current = Some(error_message.into());
+                    }
+                    let _ = app.emit("toast", toast_message);
+                    storage::append_diagnostic(&format!("recovery cleanup failed: {error}"));
+                    false
+                }
+            };
             if temporary_flac {
                 let _ = std::fs::remove_file(&staged);
             }
-            if let Ok(mut error) = state.last_recording_error.lock() {
-                *error = None;
+            if recovery_cleared {
+                if let Ok(mut error) = state.last_recording_error.lock() {
+                    *error = None;
+                }
             }
             set_recording_state(&app, "done");
-            let _ = app.emit("failed-recording:changed", Option::<FailedRecording>::None);
+            if recovery_cleared {
+                let _ = app.emit("failed-recording:changed", Option::<FailedRecording>::None);
+            }
             let _ = app.emit("transcription:completed", &completed);
             Ok(completed)
         }
@@ -1443,8 +1656,8 @@ fn diagnostic_settings(settings: &AppSettings) -> serde_json::Value {
 #[cfg(test)]
 mod local_path_tests {
     use super::{
-        diagnostic_settings, is_managed_output_path, path_is_authorized_for_open,
-        resolved_tray_state, AppSettings, TranscriptEntry,
+        diagnostic_settings, is_managed_output_path, localized_native_error,
+        path_is_authorized_for_open, resolved_tray_state, AppSettings, TranscriptEntry,
     };
     use std::path::Path;
 
@@ -1535,6 +1748,25 @@ mod local_path_tests {
             "permission"
         );
         assert_eq!(resolved_tray_state("idle", true, false, false), "setup");
+    }
+
+    #[test]
+    fn tray_errors_follow_the_selected_interface_language() {
+        assert_eq!(
+            localized_native_error("Транскрипцията не успя: HTTP 500", true),
+            "Transcription failed: HTTP 500"
+        );
+        assert_eq!(
+            localized_native_error(
+                "Транскрипцията не успя: няма наличен API баланс или е достигнат лимитът.",
+                true
+            ),
+            "Transcription failed: no API balance is available or the limit has been reached."
+        );
+        assert_eq!(
+            localized_native_error("Не беше разпозната реч.", false),
+            "Не беше разпозната реч."
+        );
     }
 }
 
@@ -1706,7 +1938,8 @@ fn install_tray(app: &tauri::App) -> tauri::Result<()> {
                     .ok()
                     .and_then(|value| value.clone())
                 {
-                    let _ = text_insertion::copy(&error);
+                    let localized = localized_native_error(&error, uses_english_ui(app));
+                    let _ = text_insertion::copy(&localized);
                 }
             }
             "quit" => app.exit(0),

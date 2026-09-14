@@ -40,12 +40,14 @@ The remaining checks below are behavioral and must be completed on the signed bu
 - Open FLAC/TXT from history, copy text and retranscribe saved audio.
 - Delete a history entry while keeping files, then delete another entry with its linked files.
 - Trigger an API/balance/network failure, restart the app, retry the retained audio, then test explicit deletion.
+- After a successful retry, make recovery-audio cleanup fail and confirm the completed text remains available, the old item is not silently presented as cleared, and a warning prevents an accidental second paid retry.
 - After restart with retained audio, confirm the main window and menu bar report that action is required; after retry or deletion, confirm they return to ready.
 
 ## App lifecycle and startup
 
 - Close the main window and confirm the menu bar icon and shortcut remain active; reopen the window from both the Dock icon and menu bar.
 - Confirm menu bar state, stop action, error details, settings and Quit.
+- In both interface languages, trigger a representative OpenAI and microphone error; confirm the full menu-bar error and copied error text use the selected language.
 - While recording, transcribing, validating a key or capturing a shortcut, confirm Quit cannot discard the active operation and becomes available again after it finishes.
 - Enable and disable Launch at Login.
 - Change the Login Item or Accessibility permission in macOS System Settings, return to the app and confirm the displayed state refreshes; remove the API key and confirm both the main window and menu bar stop reporting ready.
