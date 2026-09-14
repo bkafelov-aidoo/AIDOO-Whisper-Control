@@ -12,7 +12,9 @@
     "bundle:mac": "tauri build --target aarch64-apple-darwin --bundles app,dmg",
     "notarize:mac": "bash scripts/notarize-mac.sh",
     "release:mac": "bash scripts/release-mac.sh",
-    "audit:mac": "bash scripts/audit-mac-release.sh"
+    "audit:mac": "bash scripts/audit-mac-release.sh",
+    "package:website": "python3 scripts/package-website-release.py",
+    "verify:website": "python3 scripts/package-website-release.py --verify"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

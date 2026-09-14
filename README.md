@@ -20,7 +20,7 @@ A focused macOS voice typing app. Hold a keyboard shortcut, speak, and release i
 
 - Apple Silicon Mac
 - macOS 13 or newer
-- Node.js 22, Rust stable and Xcode Command Line Tools
+- Node.js 22, Python 3.9+, Rust stable and Xcode Command Line Tools
 - An OpenAI Platform account with API billing enabled
 
 ## Development
@@ -42,7 +42,7 @@ The local release path uses the installed Developer ID Application certificate a
 npm run release:mac
 ```
 
-The script tests the app, builds the Apple Silicon app/DMG, notarizes and staples both the application and DMG, verifies Gatekeeper, writes the DMG checksum and independently audits the exact website assets under `release/<version>/`. See [docs/RELEASE.md](docs/RELEASE.md) for website release steps.
+The script tests the app, builds the Apple Silicon app/DMG, notarizes and staples both the application and DMG, verifies Gatekeeper, then creates and independently audits one website package under `release/<version>/`. That folder contains the DMG, checksum, public pages and a SHA-256 manifest. See [docs/RELEASE.md](docs/RELEASE.md) for website release steps.
 
 ## Source layout
 

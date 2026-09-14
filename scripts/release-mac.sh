@@ -69,9 +69,8 @@ PY
 )"
 release_dir="$project_root/release/$version"
 release_dmg="$release_dir/$(basename "$dmg")"
-mkdir -p "$release_dir"
-ditto "$dmg" "$release_dmg"
-cp "$dmg.sha256" "$release_dmg.sha256"
+python3 "$project_root/scripts/package-website-release.py" --dmg "$dmg" --output "$release_dir"
 "$project_root/scripts/audit-mac-release.sh" "$release_dmg"
+python3 "$project_root/scripts/package-website-release.py" --verify --output "$release_dir"
 
-printf 'Release assets:\n%s\n%s\n' "$release_dmg" "$release_dmg.sha256"
+printf 'Release package:\n%s\n' "$release_dir"

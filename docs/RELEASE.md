@@ -12,14 +12,16 @@ Keep the same semantic version in `package.json`, `src-tauri/Cargo.toml` and `sr
 
 Run `npm run release:mac`. It writes the final website assets to `release/<version>/`:
 
-- notarized and stapled application and DMG;
-- SHA-256 checksum for the DMG.
+- notarized and stapled DMG;
+- SHA-256 checksum for the DMG;
+- privacy, support and release-notes pages with their shared style and product icon;
+- `release-manifest.json` with the size and SHA-256 of every staged file.
 
 Upload the DMG and checksum to the AIDOO website. Users install a new version by downloading the newer notarized DMG from the website; the application does not perform background or in-app update checks.
 
 The release command automatically runs `npm run audit:mac` on the exact copied DMG. This independent check mounts the distribution image and revalidates its checksum, architecture, deployment target, identity, entitlements, notarization and Gatekeeper status without launching the application. Run `npm run audit:mac` again after transferring the files to another location or before upload.
 
-Publish the DMG and checksum links on the product website. Publish `website/privacy.html`, `website/support.html` and `website/release-notes.html` alongside it.
+Publish the DMG and checksum links on the product website. Publish the contents of `release/<version>/website/` alongside them. `npm run verify:website` confirms that every staged page matches `website/`, the checksum matches the DMG and the manifest matches all staged files.
 
 ## GitHub secrets for CI
 
