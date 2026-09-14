@@ -90,6 +90,7 @@ xcrun stapler validate "$app"
 xcrun stapler validate "$dmg"
 spctl --assess --verbose=2 --type execute "$app"
 spctl --assess --verbose=2 --type open --context context:primary-signature "$dmg"
+codesign --verify --strict --verbose=2 "$dmg"
 file "$app/Contents/MacOS/aidoo-whisper-lite" | grep -q 'arm64'
 test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = 'app.aidoo.whisper-lite'
 test "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$version"
@@ -104,6 +105,10 @@ signature="$(codesign -d --verbose=4 "$app" 2>&1)"
 printf '%s' "$signature" | grep -Fq 'Authority=Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)'
 printf '%s' "$signature" | grep -Fq 'TeamIdentifier=4KKVT2TUUA'
 printf '%s' "$signature" | grep -Eq '^CodeDirectory .*flags=.*runtime'
+
+dmg_signature="$(codesign -d --verbose=4 "$dmg" 2>&1)"
+printf '%s' "$dmg_signature" | grep -Fq 'Authority=Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)'
+printf '%s' "$dmg_signature" | grep -Fq 'TeamIdentifier=4KKVT2TUUA'
 
 entitlements="$(codesign -d --entitlements :- "$app" 2>/dev/null)"
 printf '%s' "$entitlements" | grep -q 'com.apple.security.device.audio-input'

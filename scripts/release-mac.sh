@@ -5,7 +5,13 @@ project_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$project_root"
 
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/aidoo-whisper-lite-release-target}"
-signing_identity="${APPLE_SIGNING_IDENTITY:-Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)}"
+expected_signing_identity="Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)"
+signing_identity="${APPLE_SIGNING_IDENTITY:-$expected_signing_identity}"
+if [[ "$signing_identity" != "$expected_signing_identity" ]]; then
+  printf 'Unexpected signing identity: %s\nExpected: %s\n' \
+    "$signing_identity" "$expected_signing_identity" >&2
+  exit 1
+fi
 version="$(python3 - "$project_root/package.json" <<'PY'
 from pathlib import Path
 import json, sys
@@ -66,6 +72,10 @@ Path(sys.argv[1]).unlink(missing_ok=True)
 PY
 hdiutil create -volname "AIDOO Whisper Lite" -srcfolder "$dmg_staging" -ov -format UDZO "$dmg"
 codesign --force --sign "$signing_identity" --timestamp "$dmg"
+codesign --verify --strict --verbose=2 "$dmg"
+dmg_signature="$(codesign -d --verbose=4 "$dmg" 2>&1)"
+printf '%s' "$dmg_signature" | grep -Fq "Authority=$expected_signing_identity"
+printf '%s' "$dmg_signature" | grep -Fq 'TeamIdentifier=4KKVT2TUUA'
 
 "$project_root/scripts/notarize-mac.sh" "$dmg"
 

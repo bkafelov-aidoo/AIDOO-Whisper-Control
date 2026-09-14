@@ -2,7 +2,7 @@
 
 ## Automated release audit
 
-Run `npm run check` before building and `npm run audit:mac` against the website DMG before publication. The first command also proves that known advisory-affected Linux packages have not entered the Apple Silicon macOS dependency graph. The artifact audit verifies the published checksum, Apple Silicon architecture, macOS 13 minimum, bundle ID, entitlements, Developer ID signature, notarization tickets, Gatekeeper acceptance, removal of updater configuration, required website documents and matching product/website icons. Neither check launches the application or accesses the microphone.
+Run `npm run check` before building and `npm run audit:mac` against the website DMG before publication. The first command also proves that known advisory-affected Linux packages have not entered the Apple Silicon macOS dependency graph. The artifact audit verifies the published checksum, Apple Silicon architecture, macOS 13 minimum, bundle ID, entitlements, the exact AIDOO Developer ID and Team ID on both the application and DMG, notarization tickets, Gatekeeper acceptance, removal of updater configuration, required website documents and matching product/website icons. Neither check launches the application or accesses the microphone.
 
 The remaining checks below are behavioral and must be completed on the signed build. Microphone checks require a person at the Mac; the final clean-install path requires a second or clean macOS account.
 
