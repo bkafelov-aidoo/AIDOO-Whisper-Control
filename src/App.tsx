@@ -268,7 +268,7 @@ export default function App() {
         />
       )}
 
-      {toast && <div className={`toast ${toast.tone}`}>{toast.tone === "success" ? <Check /> : <AlertCircle />}{toast.message}</div>}
+      {toast && <div className={`toast ${toast.tone}`} role={toast.tone === "error" ? "alert" : "status"} aria-live={toast.tone === "error" ? "assertive" : "polite"}>{toast.tone === "success" ? <Check /> : <AlertCircle />}{toast.message}</div>}
     </div>
   );
 }
@@ -295,7 +295,7 @@ function Dashboard({ data, language, isBusy, onOpenOnboarding, onTest, onRetry, 
     <div className="page dashboard">
       <header className="page-header"><div><span className="eyebrow">AIDOO WHISPER LITE</span><h1>{t("dictation")}</h1><p>{t("tagline")}</p></div><StatusPill ready={data.settings.onboardingComplete && !data.failedRecording} label={!data.settings.onboardingComplete ? t("notReady") : data.failedRecording ? t("actionRequired") : t("ready")} /></header>
       {!data.settings.onboardingComplete && (
-        <section className="setup-banner"><AlertCircle /><div><strong>{t("notReady")}</strong><span>{t("onboardingIncomplete")}</span></div><button onClick={onOpenOnboarding}>{t("openOnboarding")}<ChevronRight /></button></section>
+        <section className="setup-banner" role="status"><AlertCircle /><div><strong>{t("notReady")}</strong><span>{t("onboardingIncomplete")}</span></div><button onClick={onOpenOnboarding}>{t("openOnboarding")}<ChevronRight /></button></section>
       )}
       <section className={`dictation-hero ${data.recording.state}`}>
         <div className="hero-glow" />
@@ -314,7 +314,7 @@ function Dashboard({ data, language, isBusy, onOpenOnboarding, onTest, onRetry, 
 
 function FailedCard({ failed, language, disabled, onRetry, onDelete }: { failed: FailedRecording; language: AppLanguage; disabled: boolean; onRetry: () => void; onDelete: () => void }) {
   const t = translator(language);
-  return <section className="failed-card"><AlertCircle /><div><strong>{t("failedTitle")}</strong><span>{t("failedBody")}</span><small>{errorMessage(failed.error, language)}</small></div><button className="secondary-button" disabled={disabled} onClick={onRetry}><RotateCcw />{t("retry")}</button><button className="icon-button danger" disabled={disabled} onClick={onDelete} aria-label={t("delete")}><Trash2 /></button></section>;
+  return <section className="failed-card" role="status"><AlertCircle /><div><strong>{t("failedTitle")}</strong><span>{t("failedBody")}</span><small>{errorMessage(failed.error, language)}</small></div><button className="secondary-button" disabled={disabled} onClick={onRetry}><RotateCcw />{t("retry")}</button><button className="icon-button danger" disabled={disabled} onClick={onDelete} aria-label={t("delete")}><Trash2 /></button></section>;
 }
 
 function HistoryPage({ history, language, isBusy, onCopy, onOpen, onRetranscribe, onDelete }: { history: TranscriptEntry[]; language: AppLanguage; isBusy: boolean; onCopy: (text: string) => void; onOpen: (path: string) => void; onRetranscribe: (id: string) => void; onDelete: (entry: TranscriptEntry) => void }) {
@@ -365,15 +365,15 @@ function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToast, onOp
   return <div className="page settings-page"><header className="page-header"><div><span className="eyebrow">AIDOO WHISPER LITE</span><h1>{t("settings")}</h1><p>{t("version")} {data.appVersion}</p></div><button className="secondary-button" disabled={isBusy} title={isBusy ? t("finishDictationFirst") : undefined} onClick={onOpenOnboarding}><Sparkles />{t("openOnboarding")}</button></header>
     <SettingsSection icon={<KeyRound />} title={t("apiTitle")}>
       <p className="section-help">{t("apiHelp")}</p><p className="instruction-note"><CircleHelp />{t("apiSteps")}</p>
-      <div className="api-row"><input type="password" value={apiKey} disabled={isBusy} onChange={(event) => setApiKey(event.target.value)} placeholder={data.hasApiKey ? "••••••••••••••••••" : "sk-…"} /><button className="secondary-button" onClick={async () => { try { await openUrl("https://platform.openai.com/api-keys"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("createKey")}</button><button className="primary-button" disabled={isBusy || keyBusy || !apiKey.trim()} onClick={async () => { setKeyBusy(true); try { await invoke("save_api_key", { apiKey }); setApiKey(""); await onRefresh(); onToast(t("keySaved")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setKeyBusy(false); } }}>{keyBusy ? <LoaderCircle className="spin" /> : <ShieldCheck />}{t("verifySave")}</button></div>
+      <div className="api-row"><input type="password" aria-label={t("apiTitle")} autoComplete="new-password" spellCheck={false} value={apiKey} disabled={isBusy} onChange={(event) => setApiKey(event.target.value)} placeholder={data.hasApiKey ? "••••••••••••••••••" : "sk-…"} /><button className="secondary-button" onClick={async () => { try { await openUrl("https://platform.openai.com/api-keys"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("createKey")}</button><button className="primary-button" disabled={isBusy || keyBusy || !apiKey.trim()} onClick={async () => { setKeyBusy(true); try { await invoke("save_api_key", { apiKey }); setApiKey(""); await onRefresh(); onToast(t("keySaved")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setKeyBusy(false); } }}>{keyBusy ? <LoaderCircle className="spin" /> : <ShieldCheck />}{t("verifySave")}</button></div>
       {data.hasApiKey && <button className="text-button danger" disabled={isBusy} onClick={async () => { try { await invoke("delete_api_key"); await onRefresh(); onToast(t("deleted")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}>{t("removeKey")}</button>}
     </SettingsSection>
     <SettingsSection icon={<Languages />} title={t("modelLanguage")}>
       <ModelPicker settings={draft} language={language} onChange={setDraft} />
-      <SettingRow title={t("interfaceLanguage")}><select value={draft.uiLanguage} onChange={(event) => setDraft({ ...draft, uiLanguage: event.target.value as AppSettings["uiLanguage"] })}><option value="auto">{t("automatic")}</option><option value="bg">Български</option><option value="en">English</option></select></SettingRow>
+      <SettingRow title={t("interfaceLanguage")}><select aria-label={t("interfaceLanguage")} value={draft.uiLanguage} onChange={(event) => setDraft({ ...draft, uiLanguage: event.target.value as AppSettings["uiLanguage"] })}><option value="auto">{t("automatic")}</option><option value="bg">Български</option><option value="en">English</option></select></SettingRow>
     </SettingsSection>
     <SettingsSection icon={<Mic />} title={t("microphone")}>
-      <SettingRow title={t("microphone")}><select value={draft.microphoneName ?? ""} onChange={(event) => setDraft({ ...draft, microphoneName: event.target.value || null })}><option value="">{t("systemDefault")}</option>{data.microphones.map((item) => <option key={item} value={item}>{item}</option>)}</select></SettingRow>
+      <SettingRow title={t("microphone")}><select aria-label={t("microphone")} value={draft.microphoneName ?? ""} onChange={(event) => setDraft({ ...draft, microphoneName: event.target.value || null })}><option value="">{t("systemDefault")}</option>{data.microphones.map((item) => <option key={item} value={item}>{item}</option>)}</select></SettingRow>
       <SettingRow title={t("automaticMicrophoneFallback")} detail={t("automaticMicrophoneFallbackHelp")}><Toggle label={t("automaticMicrophoneFallback")} checked={draft.automaticMicrophoneFallback} onChange={(automaticMicrophoneFallback) => setDraft({ ...draft, automaticMicrophoneFallback })} /></SettingRow>
       <SettingRow title={t("testMicrophone")} detail={t("microphoneTestHelp")}><button className="secondary-button" disabled={isBusy || microphoneBusy || !data.microphones.length} onClick={async () => { setMicrophoneBusy(true); try { const probe = await invoke<MicrophoneProbe>("test_microphone", { microphoneName: draft.microphoneName, automaticFallback: draft.automaticMicrophoneFallback }); if (!probe.heardAudio) throw new Error(t("microphoneSilent")); onToast(probe.usedFallback ? t("microphoneFallback", { name: probe.deviceName }) : t("microphoneOk"), probe.usedFallback ? "warning" : "success"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setMicrophoneBusy(false); } }}>{microphoneBusy ? <LoaderCircle className="spin" /> : <AudioLines />}{t("testMicrophone")}</button></SettingRow>
       <SettingRow title={t("accessibility")} detail={data.accessibilityGranted ? t("ready") : t("accessibilityHelp")}><div className="inline-actions"><button className="secondary-button" onClick={async () => { try { await invoke("open_accessibility_settings"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}>{t("grant")}</button><button className="secondary-button" disabled={accessibilityBusy} onClick={async () => { setAccessibilityBusy(true); try { await invoke("refresh_accessibility_status"); await onRefresh(); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setAccessibilityBusy(false); } }}>{accessibilityBusy ? <LoaderCircle className="spin" /> : data.accessibilityGranted ? <Check /> : <RefreshCw />}{t("refresh")}</button></div></SettingRow>
@@ -423,6 +423,7 @@ function Onboarding({ data, language, onData, onPersist, onRefresh, onClose, onT
   const [busy, setBusy] = useState(false);
   const [micTested, setMicTested] = useState(data.settings.onboardingComplete);
   const [shortcutBusy, setShortcutBusy] = useState(false);
+  const dialogRef = useDialogFocus(onClose, !shortcutBusy);
   useShortcutCapture(shortcutBusy, setShortcutBusy, (binding) => setDraft((current) => ({ ...current, dictationShortcut: binding })), (message) => onToast(errorMessage(message, language), "error"));
   const steps = [t("stepAccount"), t("stepPermissions"), t("stepShortcut"), t("stepPreferences"), t("stepStorage"), t("stepReady")];
 
@@ -438,9 +439,9 @@ function Onboarding({ data, language, onData, onPersist, onRefresh, onClose, onT
   };
   const missing = !data.hasApiKey ? t("keyRequired") : !micTested ? t("micRequired") : !data.accessibilityGranted ? t("accessRequired") : null;
 
-  return <div className="modal-backdrop"><section className="onboarding-modal"><header className="onboarding-header"><div className="brand compact"><img src="/app-icon.png" alt="" /><div><strong>AIDOO</strong><span>Whisper Lite</span></div></div><button className="close-button" aria-label={t("closeContinueLater")} onClick={onClose}><X /></button></header><div className="stepper">{steps.map((name, index) => <div key={name} className={`${index === step ? "active" : ""} ${index < step ? "done" : ""}`}><i>{index < step ? <Check /> : index + 1}</i><span>{name}</span></div>)}</div><div className="onboarding-content">
-    {step === 0 && <div className="onboarding-step"><span className="step-icon"><KeyRound /></span><h1>{t("welcomeTitle")}</h1><p>{t("welcomeBody")}</p><div className="instruction-card"><CircleHelp /><span>{t("apiSteps")}</span></div><button className="secondary-button wide" onClick={async () => { try { await openUrl("https://platform.openai.com/api-keys"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("createKey")}</button><div className="api-input"><input type="password" placeholder="sk-…" value={apiKey} onChange={(event) => setApiKey(event.target.value)} /><button className="primary-button" disabled={busy || !apiKey.trim()} onClick={async () => { setBusy(true); try { await invoke("save_api_key", { apiKey }); setApiKey(""); const nextData = await onRefresh(); onData(nextData); onToast(t("keySaved")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setBusy(false); } }}>{busy ? <LoaderCircle className="spin" /> : <ShieldCheck />}{t("verifySave")}</button></div>{data.hasApiKey && <div className="success-note"><Check />{t("keySaved")}</div>}</div>}
-    {step === 1 && <div className="onboarding-step"><span className="step-icon"><Mic /></span><h1>{t("stepPermissions")}</h1><p>{t("accessibilityHelp")}</p><div className="permission-list"><article className={micTested ? "ready" : ""}><div><Mic /></div><span><strong>{t("microphone")}</strong><small>{draft.microphoneName ?? data.microphones[0] ?? t("micRequired")} · {t("microphoneTestHelp")}</small></span><select value={draft.microphoneName ?? ""} onChange={(event) => { setMicTested(false); setDraft({ ...draft, microphoneName: event.target.value || null }); }}><option value="">{t("systemDefault")}</option>{data.microphones.map((item) => <option key={item} value={item}>{item}</option>)}</select><button className="secondary-button" disabled={busy || !data.microphones.length} onClick={async () => { setBusy(true); try { const probe = await invoke<MicrophoneProbe>("test_microphone", { microphoneName: draft.microphoneName, automaticFallback: draft.automaticMicrophoneFallback }); if (!probe.heardAudio) throw new Error(t("microphoneSilent")); setMicTested(true); onToast(probe.usedFallback ? t("microphoneFallback", { name: probe.deviceName }) : t("microphoneOk"), probe.usedFallback ? "warning" : "success"); } catch (reason) { setMicTested(false); onToast(errorMessage(reason, language), "error"); } finally { setBusy(false); } }}>{busy ? <LoaderCircle className="spin" /> : <AudioLines />}{t("testMicrophone")}</button></article><article className={data.accessibilityGranted ? "ready" : ""}><div><ShieldCheck /></div><span><strong>{t("accessibility")}</strong><small>{t("accessibilityHelp")}</small></span><button className="secondary-button" onClick={async () => { try { await invoke("open_accessibility_settings"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}>{t("grant")}</button><button className="secondary-button" disabled={busy} onClick={async () => { setBusy(true); try { const granted = await invoke<boolean>("refresh_accessibility_status"); onData((current) => current ? { ...current, accessibilityGranted: granted } : current); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setBusy(false); } }}>{data.accessibilityGranted ? <Check /> : <RefreshCw />}{t("refresh")}</button></article></div><SettingRow title={t("automaticMicrophoneFallback")} detail={t("automaticMicrophoneFallbackHelp")}><Toggle label={t("automaticMicrophoneFallback")} checked={draft.automaticMicrophoneFallback} onChange={(automaticMicrophoneFallback) => setDraft({ ...draft, automaticMicrophoneFallback })} /></SettingRow></div>}
+  return <div className="modal-backdrop"><section ref={dialogRef} className="onboarding-modal" role="dialog" aria-modal="true" aria-label={steps[step]} tabIndex={-1}><header className="onboarding-header"><div className="brand compact"><img src="/app-icon.png" alt="" /><div><strong>AIDOO</strong><span>Whisper Lite</span></div></div><button className="close-button" aria-label={t("closeContinueLater")} onClick={onClose}><X /></button></header><div className="stepper">{steps.map((name, index) => <div key={name} className={`${index === step ? "active" : ""} ${index < step ? "done" : ""}`}><i>{index < step ? <Check /> : index + 1}</i><span>{name}</span></div>)}</div><div className="onboarding-content">
+    {step === 0 && <div className="onboarding-step"><span className="step-icon"><KeyRound /></span><h1>{t("welcomeTitle")}</h1><p>{t("welcomeBody")}</p><div className="instruction-card"><CircleHelp /><span>{t("apiSteps")}</span></div><button className="secondary-button wide" onClick={async () => { try { await openUrl("https://platform.openai.com/api-keys"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("createKey")}</button><div className="api-input"><input type="password" aria-label={t("apiTitle")} autoComplete="new-password" spellCheck={false} placeholder="sk-…" value={apiKey} onChange={(event) => setApiKey(event.target.value)} /><button className="primary-button" disabled={busy || !apiKey.trim()} onClick={async () => { setBusy(true); try { await invoke("save_api_key", { apiKey }); setApiKey(""); const nextData = await onRefresh(); onData(nextData); onToast(t("keySaved")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setBusy(false); } }}>{busy ? <LoaderCircle className="spin" /> : <ShieldCheck />}{t("verifySave")}</button></div>{data.hasApiKey && <div className="success-note"><Check />{t("keySaved")}</div>}</div>}
+    {step === 1 && <div className="onboarding-step"><span className="step-icon"><Mic /></span><h1>{t("stepPermissions")}</h1><p>{t("accessibilityHelp")}</p><div className="permission-list"><article className={micTested ? "ready" : ""}><div><Mic /></div><span><strong>{t("microphone")}</strong><small>{draft.microphoneName ?? data.microphones[0] ?? t("micRequired")} · {t("microphoneTestHelp")}</small></span><select aria-label={t("microphone")} value={draft.microphoneName ?? ""} onChange={(event) => { setMicTested(false); setDraft({ ...draft, microphoneName: event.target.value || null }); }}><option value="">{t("systemDefault")}</option>{data.microphones.map((item) => <option key={item} value={item}>{item}</option>)}</select><button className="secondary-button" disabled={busy || !data.microphones.length} onClick={async () => { setBusy(true); try { const probe = await invoke<MicrophoneProbe>("test_microphone", { microphoneName: draft.microphoneName, automaticFallback: draft.automaticMicrophoneFallback }); if (!probe.heardAudio) throw new Error(t("microphoneSilent")); setMicTested(true); onToast(probe.usedFallback ? t("microphoneFallback", { name: probe.deviceName }) : t("microphoneOk"), probe.usedFallback ? "warning" : "success"); } catch (reason) { setMicTested(false); onToast(errorMessage(reason, language), "error"); } finally { setBusy(false); } }}>{busy ? <LoaderCircle className="spin" /> : <AudioLines />}{t("testMicrophone")}</button></article><article className={data.accessibilityGranted ? "ready" : ""}><div><ShieldCheck /></div><span><strong>{t("accessibility")}</strong><small>{t("accessibilityHelp")}</small></span><button className="secondary-button" onClick={async () => { try { await invoke("open_accessibility_settings"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}>{t("grant")}</button><button className="secondary-button" disabled={busy} onClick={async () => { setBusy(true); try { const granted = await invoke<boolean>("refresh_accessibility_status"); onData((current) => current ? { ...current, accessibilityGranted: granted } : current); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setBusy(false); } }}>{data.accessibilityGranted ? <Check /> : <RefreshCw />}{t("refresh")}</button></article></div><SettingRow title={t("automaticMicrophoneFallback")} detail={t("automaticMicrophoneFallbackHelp")}><Toggle label={t("automaticMicrophoneFallback")} checked={draft.automaticMicrophoneFallback} onChange={(automaticMicrophoneFallback) => setDraft({ ...draft, automaticMicrophoneFallback })} /></SettingRow></div>}
     {step === 2 && <div className="onboarding-step"><span className="step-icon"><AudioLines /></span><h1>{t("shortcut")}</h1><p>{t("holdShortcut", { shortcut: formatShortcut(draft.dictationShortcut) })}</p><button className={`shortcut-capture ${shortcutBusy ? "listening" : ""}`} onClick={async () => { setShortcutBusy(true); try { await invoke("begin_shortcut_capture"); } catch (reason) { setShortcutBusy(false); onToast(errorMessage(reason, language), "error"); } }}>{shortcutBusy ? <><AudioLines />{t("pressShortcut")}</> : <><kbd>{formatShortcut(draft.dictationShortcut)}</kbd>{t("changeShortcut")}</>}</button>{shortcutBusy && <button className="text-button" onClick={async () => { try { await invoke("cancel_shortcut_capture"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setShortcutBusy(false); } }}>{t("cancel")}</button>}</div>}
     {step === 3 && <div className="onboarding-step"><span className="step-icon"><Languages /></span><h1>{t("modelLanguage")}</h1><p>{language === "bg" ? "Изберете баланс между цена и точност и задайте език, за да избегнете автоматичното разпознаване." : "Choose your cost/accuracy balance and set a language to skip automatic detection."}</p><ModelPicker settings={draft} language={language} onChange={setDraft} /></div>}
     {step === 4 && <div className="onboarding-step"><span className="step-icon"><FolderOpen /></span><h1>{t("storage")}</h1><p>{language === "bg" ? "Всеки тип съхранение се управлява отделно. Потребителските файлове никога не се изтриват автоматично." : "Each storage type is controlled separately. User files are never deleted automatically."}</p><StorageControls settings={draft} language={language} outputPath={draft.outputDirectory ?? data.defaultOutputDirectory} onChange={setDraft} onChooseFolder={chooseFolder} /></div>}
@@ -475,7 +476,55 @@ function useShortcutCapture(active: boolean, setActive: (active: boolean) => voi
 
 function DeleteDialog({ entry, language, onCancel, onDelete }: { entry: TranscriptEntry; language: AppLanguage; onCancel: () => void; onDelete: (deleteFiles: boolean) => void }) {
   const t = translator(language);
-  return <div className="modal-backdrop small"><section className="confirm-dialog"><button className="close-button" aria-label={t("cancel")} onClick={onCancel}><X /></button><span className="danger-icon"><Trash2 /></span><h2>{t("deleteQuestion")}</h2><p>{entry.text}</p><button className="secondary-button" onClick={() => onDelete(false)}>{t("historyOnly")}</button><button className="danger-button" onClick={() => onDelete(true)}>{t("historyAndFiles")}</button></section></div>;
+  const dialogRef = useDialogFocus(onCancel);
+  return <div className="modal-backdrop small"><section ref={dialogRef} className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-dialog-title" tabIndex={-1}><button className="close-button" aria-label={t("cancel")} onClick={onCancel}><X /></button><span className="danger-icon"><Trash2 /></span><h2 id="delete-dialog-title">{t("deleteQuestion")}</h2><p>{entry.text}</p><button className="secondary-button" onClick={() => onDelete(false)}>{t("historyOnly")}</button><button className="danger-button" onClick={() => onDelete(true)}>{t("historyAndFiles")}</button></section></div>;
+}
+
+function useDialogFocus(onClose: () => void, closeOnEscape = true) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeRef = useRef(onClose);
+  const escapeRef = useRef(closeOnEscape);
+  closeRef.current = onClose;
+  escapeRef.current = closeOnEscape;
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (!dialog) return;
+    dialog.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && escapeRef.current) {
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'));
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    dialog.addEventListener("keydown", onKeyDown);
+    return () => {
+      dialog.removeEventListener("keydown", onKeyDown);
+      previousFocus?.focus();
+    };
+  }, []);
+
+  return dialogRef;
 }
 
 function StatusPill({ ready, label }: { ready: boolean; label: string }) {

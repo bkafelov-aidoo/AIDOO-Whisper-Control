@@ -11,6 +11,8 @@ The remaining checks below are behavioral and must be completed on the signed bu
 - Launch on a clean macOS 13+ Apple Silicon account.
 - Confirm Bulgarian follows a Bulgarian system language and English follows other system languages.
 - Confirm onboarding can be closed and resumed without enabling dictation prematurely.
+- Navigate onboarding and deletion dialogs with the keyboard; confirm focus stays inside, Escape closes safely, and shortcut capture handles Escape without closing onboarding.
+- With VoiceOver, confirm API-key and microphone fields have useful names and status/error messages are announced without reading upload percentage changes continuously.
 - Open the OpenAI key page from the app, verify an invalid key shows a clear error, then save a valid key.
 - Confirm the key exists in Keychain and is absent from settings, diagnostics and application files.
 - Test the selected microphone and grant Accessibility.

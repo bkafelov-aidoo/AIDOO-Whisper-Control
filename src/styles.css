@@ -174,6 +174,7 @@ select { min-width: 190px; }
 
 .modal-backdrop { position: fixed; z-index: 1000; inset: 0; padding: 24px; background: rgba(9,27,46,.56); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); display: grid; place-items: center; -webkit-app-region: no-drag; }
 .onboarding-modal { width: min(880px,94vw); height: min(700px,92vh); border: 1px solid rgba(255,255,255,.72); border-radius: 22px; background: #fff; box-shadow: 0 34px 110px rgba(5,25,49,.4); overflow: hidden; display: grid; grid-template-rows: 70px 78px minmax(0,1fr) 70px; }
+.onboarding-modal:focus, .confirm-dialog:focus { outline: none; }
 .onboarding-header { padding: 13px 19px; border-bottom: 1px solid var(--separator); display: flex; align-items: center; justify-content: space-between; }
 .stepper { padding: 13px 30px; border-bottom: 1px solid var(--separator); background: #f7f9fb; display: grid; grid-template-columns: repeat(6,1fr); }
 .stepper > div { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; color: #657687; font-size: 10px; font-weight: 600; }

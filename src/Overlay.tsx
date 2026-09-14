@@ -89,8 +89,8 @@ export default function Overlay() {
   return (
     <main className="overlay-shell">
       <div ref={card} className={`overlay-card ${snapshot.state}`}>
-        <div className={`overlay-state-icon ${snapshot.state}`}>{icon}</div>
-        <div className="overlay-copy">
+        <div className={`overlay-state-icon ${snapshot.state}`} aria-hidden="true">{icon}</div>
+        <div className="overlay-copy" role={snapshot.state === "error" ? "alert" : "status"} aria-live={snapshot.state === "error" ? "assertive" : "polite"} aria-atomic="true">
           <strong>{label[snapshot.state]}</strong>
           {snapshot.state === "recording" && <span>{label.release}</span>}
           {snapshot.state === "transcribing" && <span>{stage}</span>}
