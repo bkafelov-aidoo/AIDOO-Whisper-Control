@@ -263,7 +263,8 @@ fn write_json_atomic<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<()
 
 #[cfg(test)]
 mod tests {
-    use super::{sanitize_diagnostic, sanitize_support_text};
+    use super::{read_json, sanitize_diagnostic, sanitize_support_text, write_json_atomic};
+    use serde_json::json;
 
     #[test]
     fn diagnostics_redact_openai_keys() {
@@ -290,5 +291,48 @@ mod tests {
         assert!(!value.contains(&home.to_string_lossy().to_string()));
         assert!(value.contains("[transcript redacted]"));
         assert!(value.contains("~/Documents"));
+    }
+
+    #[test]
+    fn private_json_round_trips_atomically() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-private-json-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let path = root.join("settings.json");
+        let expected = json!({"language": "bg", "history": true});
+
+        write_json_atomic(&path, &expected).unwrap();
+
+        assert_eq!(read_json::<serde_json::Value>(&path), Some(expected));
+        let files = std::fs::read_dir(&root)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect::<Vec<_>>();
+        assert_eq!(files, vec![std::ffi::OsString::from("settings.json")]);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn private_json_rejects_a_symlinked_parent_directory() {
+        use std::os::unix::fs::symlink;
+
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-private-link-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let real = root.join("real");
+        let linked = root.join("linked");
+        std::fs::create_dir_all(&real).unwrap();
+        symlink(&real, &linked).unwrap();
+        let linked_path = linked.join("history.json");
+        let real_path = real.join("history.json");
+        std::fs::write(&real_path, b"[]").unwrap();
+
+        assert!(read_json::<serde_json::Value>(&linked_path).is_none());
+        assert!(write_json_atomic(&linked_path, &json!([])).is_err());
+        assert_eq!(std::fs::read(&real_path).unwrap(), b"[]");
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
