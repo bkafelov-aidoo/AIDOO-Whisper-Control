@@ -28,6 +28,7 @@
 - Open FLAC/TXT from history, copy text and retranscribe saved audio.
 - Delete a history entry while keeping files, then delete another entry with its linked files.
 - Trigger an API/balance/network failure, restart the app, retry the retained audio, then test explicit deletion.
+- After restart with retained audio, confirm the main window and menu bar report that action is required; after retry or deletion, confirm they return to ready.
 
 ## App lifecycle and updates
 
@@ -36,7 +37,7 @@
 - Enable and disable Launch at Login.
 - Confirm automatic update check runs at most daily and the manual check works.
 - Start recording immediately before choosing Install and confirm installation is refused; then start an installation while idle and confirm the global shortcut cannot begin recording until the app restarts or the update fails.
-- Create a diagnostics package and inspect that it has no API key, transcript text or audio; confirm the separate support button opens the AIDOO Whisper GitHub Issues page without uploading anything automatically.
+- Create a diagnostics package, confirm Finder reveals it, and inspect that it has no API key, transcript text or audio; confirm the separate support button opens the AIDOO Whisper GitHub Issues page without uploading anything automatically.
 
 ## Distribution
 

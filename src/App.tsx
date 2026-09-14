@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { disable, enable } from "@tauri-apps/plugin-autostart";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
@@ -151,7 +151,7 @@ export default function App() {
       setAvailableUpdate(update);
       setUpdateMessage(update ? t("updateAvailable", { version: update.version }) : t("upToDate"));
     } catch (reason) {
-      setUpdateMessage(errorMessage(reason, language));
+      setUpdateMessage(t("updateCheckFailed"));
     }
   };
 
@@ -176,9 +176,9 @@ export default function App() {
           <NavButton active={page === "history"} icon={<History />} label={t("history")} badge={data.history.length || undefined} onClick={() => setPage("history")} />
           <NavButton active={page === "settings"} icon={<Settings />} label={t("settings")} onClick={() => setPage("settings")} />
         </nav>
-        <div className={`sidebar-status ${data.settings.onboardingComplete ? "ready" : "attention"}`}>
+        <div className={`sidebar-status ${data.settings.onboardingComplete && !data.failedRecording ? "ready" : "attention"}`}>
           <i />
-          <span>{data.settings.onboardingComplete ? t("ready") : t("notReady")}</span>
+          <span>{!data.settings.onboardingComplete ? t("notReady") : data.failedRecording ? t("actionRequired") : t("ready")}</span>
           <kbd>{shortcut}</kbd>
         </div>
       </aside>
@@ -204,7 +204,7 @@ export default function App() {
               catch (reason) { showToast(errorMessage(reason, language), "error"); }
             }}
             onOpen={async (path) => {
-              try { await openPath(path); }
+              try { await invoke("open_local_path", { path, reveal: false }); }
               catch (reason) { showToast(errorMessage(reason, language), "error"); }
             }}
             onRetranscribe={retranscribe}
@@ -220,7 +220,7 @@ export default function App() {
               catch (reason) { showToast(errorMessage(reason, language), "error"); }
             }}
             onOpen={async (path) => {
-              try { await openPath(path); }
+              try { await invoke("open_local_path", { path, reveal: false }); }
               catch (reason) { showToast(errorMessage(reason, language), "error"); }
             }}
             onRetranscribe={retranscribe}
@@ -335,7 +335,7 @@ function Dashboard({ data, language, isBusy, onOpenOnboarding, onTest, onRetry, 
   const shortcut = formatShortcut(data.settings.dictationShortcut);
   return (
     <div className="page dashboard">
-      <header className="page-header"><div><span className="eyebrow">AIDOO WHISPER LITE</span><h1>{t("dictation")}</h1><p>{t("tagline")}</p></div><StatusPill ready={data.settings.onboardingComplete} label={data.settings.onboardingComplete ? t("ready") : t("notReady")} /></header>
+      <header className="page-header"><div><span className="eyebrow">AIDOO WHISPER LITE</span><h1>{t("dictation")}</h1><p>{t("tagline")}</p></div><StatusPill ready={data.settings.onboardingComplete && !data.failedRecording} label={!data.settings.onboardingComplete ? t("notReady") : data.failedRecording ? t("actionRequired") : t("ready")} /></header>
       {!data.settings.onboardingComplete && (
         <section className="setup-banner"><AlertCircle /><div><strong>{t("notReady")}</strong><span>{t("onboardingIncomplete")}</span></div><button onClick={onOpenOnboarding}>{t("openOnboarding")}<ChevronRight /></button></section>
       )}
@@ -434,7 +434,7 @@ function SettingsPage({ data, language, availableUpdate, updateMessage, isBusy, 
       <div className="update-row"><button className="secondary-button" onClick={onCheckUpdates}><RefreshCw />{t("checkUpdates")}</button>{updateMessage && <span>{updateMessage}</span>}{availableUpdate && <button className="primary-button" disabled={isBusy} title={isBusy ? t("updateBusy") : undefined} onClick={onInstallUpdate}>{t("installUpdate")}</button>}</div>
     </SettingsSection>
     <SettingsSection icon={<ShieldCheck />} title={t("diagnostics")}>
-      <p className="section-help">{t("diagnosticsHelp")}</p><div className="inline-actions"><button className="secondary-button" disabled={diagnosticBusy} onClick={async () => { setDiagnosticBusy(true); try { const path = await invoke<string>("create_diagnostic_bundle"); await openPath(path); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setDiagnosticBusy(false); } }}>{diagnosticBusy ? <LoaderCircle className="spin" /> : <FileText />}{t("createDiagnostics")}</button><button className="secondary-button" onClick={async () => { try { await openUrl("https://github.com/bkafelov-aidoo/Aidoo-Whisper/issues"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("openSupport")}</button></div>
+      <p className="section-help">{t("diagnosticsHelp")}</p><div className="inline-actions"><button className="secondary-button" disabled={diagnosticBusy} onClick={async () => { setDiagnosticBusy(true); try { const path = await invoke<string>("create_diagnostic_bundle"); await invoke("open_local_path", { path, reveal: true }); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setDiagnosticBusy(false); } }}>{diagnosticBusy ? <LoaderCircle className="spin" /> : <FileText />}{t("createDiagnostics")}</button><button className="secondary-button" onClick={async () => { try { await openUrl("https://github.com/bkafelov-aidoo/Aidoo-Whisper/issues"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("openSupport")}</button></div>
     </SettingsSection>
     <footer className="settings-footer"><button className="primary-button large" disabled={isBusy} title={isBusy ? t("finishDictationFirst") : undefined} onClick={() => onSave(draft)}><Check />{t("save")}</button></footer>
   </div>;

@@ -672,7 +672,7 @@ alloc-stdlib 0.2.4, block 0.1.6, block2 0.5.1, block2 0.6.2, cesu8 1.1.0, clipbo
 Unique license and notice texts
 -------------------------------
 
-Notice 001 (LICENSE, LICENSE-Apache, LICENSE-APACHE, LICENSE-APACHE.md, LICENSE-APACHE.txt, LICENSE_APACHE-2.0)
+Notice 001 (LICENSE, LICENSE-APACHE, LICENSE-Apache, LICENSE-APACHE.md, LICENSE-APACHE.txt, LICENSE_APACHE-2.0)
 Used by: @tauri-apps/api 2.11.1, alsa 0.9.1, arboard 3.6.1, fdeflate 0.3.7, field-offset 0.3.6, half 2.7.1, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, simdutf8 0.1.5, sync_wrapper 1.0.2, tauri 2.11.5, tauri-build 2.6.3, tauri-codegen 2.6.3, tauri-macros 2.6.3, tauri-plugin-autostart 2.5.1, tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-opener 2.5.5, tauri-plugin-process 2.3.1, tauri-plugin-updater 2.11.0, tauri-runtime 2.11.3, tauri-runtime-wry 2.11.4, tauri-utils 2.9.3, time 0.3.55, time-core 0.1.9, time-macros 0.2.32
 
 Apache License

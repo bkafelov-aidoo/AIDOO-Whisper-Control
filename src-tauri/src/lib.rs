@@ -50,13 +50,21 @@ impl AppState {
             .ok()
             .and_then(|entry| entry.get_password().ok())
             .map(Zeroizing::new);
+        let failed_recording = storage::load_failed_recording();
+        let recovery_error = failed_recording
+            .as_ref()
+            .map(|recording| recording.error.clone());
         Self {
             settings: Mutex::new(storage::load_settings()),
             history: Mutex::new(storage::load_history()),
-            failed_recording: Mutex::new(storage::load_failed_recording()),
+            failed_recording: Mutex::new(failed_recording),
             recorder: audio::RecorderService::new(),
             shortcut_capture: Mutex::new(None),
-            recording_status: Mutex::new("idle".into()),
+            recording_status: Mutex::new(if recovery_error.is_some() {
+                "error".into()
+            } else {
+                "idle".into()
+            }),
             recording_progress: Mutex::new(RecordingProgress::default()),
             recording_started_at: Mutex::new(None),
             recording_active: AtomicBool::new(false),
@@ -64,7 +72,7 @@ impl AppState {
             update_install_active: AtomicBool::new(false),
             stop_requested: AtomicBool::new(false),
             status_generation: AtomicU64::new(0),
-            last_recording_error: Mutex::new(None),
+            last_recording_error: Mutex::new(recovery_error),
             api_key: Mutex::new(api_key),
         }
     }
@@ -914,6 +922,9 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
             if temporary_flac {
                 let _ = std::fs::remove_file(&staged);
             }
+            if let Ok(mut error) = state.last_recording_error.lock() {
+                *error = None;
+            }
             set_recording_state(&app, "done");
             let _ = app.emit("failed-recording:changed", Option::<FailedRecording>::None);
             let _ = app.emit("transcription:completed", &completed);
@@ -1002,6 +1013,10 @@ fn delete_failed_recording(app: AppHandle) -> Result<(), String> {
     let state = app.state::<AppState>();
     let _operation = acquire_operation(&state)?;
     clear_failed_recording_state(&state, true)?;
+    if let Ok(mut error) = state.last_recording_error.lock() {
+        *error = None;
+    }
+    set_recording_state(&app, "idle");
     let _ = app.emit("failed-recording:changed", Option::<FailedRecording>::None);
     Ok(())
 }
@@ -1204,6 +1219,99 @@ fn refresh_accessibility_status(app: AppHandle) -> bool {
     granted
 }
 
+fn path_is_authorized_for_open(
+    requested: &Path,
+    history: &[TranscriptEntry],
+    data_directory: &Path,
+) -> bool {
+    let is_history_file = history.iter().any(|entry| {
+        entry
+            .audio_path
+            .as_deref()
+            .into_iter()
+            .chain(entry.text_path.as_deref())
+            .any(|saved| Path::new(saved) == requested)
+    });
+    let is_diagnostic_bundle = requested.parent() == Some(data_directory)
+        && requested
+            .file_name()
+            .and_then(|value| value.to_str())
+            .is_some_and(|name| {
+                name.starts_with("AIDOO-Whisper-Lite-Diagnostics-") && name.ends_with(".zip")
+            });
+    is_history_file || is_diagnostic_bundle
+}
+
+#[cfg(test)]
+mod local_path_tests {
+    use super::{path_is_authorized_for_open, TranscriptEntry};
+    use std::path::Path;
+
+    fn history_entry() -> TranscriptEntry {
+        TranscriptEntry {
+            id: "entry".into(),
+            text: "text".into(),
+            created_at: "2026-09-14T00:00:00Z".into(),
+            duration_seconds: 1.0,
+            model: "gpt-4o-mini-transcribe".into(),
+            language: "bg".into(),
+            audio_path: Some("/Volumes/External/AIDOO/sample.flac".into()),
+            text_path: Some("/Volumes/External/AIDOO/sample.txt".into()),
+        }
+    }
+
+    #[test]
+    fn local_open_scope_accepts_only_history_files_and_diagnostic_bundles() {
+        let history = [history_entry()];
+        let data = Path::new("/Users/example/Library/Application Support/AIDOO Whisper Lite");
+
+        assert!(path_is_authorized_for_open(
+            Path::new("/Volumes/External/AIDOO/sample.flac"),
+            &history,
+            data
+        ));
+        assert!(path_is_authorized_for_open(
+            &data.join("AIDOO-Whisper-Lite-Diagnostics-20260914-000000.zip"),
+            &history,
+            data
+        ));
+        assert!(!path_is_authorized_for_open(
+            Path::new("/Users/example/secret.txt"),
+            &history,
+            data
+        ));
+        assert!(!path_is_authorized_for_open(
+            &data.join("settings.json"),
+            &history,
+            data
+        ));
+    }
+}
+
+#[tauri::command]
+fn open_local_path(path: String, reveal: bool, state: State<'_, AppState>) -> Result<(), String> {
+    let requested = PathBuf::from(path);
+    let history = state.history.lock().map_err(|_| "Историята е заключена.")?;
+    if !path_is_authorized_for_open(&requested, &history, &storage::data_dir()) {
+        return Err("Този локален файл не е разрешен за отваряне.".into());
+    }
+    if !requested.is_file() {
+        return Err("Локалният файл вече не съществува.".into());
+    }
+    let mut command = std::process::Command::new("open");
+    if reveal {
+        command.arg("-R");
+    }
+    let status = command
+        .arg(&requested)
+        .status()
+        .map_err(|error| format!("Файлът не можа да бъде отворен: {error}"))?;
+    if !status.success() {
+        return Err("Файлът не можа да бъде отворен.".into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
     storage::ensure_directories()?;
@@ -1288,16 +1396,25 @@ fn show_main_window(app: &AppHandle, settings_page: bool) {
 }
 
 fn install_tray(app: &tauri::App) -> tauri::Result<()> {
-    let status = if accessibility_granted() {
+    let has_recovery = app
+        .state::<AppState>()
+        .failed_recording
+        .lock()
+        .map(|recording| recording.is_some())
+        .unwrap_or(true);
+    let status = if has_recovery {
+        "error"
+    } else if accessibility_granted() {
         "idle"
     } else {
         "permission"
     };
     let menu = build_tray_menu(app.handle(), status)?;
-    let initial_tooltip = if uses_english_ui(app.handle()) {
-        "AIDOO Whisper Lite — ready"
-    } else {
-        "AIDOO Whisper Lite — готов"
+    let initial_tooltip = match (uses_english_ui(app.handle()), status) {
+        (true, "error") => "AIDOO Whisper Lite — action required",
+        (false, "error") => "AIDOO Whisper Lite — нужно е действие",
+        (true, _) => "AIDOO Whisper Lite — ready",
+        (false, _) => "AIDOO Whisper Lite — готов",
     };
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .tooltip(initial_tooltip)
@@ -1385,6 +1502,7 @@ pub fn run() {
             open_accessibility_settings,
             refresh_accessibility_status,
             reposition_overlay,
+            open_local_path,
             create_diagnostic_bundle
         ])
         .build(tauri::generate_context!())
