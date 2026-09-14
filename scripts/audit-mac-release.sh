@@ -14,6 +14,7 @@ dmg="${1:-$project_root/release/$version/AIDOO Whisper Lite_${version}_aarch64.d
 checksum="$dmg.sha256"
 test -f "$dmg"
 test -f "$checksum"
+test "$(basename -- "$dmg")" = "AIDOO Whisper Lite_${version}_aarch64.dmg"
 
 python3 - "$project_root" <<'PY'
 from pathlib import Path
@@ -58,6 +59,8 @@ if (root / "public/app-icon.png").read_bytes() != (root / "website/app-icon.png"
     raise SystemExit("Website and product icons differ")
 PY
 
+expected_checksum="$(shasum -a 256 "$dmg" | awk '{print $1}')  $(basename -- "$dmg")"
+test "$(cat "$checksum")" = "$expected_checksum"
 checksum_dir="$(dirname -- "$checksum")"
 (cd "$checksum_dir" && shasum -a 256 -c "$(basename -- "$checksum")")
 
@@ -79,8 +82,8 @@ trap cleanup EXIT
 
 hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mount_dir" -quiet
 mounted=true
-app="$(find "$mount_dir" -maxdepth 1 -name '*.app' -print -quit)"
-test -n "$app"
+app="$mount_dir/AIDOO Whisper Lite.app"
+test -d "$app"
 
 codesign --verify --deep --strict --verbose=2 "$app"
 xcrun stapler validate "$app"
@@ -89,11 +92,18 @@ spctl --assess --verbose=2 --type execute "$app"
 spctl --assess --verbose=2 --type open --context context:primary-signature "$dmg"
 file "$app/Contents/MacOS/aidoo-whisper-lite" | grep -q 'arm64'
 test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = 'app.aidoo.whisper-lite'
+test "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$version"
 test "$(plutil -extract LSMinimumSystemVersion raw "$app/Contents/Info.plist")" = '13.0'
 test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Info.plist")" = 'AIDOO Whisper Lite uses your selected microphone only while you hold the dictation shortcut or test the microphone.'
 test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Resources/en.lproj/InfoPlist.strings")" = 'AIDOO Whisper Lite uses your selected microphone only while you hold the dictation shortcut or test the microphone.'
 test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Resources/bg.lproj/InfoPlist.strings")" = 'AIDOO Whisper Lite използва избрания микрофон само докато задържате shortcut-а за диктовка или тествате микрофона.'
 test -f "$app/Contents/Resources/THIRD_PARTY_NOTICES.txt"
+cmp -s "$app/Contents/Resources/icon.icns" "$project_root/src-tauri/icons/icon.icns"
+
+signature="$(codesign -d --verbose=4 "$app" 2>&1)"
+printf '%s' "$signature" | grep -Fq 'Authority=Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)'
+printf '%s' "$signature" | grep -Fq 'TeamIdentifier=4KKVT2TUUA'
+printf '%s' "$signature" | grep -Eq '^CodeDirectory .*flags=.*runtime'
 
 entitlements="$(codesign -d --entitlements :- "$app" 2>/dev/null)"
 printf '%s' "$entitlements" | grep -q 'com.apple.security.device.audio-input'

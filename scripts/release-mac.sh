@@ -6,6 +6,12 @@ cd "$project_root"
 
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/aidoo-whisper-lite-release-target}"
 signing_identity="${APPLE_SIGNING_IDENTITY:-Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)}"
+version="$(python3 - "$project_root/package.json" <<'PY'
+from pathlib import Path
+import json, sys
+print(json.loads(Path(sys.argv[1]).read_text())["version"])
+PY
+)"
 
 python3 scripts/generate-third-party-notices.py
 npm run check
@@ -18,12 +24,13 @@ env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
   -u APPLE_API_KEY -u APPLE_API_ISSUER -u APPLE_API_KEY_PATH \
   npx tauri build --target aarch64-apple-darwin --bundles app,dmg
 
-dmg="$(find "$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/dmg" -maxdepth 1 -name '*.dmg' -print -quit)"
-app="$(find "$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/macos" -maxdepth 1 -name '*.app' -print -quit)"
+dmg="$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/dmg/AIDOO Whisper Lite_${version}_aarch64.dmg"
+app="$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/macos/AIDOO Whisper Lite.app"
 test -f "$dmg" && test -d "$app"
 "$project_root/scripts/notarize-app-mac.sh" "$app"
 file "$app/Contents/MacOS/aidoo-whisper-lite" | grep -q 'arm64'
 test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = 'app.aidoo.whisper-lite'
+test "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$version"
 test "$(plutil -extract LSMinimumSystemVersion raw "$app/Contents/Info.plist")" = '13.0'
 
 # Rebuild the disk image from the stapled application so offline Gatekeeper validation
@@ -66,12 +73,6 @@ spctl --assess --verbose=2 --type execute "$installed_app"
 hdiutil detach "$verify_mount" -quiet
 mounted=false
 
-version="$(python3 - "$project_root/package.json" <<'PY'
-from pathlib import Path
-import json, sys
-print(json.loads(Path(sys.argv[1]).read_text())["version"])
-PY
-)"
 release_dir="$project_root/release/$version"
 release_dmg="$release_dir/$(basename "$dmg")"
 python3 "$project_root/scripts/package-website-release.py" --dmg "$dmg" --output "$release_dir"
