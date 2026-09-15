@@ -119,6 +119,13 @@ def main() -> int:
         if opener.get("deny"):
             errors.append("The scoped URL opener must not define an unexpected deny list")
 
+    frontend_source = (ROOT / "src/App.tsx").read_text()
+    expected_support_binding = 'const SUPPORT_EMAIL_URL = "mailto:support@aidoo.bg";'
+    if frontend_source.count(expected_support_binding) != 1:
+        errors.append("The frontend must bind support to the exact allowlisted AIDOO email")
+    if "AIDOO-Whisper-Lite/issues" in frontend_source:
+        errors.append("The frontend must not link users to private source-repository Issues")
+
     expected_main_string_permissions = {
         "core:event:allow-listen",
         "core:event:allow-unlisten",

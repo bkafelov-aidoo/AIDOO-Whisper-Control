@@ -19,6 +19,7 @@ REQUIRED_PAGES = {
     "release-notes.html": ("първо публично издание",),
 }
 FORBIDDEN_ELEMENTS = {"script", "iframe", "form", "object", "embed"}
+ALLOWED_EXTERNAL_LINKS = {"mailto:support@aidoo.bg"}
 
 
 class PageParser(HTMLParser):
@@ -67,15 +68,10 @@ def resolve_local_reference(
         if (
             tag == "a"
             and attribute == "href"
-            and parsed.scheme == "mailto"
-            and reference == "mailto:support@aidoo.bg"
+            and reference in ALLOWED_EXTERNAL_LINKS
         ):
             return None
-        if parsed.scheme != "https":
-            raise ValueError(f"{page.name}: non-HTTPS external reference: {reference}")
-        if tag != "a" or attribute != "href":
-            raise ValueError(f"{page.name}: remote embedded resource is not allowed: {reference}")
-        return None
+        raise ValueError(f"{page.name}: external reference is not allowlisted: {reference}")
     if parsed.netloc:
         raise ValueError(f"{page.name}: protocol-relative reference is not allowed: {reference}")
     if not parsed.path:
