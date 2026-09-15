@@ -48,6 +48,7 @@ import type {
 type Page = "dictation" | "history" | "settings";
 type ToastTone = "success" | "warning" | "error";
 type ToastHandler = (message: string, tone?: ToastTone) => void;
+const SUPPORT_EMAIL_URL = "mailto:support@aidoo.bg";
 
 export default function App() {
   const [data, setData] = useState<BootstrapState | null>(null);
@@ -427,7 +428,7 @@ function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToast, onOp
       <SettingRow title={t("launchAtLogin")}><Toggle label={t("launchAtLogin")} checked={draft.launchAtLogin} disabled={controlsDisabled} onChange={(launchAtLogin) => { launchAtLoginDirty.current = true; setDraft({ ...draft, launchAtLogin }); }} /></SettingRow>
     </SettingsSection>
     <SettingsSection icon={<ShieldCheck />} title={t("diagnostics")}>
-      <p className="section-help">{t("diagnosticsHelp")}</p><div className="inline-actions"><button className="secondary-button" disabled={controlsDisabled} onClick={async () => { setDiagnosticBusy(true); try { const path = await invoke<string>("create_diagnostic_bundle"); await invoke("open_local_path", { path, reveal: true }); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setDiagnosticBusy(false); } }}>{diagnosticBusy ? <LoaderCircle className="spin" /> : <FileText />}{t("createDiagnostics")}</button><button className="secondary-button" disabled={controlsDisabled} onClick={async () => { try { await openUrl("https://github.com/bkafelov-aidoo/AIDOO-Whisper-Lite/issues"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("openSupport")}</button></div>
+      <p className="section-help">{t("diagnosticsHelp")}</p><div className="inline-actions"><button className="secondary-button" disabled={controlsDisabled} onClick={async () => { setDiagnosticBusy(true); try { const path = await invoke<string>("create_diagnostic_bundle"); await invoke("open_local_path", { path, reveal: true }); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setDiagnosticBusy(false); } }}>{diagnosticBusy ? <LoaderCircle className="spin" /> : <FileText />}{t("createDiagnostics")}</button><button className="secondary-button" disabled={controlsDisabled} onClick={async () => { try { await openUrl(SUPPORT_EMAIL_URL); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("openSupport")}</button></div>
     </SettingsSection>
     <footer className="settings-footer"><button className="primary-button large" disabled={controlsDisabled} title={isBusy ? t("finishDictationFirst") : undefined} onClick={async () => { setSaveBusy(true); try { await onSave(draft); launchAtLoginDirty.current = false; } catch { /* The parent already showed the localized error. */ } finally { setSaveBusy(false); } }}>{saveBusy ? <LoaderCircle className="spin" /> : <Check />}{t("save")}</button></footer>
   </div>;

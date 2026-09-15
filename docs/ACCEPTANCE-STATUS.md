@@ -46,6 +46,7 @@ The current source contains additional safeguards that are not present in the ar
 - long recovery errors wrap in the main window, and a failed automatic paste remains available in the menu bar after the toast disappears.
 - the Settings view re-reads the real macOS Login Item state when the app regains focus while preserving an unsaved local toggle, and Save reconciles the requested state against macOS even when persisted settings had drifted.
 - the native operation guard now rebuilds the menu bar at both acquisition and release, so Quit is disabled during API-key validation, microphone testing, shortcut capture, diagnostics, settings writes and every transcription path, then re-enabled automatically.
+- support now opens a new email to the public `support@aidoo.bg` address instead of inaccessible Issues in the private source repository; the diagnostic ZIP remains local and is never attached or uploaded automatically.
 
 The current source was inspected without launching the application or using the microphone. On 15 September 2026, the production frontend build, all 85 representative English error-localization cases, release configuration validation, all three website page checks and Rust Clippy for the Apple Silicon release target with warnings denied passed. The native release target and all test targets also compile. The unit tests were compiled but not executed because recording tests remain paused at the user's request. Every behavioral item below remains required on a fresh signed candidate.
 

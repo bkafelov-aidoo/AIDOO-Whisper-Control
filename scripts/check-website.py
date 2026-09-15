@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 WEBSITE = ROOT / "website"
 REQUIRED_PAGES = {
     "privacy.html": ("openai", "keychain", "диагност"),
-    "support.html": ("github issues", "api ключ", "accessibility"),
+    "support.html": ("support@aidoo.bg", "api ключ", "accessibility"),
     "release-notes.html": ("първо публично издание",),
 }
 FORBIDDEN_ELEMENTS = {"script", "iframe", "form", "object", "embed"}
@@ -64,6 +64,13 @@ def resolve_local_reference(
 ) -> Optional[Path]:
     parsed = urlsplit(reference)
     if parsed.scheme:
+        if (
+            tag == "a"
+            and attribute == "href"
+            and parsed.scheme == "mailto"
+            and reference == "mailto:support@aidoo.bg"
+        ):
+            return None
         if parsed.scheme != "https":
             raise ValueError(f"{page.name}: non-HTTPS external reference: {reference}")
         if tag != "a" or attribute != "href":

@@ -85,13 +85,39 @@ def main() -> int:
     if overlay_capabilities.get("windows") != ["overlay"]:
         errors.append("Overlay capabilities must apply only to the overlay window")
 
-    serialized_permissions = json.dumps(main_capabilities.get("permissions", []))
-    for required_url in (
+    expected_external_urls = {
         "https://platform.openai.com/api-keys",
-        "https://github.com/bkafelov-aidoo/AIDOO-Whisper-Lite/issues",
-    ):
-        if required_url not in serialized_permissions:
-            errors.append(f"Required external URL permission is missing: {required_url}")
+        "mailto:support@aidoo.bg",
+    }
+    structured_permissions = [
+        permission
+        for permission in main_capabilities.get("permissions", [])
+        if isinstance(permission, dict)
+    ]
+    opener_permissions = [
+        permission
+        for permission in structured_permissions
+        if permission.get("identifier") == "opener:allow-open-url"
+    ]
+    if len(structured_permissions) != 1:
+        errors.append("Main capabilities must contain exactly one structured permission")
+    if len(opener_permissions) != 1:
+        errors.append("Main capabilities must contain exactly one scoped URL opener")
+    else:
+        opener = opener_permissions[0]
+        allowed_entries = opener.get("allow", [])
+        allowed_urls = {
+            entry.get("url")
+            for entry in allowed_entries
+            if isinstance(entry, dict) and set(entry) == {"url"}
+        }
+        if len(allowed_urls) != len(allowed_entries) or allowed_urls != expected_external_urls:
+            errors.append(
+                "External URL permissions must contain exactly the OpenAI API-key page "
+                "and AIDOO support email"
+            )
+        if opener.get("deny"):
+            errors.append("The scoped URL opener must not define an unexpected deny list")
 
     expected_main_string_permissions = {
         "core:event:allow-listen",

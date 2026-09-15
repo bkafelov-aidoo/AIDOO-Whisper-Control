@@ -29,7 +29,7 @@
       "identifier": "opener:allow-open-url",
       "allow": [
         { "url": "https://platform.openai.com/api-keys" },
-        { "url": "https://github.com/bkafelov-aidoo/AIDOO-Whisper-Lite/issues" }
+        { "url": "mailto:support@aidoo.bg" }
       ]
     },
     "autostart:default"
