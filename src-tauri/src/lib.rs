@@ -853,6 +853,10 @@ fn overlay_visible_for_state(state: &str) -> bool {
     )
 }
 
+fn overlay_accepts_pointer_input(state: &str) -> bool {
+    state == "recording"
+}
+
 fn set_recording_state(app: &AppHandle, next: &str) {
     let state = app.state::<AppState>();
     if let Ok(mut current) = state.recording_status.lock() {
@@ -937,6 +941,13 @@ pub(crate) fn show_recording_overlay(app: &AppHandle) {
         let _ = window.set_always_on_top(true);
         let _ = window.set_visible_on_all_workspaces(true);
         let _ = window.set_focusable(false);
+        let state = app
+            .state::<AppState>()
+            .recording_status
+            .lock()
+            .map(|state| state.clone())
+            .unwrap_or_default();
+        let _ = window.set_ignore_cursor_events(!overlay_accepts_pointer_input(&state));
         reposition_overlay_inner(app);
         let _ = window.show();
     }
@@ -2748,8 +2759,8 @@ fn diagnostic_settings(settings: &AppSettings) -> serde_json::Value {
 mod local_path_tests {
     use super::{
         commit_staged_history_deletion, diagnostic_settings, is_managed_output_path,
-        localized_native_error, operation_allows_quit, overlay_visible_for_state,
-        path_is_authorized_for_open, prepare_history_files_for_deletion,
+        localized_native_error, operation_allows_quit, overlay_accepts_pointer_input,
+        overlay_visible_for_state, path_is_authorized_for_open, prepare_history_files_for_deletion,
         preserve_completed_recovery_with, recording_watchdog_should_stop,
         recover_pending_history_deletion, recovery_plan,
         resolve_failed_recording_after_success_with, resolved_tray_state,
@@ -3332,6 +3343,14 @@ mod local_path_tests {
         }
         assert!(!overlay_visible_for_state("idle"));
         assert!(!overlay_visible_for_state("unknown"));
+    }
+
+    #[test]
+    fn overlay_accepts_clicks_only_while_its_stop_button_is_actionable() {
+        assert!(overlay_accepts_pointer_input("recording"));
+        for state in ["idle", "starting", "transcribing", "done", "error"] {
+            assert!(!overlay_accepts_pointer_input(state), "{state}");
+        }
     }
 
     #[test]

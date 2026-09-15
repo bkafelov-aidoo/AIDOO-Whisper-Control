@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
-import { Check, CircleAlert, LoaderCircle, Mic } from "lucide-react";
+import { Check, CircleAlert, LoaderCircle, Mic, Square } from "lucide-react";
 import type { AppSettings, OverlayBootstrapState, RecordingProgress, RecordingSnapshot } from "./types";
 import { errorMessage, progressLabel, resolveLanguage } from "./i18n";
 
@@ -23,6 +23,8 @@ const stateText = {
     complete: "Текстът е транскрибиран и копиран.",
     error: "Възникна грешка",
     release: "Отпуснете shortcut-а за край",
+    stop: "Стоп",
+    stopTitle: "Спри записа и започни транскрипцията",
   },
   en: {
     idle: "Ready for dictation",
@@ -33,6 +35,8 @@ const stateText = {
     complete: "The text is transcribed and copied.",
     error: "Something went wrong",
     release: "Release the shortcut to finish",
+    stop: "Stop",
+    stopTitle: "Stop recording and start transcription",
   },
 } as const;
 
@@ -107,6 +111,13 @@ export default function Overlay() {
 
   const label = stateText[language];
   const stage = progressLabel(snapshot.progress.stage, language);
+  const stopRecording = async () => {
+    try {
+      await invoke("stop_and_transcribe");
+    } catch (reason) {
+      setNotice(errorMessage(reason, language));
+    }
+  };
   const icon = useMemo(() => {
     if (snapshot.state === "done") return <Check />;
     if (snapshot.state === "error") return <CircleAlert />;
@@ -133,6 +144,10 @@ export default function Overlay() {
               {Array.from({ length: 9 }, (_, index) => <i key={index} style={{ animationDelay: `${index * -0.09}s` }} />)}
             </div>
             <time className="overlay-time">{formatDuration(snapshot.elapsedSeconds)}</time>
+            <button className="overlay-stop" type="button" title={label.stopTitle} aria-label={label.stopTitle} onClick={() => void stopRecording()}>
+              <Square aria-hidden="true" />
+              <span>{label.stop}</span>
+            </button>
           </div>
         )}
         {snapshot.state === "transcribing" && (

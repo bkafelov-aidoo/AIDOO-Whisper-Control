@@ -307,6 +307,7 @@ def main() -> int:
         "core:window:allow-set-size",
         "allow-overlay-bootstrap",
         "allow-current-recording-snapshot",
+        "allow-stop-and-transcribe",
         "allow-reposition-overlay",
     }
     overlay_permissions = set(overlay_capabilities.get("permissions", []))
@@ -339,6 +340,7 @@ def main() -> int:
         "request_app_quit(app)",
         "refresh_application_menu(app);",
         'window.label() == "overlay"',
+        "overlay_accepts_pointer_input",
     ):
         if lifecycle_guard not in rust_source:
             errors.append(f"Native operation lifecycle guard is missing: {lifecycle_guard}")

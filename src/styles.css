@@ -257,13 +257,18 @@ body[data-window="overlay"] { overflow: hidden; }
 .overlay-copy span { color: #3c4e60; font-size: 11px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
 .overlay-copy .error-text { color: #8e263c; }
 .overlay-copy .notice-text { color: #62430e; }
-.overlay-live { display: flex; align-items: center; gap: 10px; }
+.overlay-live { display: flex; align-items: center; gap: 9px; }
 .overlay-time { min-width: 48px; color: #34495c; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 650; text-align: right; }
 .overlay-wave { height: 28px; display: flex; align-items: center; gap: 3px; }
 .overlay-wave i { width: 3px; height: 8px; border-radius: 999px; background: #1977de; animation: wave .75s ease-in-out infinite alternate; }
 .overlay-wave i:nth-child(2), .overlay-wave i:nth-child(6) { height: 17px; animation-delay: -.2s; }
 .overlay-wave i:nth-child(3), .overlay-wave i:nth-child(5) { height: 25px; animation-delay: -.4s; }
 .overlay-wave i:nth-child(4) { height: 14px; animation-delay: -.6s; }
+.overlay-stop { min-height: 32px; padding: 0 11px; border: 0; border-radius: 10px; background: rgba(174,34,56,.1); color: #a5233b; display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.overlay-stop:hover { background: rgba(174,34,56,.16); }
+.overlay-stop:active { background: rgba(174,34,56,.22); transform: scale(.98); }
+.overlay-stop:focus-visible { outline: 3px solid rgba(25,119,222,.35); outline-offset: 2px; }
+.overlay-stop svg { width: 11px; height: 11px; fill: currentColor; stroke-width: 0; }
 @keyframes wave { to { transform: scaleY(.36); opacity: .6; } }
 .overlay-progress { grid-column: 2 / 4; height: 4px; border-radius: 999px; background: rgba(37,61,84,.13); overflow: hidden; }
 .overlay-progress i { display: block; height: 100%; border-radius: inherit; background: #1977de; transition: width .18s; }
@@ -276,6 +281,8 @@ body[data-window="overlay"] { overflow: hidden; }
   html[data-window="overlay"] .overlay-copy .error-text { color: #ffb2bf; }
   html[data-window="overlay"] .overlay-copy .notice-text { color: #f5cf7c; }
   html[data-window="overlay"] .overlay-time { color: #d5dde5; }
+  html[data-window="overlay"] .overlay-stop { background: rgba(255,120,139,.14); color: #ff9aad; }
+  html[data-window="overlay"] .overlay-stop:hover { background: rgba(255,120,139,.21); }
   html[data-window="overlay"] .overlay-progress { background: rgba(255,255,255,.14); }
   html[data-window="overlay"] .overlay-wave i, html[data-window="overlay"] .overlay-progress i { background: #65adff; }
 }
