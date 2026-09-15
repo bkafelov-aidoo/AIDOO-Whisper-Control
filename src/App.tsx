@@ -47,6 +47,7 @@ import type {
 
 type Page = "dictation" | "history" | "settings";
 type ToastTone = "success" | "warning" | "error";
+type StatusTone = "ready" | "attention" | "busy";
 type ToastHandler = (message: string, tone?: ToastTone) => void;
 const SUPPORT_EMAIL_URL = "mailto:support@aidoo.bg";
 
@@ -128,7 +129,7 @@ export default function App() {
 
   const shortcut = formatShortcut(data.settings.dictationShortcut);
   const isBusy = ["starting", "recording", "transcribing"].includes(data.recording.state);
-  const isReady = appIsReady(data);
+  const status = appStatus(data, language);
 
   const runTestDictation = async () => {
     try {
@@ -163,9 +164,9 @@ export default function App() {
           <NavButton active={page === "history"} disabled={isBusy} icon={<History />} label={t("history")} badge={data.history.length || undefined} onClick={() => setPage("history")} />
           <NavButton active={page === "settings"} disabled={isBusy} icon={<Settings />} label={t("settings")} onClick={() => setPage("settings")} />
         </nav>
-        <div className={`sidebar-status ${isReady ? "ready" : "attention"}`}>
+        <div className={`sidebar-status ${status.tone}`}>
           <i />
-          <span>{data.failedRecording ? t("actionRequired") : isReady ? t("ready") : t("notReady")}</span>
+          <span>{status.label}</span>
           <kbd>{shortcut}</kbd>
         </div>
       </aside>
@@ -306,9 +307,10 @@ function Dashboard({ data, language, isBusy, onOpenOnboarding, onTest, onRetry, 
   const t = translator(language);
   const shortcut = formatShortcut(data.settings.dictationShortcut);
   const isReady = appIsReady(data);
+  const status = appStatus(data, language);
   return (
     <div className="page dashboard">
-      <header className="page-header"><div><span className="eyebrow">AIDOO WHISPER LITE</span><h1>{t("dictation")}</h1><p>{t("tagline")}</p></div><StatusPill ready={isReady} label={data.failedRecording ? t("actionRequired") : isReady ? t("ready") : t("notReady")} /></header>
+      <header className="page-header"><div><span className="eyebrow">AIDOO WHISPER LITE</span><h1>{t("dictation")}</h1><p>{t("tagline")}</p></div><StatusPill tone={status.tone} label={status.label} /></header>
       {!isReady && !data.failedRecording && (
         <section className="setup-banner" role="status"><AlertCircle /><div><strong>{t("notReady")}</strong><span>{t("onboardingIncomplete")}</span></div><button onClick={onOpenOnboarding}>{t("openOnboarding")}<ChevronRight /></button></section>
       )}
@@ -569,8 +571,8 @@ function useDialogFocus(onClose: () => void, closeOnEscape = true) {
   return dialogRef;
 }
 
-function StatusPill({ ready, label }: { ready: boolean; label: string }) {
-  return <span className={`status-pill ${ready ? "ready" : "attention"}`}><i />{label}</span>;
+function StatusPill({ tone, label }: { tone: StatusTone; label: string }) {
+  return <span className={`status-pill ${tone}`}><i />{label}</span>;
 }
 
 function appIsReady(data: BootstrapState) {
@@ -579,6 +581,20 @@ function appIsReady(data: BootstrapState) {
     && data.microphones.length > 0
     && data.accessibilityGranted
     && !data.failedRecording;
+}
+
+function appStatus(data: BootstrapState, language: AppLanguage): { tone: StatusTone; label: string } {
+  const t = translator(language);
+  if (data.failedRecording) return { tone: "attention", label: t("actionRequired") };
+  if (data.recording.state === "starting") {
+    return { tone: "busy", label: progressLabel("starting_microphone", language) };
+  }
+  if (data.recording.state === "recording") return { tone: "busy", label: t("recording") };
+  if (data.recording.state === "transcribing") return { tone: "busy", label: t("transcribing") };
+  if (data.recording.state === "error") return { tone: "attention", label: t("notReady") };
+  return appIsReady(data)
+    ? { tone: "ready", label: t("ready") }
+    : { tone: "attention", label: t("notReady") };
 }
 
 function settingsMatch(left: AppSettings, right: AppSettings) {

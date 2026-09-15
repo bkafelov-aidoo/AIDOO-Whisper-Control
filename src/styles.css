@@ -49,6 +49,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .sidebar-status { margin-top: auto; min-height: 70px; padding: 12px; border: 1px solid var(--border); border-radius: 13px; background: #f7f9fb; display: grid; grid-template-columns: 8px 1fr; align-items: center; gap: 8px; -webkit-app-region: no-drag; }
 .sidebar-status i, .status-pill i { width: 7px; height: 7px; border-radius: 50%; background: #2fa875; box-shadow: 0 0 0 4px #def3e9; }
 .sidebar-status.attention i, .status-pill.attention i { background: #d38b20; box-shadow: 0 0 0 4px #fff0d2; }
+.sidebar-status.busy i, .status-pill.busy i { background: #1671e8; box-shadow: 0 0 0 4px #dcebff; }
 .sidebar-status span { color: #4d6072; font-size: 11px; font-weight: 600; }
 .sidebar-status kbd { grid-column: 1 / -1; justify-self: stretch; padding: 6px 7px; border: 1px solid #cbd5df; border-bottom-width: 2px; border-radius: 7px; background: #fff; color: #354b60; text-align: center; font-size: 11px; }
 
@@ -60,6 +61,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .eyebrow { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .85px; }
 .status-pill, .count-pill { min-height: 32px; padding: 7px 12px; border: 1px solid #bddbcd; border-radius: 999px; background: #edf8f2; color: #28654c; display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 650; }
 .status-pill.attention { border-color: #e6ca91; background: #fff7e7; color: #77571f; }
+.status-pill.busy { border-color: #b9d5f5; background: #edf6ff; color: #245f9b; }
 .count-pill { border-color: #d2dce6; background: #fff; color: #53687b; }
 
 .setup-banner { min-height: 68px; margin-bottom: 15px; padding: 12px 14px; border: 1px solid #e4c482; border-radius: 14px; background: #fff7e7; color: #865f20; display: flex; align-items: center; gap: 11px; }
@@ -242,7 +244,7 @@ select { min-width: 190px; }
 html[data-window="overlay"], html[data-window="overlay"] body, body[data-window="overlay"], html[data-window="overlay"] #root { background: transparent !important; color-scheme: light dark; }
 body[data-window="overlay"] { overflow: hidden; }
 .overlay-shell { width: 100%; height: 100%; padding: 24px; display: grid; place-items: center; background: transparent; }
-.overlay-card { width: 100%; min-height: 84px; padding: 14px 16px; border: 0; border-radius: 20px; background: rgba(246,249,252,.78); color: #172636; box-shadow: 0 4px 12px rgba(8,22,36,.12), 0 1px 2px rgba(8,22,36,.08); -webkit-backdrop-filter: saturate(145%) blur(24px); backdrop-filter: saturate(145%) blur(24px); display: grid; grid-template-columns: 46px minmax(0,1fr) auto; align-items: center; gap: 13px; overflow: hidden; }
+.overlay-card { width: 100%; min-height: 84px; padding: 14px 16px; border: 0; border-radius: 20px; background: rgba(246,249,252,.78); color: #172636; box-shadow: 0 12px 28px -12px rgba(8,22,36,.32), 0 2px 8px -2px rgba(8,22,36,.14), inset 0 0 0 .5px rgba(255,255,255,.55); -webkit-backdrop-filter: saturate(145%) blur(24px); backdrop-filter: saturate(145%) blur(24px); display: grid; grid-template-columns: 46px minmax(0,1fr) auto; align-items: center; gap: 13px; overflow: hidden; }
 .overlay-state-icon { width: 44px; height: 44px; border-radius: 13px; background: linear-gradient(145deg,#378cf5,#1265ce); color: #fff; display: grid; place-items: center; box-shadow: 0 1px 3px rgba(18,101,206,.18); }
 .overlay-state-icon svg { width: 20px; }
 .overlay-state-icon.error { background: linear-gradient(145deg,#d94b63,#aa2942); }
@@ -266,7 +268,7 @@ body[data-window="overlay"] { overflow: hidden; }
 @keyframes indeterminate { from { transform: translateX(-120%); } to { transform: translateX(320%); } }
 
 @media (prefers-color-scheme: dark) {
-  html[data-window="overlay"] .overlay-card { background: rgba(28,34,41,.78); color: #f5f7fa; box-shadow: 0 4px 12px rgba(0,0,0,.22), 0 1px 2px rgba(0,0,0,.13); }
+  html[data-window="overlay"] .overlay-card { background: rgba(28,34,41,.78); color: #f5f7fa; box-shadow: 0 12px 28px -12px rgba(0,0,0,.58), 0 2px 8px -2px rgba(0,0,0,.3), inset 0 0 0 .5px rgba(255,255,255,.12); }
   html[data-window="overlay"] .overlay-copy span { color: #c0cad4; }
   html[data-window="overlay"] .overlay-copy .error-text { color: #ffb2bf; }
   html[data-window="overlay"] .overlay-copy .notice-text { color: #f5cf7c; }
@@ -290,7 +292,7 @@ body[data-window="overlay"] { overflow: hidden; }
 
 @media (prefers-contrast: more) {
   :root { --border: #aab5c0; --separator: #c4cdd6; --muted: #3f5060; }
-  .overlay-card { background: rgba(250,252,254,.94); box-shadow: 0 4px 12px rgba(0,0,0,.2), 0 1px 2px rgba(0,0,0,.12); }
+  .overlay-card { background: rgba(250,252,254,.94); box-shadow: 0 12px 28px -12px rgba(0,0,0,.42), 0 2px 8px -2px rgba(0,0,0,.22), inset 0 0 0 .5px rgba(0,0,0,.12); }
 }
 
 @media (prefers-color-scheme: dark) and (prefers-contrast: more) {
