@@ -43,7 +43,13 @@ The local release path uses the installed Developer ID Application certificate a
 npm run release:mac
 ```
 
-The script tests the app, builds the Apple Silicon app/DMG, notarizes and staples both the application and DMG, verifies Gatekeeper, then creates and independently audits one website package under `release/<version>/`. That folder contains the DMG, checksum, public pages and a SHA-256 manifest. See [docs/RELEASE.md](docs/RELEASE.md) for website release steps.
+Configure the six GitHub release secrets without placing their values in the repository:
+
+```sh
+./scripts/configure-github-release-secrets.sh
+```
+
+The wizard verifies the exact Developer ID Application identity before writing encrypted repository secrets. It does not create a tag or start a release. The release script tests the app, builds the Apple Silicon app/DMG, notarizes and staples both the application and DMG, verifies Gatekeeper, then creates and independently audits one website package under `release/<version>/`. That folder contains the DMG, checksum, public pages and a SHA-256 manifest. See [docs/RELEASE.md](docs/RELEASE.md) for website release steps.
 
 ## Source layout
 

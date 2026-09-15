@@ -224,6 +224,46 @@ def main() -> int:
         if required_ci_guard not in ci_workflow:
             errors.append(f"Pull-request CI guard is missing: {required_ci_guard}")
 
+    expected_release_secrets = {
+        "APPLE_CERTIFICATE",
+        "APPLE_CERTIFICATE_PASSWORD",
+        "KEYCHAIN_PASSWORD",
+        "APPLE_ID",
+        "APPLE_PASSWORD",
+        "APPLE_TEAM_ID",
+    }
+    workflow_secrets = set(re.findall(r"secrets\.([A-Z0-9_]+)", workflow)) - {
+        "GITHUB_TOKEN"
+    }
+    if workflow_secrets != expected_release_secrets:
+        errors.append(
+            f"Release workflow secrets differ: {sorted(workflow_secrets)}"
+        )
+    wizard_path = ROOT / "scripts/configure-github-release-secrets.sh"
+    if not wizard_path.is_file():
+        errors.append("GitHub release-secret wizard is missing")
+    else:
+        wizard = wizard_path.read_text()
+        wizard_secrets = set(
+            re.findall(r"^set_secret\s+([A-Z0-9_]+)\s", wizard, re.MULTILINE)
+        )
+        if wizard_secrets != expected_release_secrets:
+            errors.append(
+                f"Release-secret wizard outputs differ: {sorted(wizard_secrets)}"
+            )
+        if wizard_path.stat().st_mode & 0o111 == 0:
+            errors.append("GitHub release-secret wizard is not executable")
+        for forbidden_release_action in ("gh workflow run", "git tag", "git push"):
+            if forbidden_release_action in wizard:
+                errors.append(
+                    "Release-secret wizard must not publish or start releases: "
+                    + forbidden_release_action
+                )
+    gitignore = (ROOT / ".gitignore").read_text().splitlines()
+    for private_key_pattern in ("*.p12", "*.p8"):
+        if private_key_pattern not in gitignore:
+            errors.append(f"Private key ignore rule is missing: {private_key_pattern}")
+
     if errors:
         raise SystemExit("\n".join(errors))
     print("macOS release configuration validation passed.")
