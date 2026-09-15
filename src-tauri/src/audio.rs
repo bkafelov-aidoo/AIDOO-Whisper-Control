@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 const STALE_TEMPORARY_AUDIO_AGE: Duration = Duration::from_secs(24 * 60 * 60);
+const AUDIO_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone)]
 pub struct MicrophoneRoutingConfig {
@@ -67,6 +68,15 @@ impl Drop for ActiveRecording {
 pub struct CapturedAudio {
     pub path: PathBuf,
     pub duration_seconds: f64,
+    cleanup_on_drop: bool,
+}
+
+impl Drop for CapturedAudio {
+    fn drop(&mut self) {
+        if self.cleanup_on_drop {
+            let _ = std::fs::remove_file(&self.path);
+        }
+    }
 }
 
 enum RecorderCommand {
@@ -102,7 +112,9 @@ impl RecorderService {
                                 info
                             })
                         };
-                        let _ = reply.send(result);
+                        if reply.send(result).is_err() {
+                            active.take();
+                        }
                     }
                     RecorderCommand::Finish(reply) => {
                         let result = active
@@ -130,9 +142,13 @@ impl RecorderService {
         self.sender
             .send(RecorderCommand::Start(routing, reply))
             .map_err(|_| "Аудио услугата не работи.".to_string())?;
-        response
-            .recv()
-            .map_err(|_| "Аудио услугата не отговори.".to_string())?
+        match response.recv_timeout(AUDIO_COMMAND_TIMEOUT) {
+            Ok(result) => result,
+            Err(_) => {
+                self.request_stop_without_waiting();
+                Err("Аудио услугата не отговори.".into())
+            }
+        }
     }
 
     pub fn finish(&self) -> Result<CapturedAudio, String> {
@@ -140,9 +156,14 @@ impl RecorderService {
         self.sender
             .send(RecorderCommand::Finish(reply))
             .map_err(|_| "Аудио услугата не работи.".to_string())?;
-        response
-            .recv()
-            .map_err(|_| "Аудио услугата не отговори.".to_string())?
+        match response.recv_timeout(AUDIO_COMMAND_TIMEOUT) {
+            Ok(Ok(mut captured)) => {
+                captured.cleanup_on_drop = false;
+                Ok(captured)
+            }
+            Ok(Err(error)) => Err(error),
+            Err(_) => Err("Аудио услугата не отговори.".into()),
+        }
     }
 
     pub fn probe(&self, routing: MicrophoneRoutingConfig) -> Result<MicrophoneProbe, String> {
@@ -151,8 +172,14 @@ impl RecorderService {
             .send(RecorderCommand::Probe(routing, reply))
             .map_err(|_| "Аудио услугата не работи.".to_string())?;
         response
-            .recv()
+            .recv_timeout(AUDIO_COMMAND_TIMEOUT)
             .map_err(|_| "Аудио услугата не отговори.".to_string())?
+    }
+
+    fn request_stop_without_waiting(&self) {
+        let (reply, response) = mpsc::channel();
+        drop(response);
+        let _ = self.sender.send(RecorderCommand::Finish(reply));
     }
 }
 
@@ -534,6 +561,7 @@ fn finish(mut recording: ActiveRecording) -> Result<CapturedAudio, String> {
     Ok(CapturedAudio {
         path: recording.path.clone(),
         duration_seconds,
+        cleanup_on_drop: true,
     })
 }
 
