@@ -210,6 +210,13 @@ pub struct BootstrapState {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct OverlayBootstrapState {
+    pub ui_language: String,
+    pub recording: RecordingSnapshot,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TranscriptionCompleted {
     pub entry: Option<TranscriptEntry>,
     pub text: String,

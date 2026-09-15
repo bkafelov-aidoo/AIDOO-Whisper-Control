@@ -93,10 +93,45 @@ def main() -> int:
         if required_url not in serialized_permissions:
             errors.append(f"Required external URL permission is missing: {required_url}")
 
+    expected_main_string_permissions = {
+        "core:event:allow-listen",
+        "core:event:allow-unlisten",
+        "dialog:allow-open",
+        "autostart:default",
+        "allow-bootstrap",
+        "allow-update-settings",
+        "allow-save-api-key",
+        "allow-delete-api-key",
+        "allow-begin-shortcut-capture",
+        "allow-cancel-shortcut-capture",
+        "allow-test-microphone",
+        "allow-start-recording",
+        "allow-stop-and-transcribe",
+        "allow-retry-failed-transcription",
+        "allow-retranscribe-history-item",
+        "allow-delete-failed-recording",
+        "allow-copy-text",
+        "allow-delete-history-item",
+        "allow-open-accessibility-settings",
+        "allow-refresh-accessibility-status",
+        "allow-open-local-path",
+        "allow-create-diagnostic-bundle",
+    }
+    main_string_permissions = {
+        permission
+        for permission in main_capabilities.get("permissions", [])
+        if isinstance(permission, str)
+    }
+    if main_string_permissions != expected_main_string_permissions:
+        errors.append("Main application-command permissions are not least-privilege")
+
     expected_overlay_permissions = {
         "core:event:allow-listen",
         "core:event:allow-unlisten",
         "core:window:allow-set-size",
+        "allow-overlay-bootstrap",
+        "allow-current-recording-snapshot",
+        "allow-reposition-overlay",
     }
     overlay_permissions = set(overlay_capabilities.get("permissions", []))
     if overlay_permissions != expected_overlay_permissions:

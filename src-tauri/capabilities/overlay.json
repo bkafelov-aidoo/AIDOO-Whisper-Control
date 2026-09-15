@@ -6,6 +6,9 @@
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-unlisten",
-    "core:window:allow-set-size"
+    "core:window:allow-set-size",
+    "allow-overlay-bootstrap",
+    "allow-current-recording-snapshot",
+    "allow-reposition-overlay"
   ]
 }

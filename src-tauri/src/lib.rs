@@ -7,8 +7,8 @@ mod transcription;
 
 use chrono::{Local, Utc};
 use models::{
-    AppSettings, BootstrapState, FailedRecording, RecordingProgress, RecordingSnapshot,
-    TranscriptEntry, TranscriptionCompleted,
+    AppSettings, BootstrapState, FailedRecording, OverlayBootstrapState, RecordingProgress,
+    RecordingSnapshot, TranscriptEntry, TranscriptionCompleted,
 };
 use std::fs::File;
 use std::io::Write;
@@ -1546,6 +1546,19 @@ fn bootstrap(app: AppHandle, state: State<'_, AppState>) -> BootstrapState {
 }
 
 #[tauri::command]
+fn overlay_bootstrap(state: State<'_, AppState>) -> OverlayBootstrapState {
+    let ui_language = state
+        .settings
+        .lock()
+        .map(|settings| settings.ui_language.clone())
+        .unwrap_or_else(|_| "auto".into());
+    OverlayBootstrapState {
+        ui_language,
+        recording: recording_snapshot(&state),
+    }
+}
+
+#[tauri::command]
 fn update_settings(
     settings: AppSettings,
     app: AppHandle,
@@ -2169,6 +2182,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             bootstrap,
+            overlay_bootstrap,
             update_settings,
             save_api_key,
             delete_api_key,

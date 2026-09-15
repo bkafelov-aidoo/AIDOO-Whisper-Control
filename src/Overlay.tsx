@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { Check, CircleAlert, LoaderCircle, Mic } from "lucide-react";
-import type { BootstrapState, RecordingProgress, RecordingSnapshot } from "./types";
+import type { AppSettings, OverlayBootstrapState, RecordingProgress, RecordingSnapshot } from "./types";
 import { errorMessage, progressLabel, resolveLanguage } from "./i18n";
 
 const initial: RecordingSnapshot = {
@@ -43,10 +43,10 @@ export default function Overlay() {
   useEffect(() => {
     let disposed = false;
     const unlisten: Array<() => void> = [];
-    void invoke<BootstrapState>("bootstrap").then((state) => {
+    void invoke<OverlayBootstrapState>("overlay_bootstrap").then((state) => {
       if (!disposed) {
         setSnapshot(state.recording);
-        setLanguage(resolveLanguage(state.settings.uiLanguage));
+        setLanguage(resolveLanguage(state.uiLanguage));
       }
     });
     void listen<RecordingSnapshot>("recording:snapshot", ({ payload }) => setSnapshot(payload)).then((fn) => unlisten.push(fn));
@@ -56,7 +56,7 @@ export default function Overlay() {
     }).then((fn) => unlisten.push(fn));
     void listen<RecordingProgress>("recording:progress", ({ payload }) => setSnapshot((current) => ({ ...current, progress: payload }))).then((fn) => unlisten.push(fn));
     void listen<string>("recording:error", ({ payload }) => setSnapshot((current) => ({ ...current, state: "error", error: payload }))).then((fn) => unlisten.push(fn));
-    void listen<BootstrapState["settings"]>("settings:changed", ({ payload }) => setLanguage(resolveLanguage(payload.uiLanguage))).then((fn) => unlisten.push(fn));
+    void listen<AppSettings>("settings:changed", ({ payload }) => setLanguage(resolveLanguage(payload.uiLanguage))).then((fn) => unlisten.push(fn));
     void listen<string>("toast", ({ payload }) => setNotice(payload)).then((fn) => unlisten.push(fn));
     return () => {
       disposed = true;

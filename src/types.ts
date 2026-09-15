@@ -68,6 +68,11 @@ export interface BootstrapState {
   recording: RecordingSnapshot;
 }
 
+export interface OverlayBootstrapState {
+  uiLanguage: "auto" | "bg" | "en";
+  recording: RecordingSnapshot;
+}
+
 export interface TranscriptionCompleted {
   entry: TranscriptEntry | null;
   text: string;
