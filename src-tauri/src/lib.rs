@@ -27,6 +27,7 @@ const KEYRING_SERVICE: &str = "app.aidoo.whisper-lite";
 const KEYRING_USER: &str = "openai-api-key";
 const TRAY_ID: &str = "aidoo-whisper-lite";
 const MAX_RECORDING_DURATION: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+const IN_FLIGHT_RECOVERY_ERROR: &str = "Възстановен е запис след прекъсване. Не може да бъде изпратен повторно автоматично, за да се избегне повторно API таксуване.";
 
 struct AppState {
     settings: Mutex<AppSettings>,
@@ -266,6 +267,7 @@ fn localized_native_error(error: &str, english: bool) -> String {
         "Recovery състоянието е заключено." => {
             Some("Recovery is temporarily unavailable. Try again.")
         }
+        "Recovery аудио файлът не е валиден." => Some("The recovery audio file is invalid."),
         "Аудио услугата не работи." => {
             Some("The audio service is unavailable. Restart the app and try again.")
         }
@@ -364,6 +366,14 @@ fn localized_native_error(error: &str, english: bool) -> String {
             "The recovery copy could not be retained:",
         ),
         (
+            "Recovery аудио файлът не може да бъде защитен:",
+            "The recovery audio file could not be protected:",
+        ),
+        (
+            "Recovery защитата не можа да бъде обновена:",
+            "The recovery retry protection could not be updated:",
+        ),
+        (
             "Текстът е готов, но клипбордът не е достъпен:",
             "The text is ready, but the clipboard is unavailable:",
         ),
@@ -417,6 +427,14 @@ fn localized_native_error(error: &str, english: bool) -> String {
         .replace(
             "отговорът надвишава безопасния лимит.",
             "the response exceeds the safe limit.",
+        )
+        .replace(
+            "Recovery аудио файлът не може да бъде защитен:",
+            "The recovery audio file could not be protected:",
+        )
+        .replace(
+            "Recovery защитата не можа да бъде обновена:",
+            "The recovery retry protection could not be updated:",
         )
 }
 
@@ -959,46 +977,51 @@ async fn stop_and_transcribe_inner(app: &AppHandle) -> Result<TranscriptionCompl
             return Err(error);
         }
     };
+    // Persist a fail-safe Recovery item before the request can reach OpenAI. If the process
+    // exits at any point after this, startup must assume that the request may have been charged.
+    let pending = retain_failed_recording(
+        &staged,
+        captured.duration_seconds,
+        IN_FLIGHT_RECOVERY_ERROR,
+        false,
+        None,
+    )?;
+    let request_audio = PathBuf::from(&pending.path);
+    store_failed_recording(app, &state, pending)?;
+    let _ = std::fs::remove_file(&captured.path);
     let app_for_progress = app.clone();
     let callback: transcription::ProgressCallback = Arc::new(move |percent, stage, determinate| {
         set_progress(&app_for_progress, percent.max(10), stage, determinate);
     });
-    let result = transcription::transcribe(&staged, &api_key, &settings, Some(callback)).await;
+    let result =
+        transcription::transcribe(&request_audio, &api_key, &settings, Some(callback)).await;
     match result {
         Ok(text) => {
             let completed_text = text.clone();
-            let completed =
-                match finalize_success(app, &settings, &staged, captured.duration_seconds, text) {
-                    Ok(completed) => completed,
-                    Err(error) => {
-                        let failed = retain_failed_recording(
-                            &staged,
-                            captured.duration_seconds,
-                            &error.message,
-                            true,
-                            Some(completed_text),
-                        )?;
-                        store_failed_recording(app, &state, failed)?;
-                        let _ = std::fs::remove_file(&captured.path);
-                        return Err(error.message);
-                    }
-                };
-            let _ = std::fs::remove_file(&captured.path);
-            let _ = std::fs::remove_file(&staged);
-            set_recording_state(app, "done");
-            let _ = app.emit("transcription:completed", &completed);
-            Ok(completed)
+            let completed = match finalize_success(
+                app,
+                &settings,
+                &request_audio,
+                captured.duration_seconds,
+                text,
+            ) {
+                Ok(completed) => completed,
+                Err(error) => {
+                    preserve_completed_recovery(&state, &error.message, completed_text);
+                    emit_current_failed_recording(app, &state);
+                    return Err(error.message);
+                }
+            };
+            Ok(publish_recovery_completion(
+                app,
+                &state,
+                &request_audio,
+                false,
+                completed,
+            ))
         }
         Err(failure) => {
-            let failed = retain_failed_recording(
-                &staged,
-                captured.duration_seconds,
-                &failure.message,
-                failure.retryable,
-                None,
-            )?;
-            let _ = std::fs::remove_file(&captured.path);
-            store_failed_recording(app, &state, failed)?;
+            set_failed_recording_retryability(app, &state, failure.retryable, &failure.message)?;
             Err(failure.message)
         }
     }
@@ -1479,6 +1502,22 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
             }
         };
     }
+    let request_source =
+        match set_failed_recording_retryability(&app, &state, false, IN_FLIGHT_RECOVERY_ERROR) {
+            Ok(path) => path,
+            Err(error) => {
+                if temporary_flac {
+                    let _ = std::fs::remove_file(&staged);
+                }
+                set_error(&app, &error);
+                return Err(error);
+            }
+        };
+    let staged = if temporary_flac {
+        staged
+    } else {
+        request_source
+    };
     let app_for_progress = app.clone();
     let callback: transcription::ProgressCallback = Arc::new(move |percent, stage, determinate| {
         set_progress(&app_for_progress, percent, stage, determinate)
@@ -1519,18 +1558,17 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
             if temporary_flac {
                 let _ = std::fs::remove_file(&staged);
             }
-            if failure.retryable {
-                update_failed_recording_error(&state, &failure.message);
-            } else {
-                mark_failed_recording_non_retryable(&state, &failure.message);
-                if let Ok(current) = state.failed_recording.lock() {
-                    if let Some(failed) = current.as_ref() {
-                        let _ = app.emit("failed-recording:changed", failed);
-                    }
-                }
-            }
-            set_error(&app, &failure.message);
-            Err(failure.message)
+            let message = match set_failed_recording_retryability(
+                &app,
+                &state,
+                failure.retryable,
+                &failure.message,
+            ) {
+                Ok(_) => failure.message,
+                Err(recovery_error) => format!("{} {recovery_error}", failure.message),
+            };
+            set_error(&app, &message);
+            Err(message)
         }
     }
 }
@@ -1597,6 +1635,35 @@ fn update_failed_recording_error(state: &AppState, error: &str) {
     }
 }
 
+fn set_failed_recording_retryability(
+    app: &AppHandle,
+    state: &AppState,
+    retryable: bool,
+    error: &str,
+) -> Result<PathBuf, String> {
+    let failed = {
+        let mut current = state
+            .failed_recording
+            .lock()
+            .map_err(|_| "Recovery състоянието е заключено.")?;
+        let failed = current
+            .as_mut()
+            .ok_or_else(|| "Няма неуспешен запис за повторен опит.".to_string())?;
+        rename_recovery_file_for_retryability(failed, retryable)?;
+        failed.retryable = retryable;
+        failed.completed_text = None;
+        failed.error = error.into();
+        storage::save_failed_recording(failed).map_err(|storage_error| {
+            format!("Recovery състоянието не можа да бъде запазено: {storage_error}")
+        })?;
+        failed.clone()
+    };
+    let path = PathBuf::from(&failed.path);
+    let _ = app.emit("failed-recording:changed", &failed);
+    refresh_tray_menu(app);
+    Ok(path)
+}
+
 fn preserve_completed_recovery(state: &AppState, error: &str, completed_text: String) {
     if let Ok(mut current) = state.failed_recording.lock() {
         if let Some(value) = current.as_mut() {
@@ -1630,13 +1697,26 @@ fn mark_failed_recording_non_retryable(state: &AppState, error: &str) {
 }
 
 fn mark_recovery_file_non_retryable(value: &mut FailedRecording) {
+    if let Err(error) = rename_recovery_file_for_retryability(value, false) {
+        storage::append_diagnostic(&format!("recovery retry-safety move failed: {error}"));
+    }
+}
+
+fn rename_recovery_file_for_retryability(
+    value: &mut FailedRecording,
+    retryable: bool,
+) -> Result<(), String> {
     let source = PathBuf::from(&value.path);
+    let expected_prefix = if retryable {
+        "failed-dictation-retryable-"
+    } else {
+        "failed-dictation-nonretryable-"
+    };
     let already_marked = source
         .file_name()
         .and_then(|name| name.to_str())
-        .is_some_and(|name| name.starts_with("failed-dictation-nonretryable-"));
-    if already_marked
-        || source.parent() != Some(storage::recovery_dir().as_path())
+        .is_some_and(|name| name.starts_with(expected_prefix));
+    if source.parent() != Some(storage::recovery_dir().as_path())
         || !source
             .extension()
             .and_then(|extension| extension.to_str())
@@ -1644,46 +1724,33 @@ fn mark_recovery_file_non_retryable(value: &mut FailedRecording) {
                 extension.eq_ignore_ascii_case("flac") || extension.eq_ignore_ascii_case("wav")
             })
     {
-        return;
+        return Err("Recovery аудио файлът не е валиден.".into());
+    }
+    if !is_regular_local_file(&source) {
+        return Err("Запазеният неуспешен аудио файл не е намерен.".into());
+    }
+    #[cfg(unix)]
+    std::fs::set_permissions(&source, std::fs::Permissions::from_mode(0o600))
+        .map_err(|error| format!("Recovery аудио файлът не може да бъде защитен: {error}"))?;
+    if already_marked {
+        value.retryable = retryable;
+        return Ok(());
     }
     let extension = source
         .extension()
         .and_then(|extension| extension.to_str())
         .unwrap_or("flac");
     let target = storage::recovery_dir().join(format!(
-        "failed-dictation-nonretryable-{}.{extension}",
+        "{expected_prefix}{}.{extension}",
         uuid::Uuid::new_v4()
     ));
-    let moved = match std::fs::rename(&source, &target) {
-        Ok(()) => true,
-        Err(rename_error) => match copy_output_atomic(&source, &target) {
-            Ok(()) => {
-                if let Err(error) = std::fs::remove_file(&source) {
-                    storage::append_diagnostic(&format!(
-                        "old recovery cleanup failed after retry-safety copy: {error}"
-                    ));
-                }
-                true
-            }
-            Err(copy_error) => {
-                storage::append_diagnostic(&format!(
-                    "recovery retry-safety move failed: rename={rename_error}; copy={copy_error}"
-                ));
-                false
-            }
-        },
-    };
-    if moved {
-        #[cfg(unix)]
-        if let Err(error) =
-            std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o600))
-        {
-            storage::append_diagnostic(&format!(
-                "recovery retry-safety permission update failed: {error}"
-            ));
-        }
-        value.path = target.to_string_lossy().to_string();
-    }
+    // This is a same-directory rename, so success is atomic. Do not fall back to a copy: leaving
+    // both a retryable and non-retryable name could resurrect the unsafe one after later cleanup.
+    std::fs::rename(&source, &target)
+        .map_err(|error| format!("Recovery защитата не можа да бъде обновена: {error}"))?;
+    value.path = target.to_string_lossy().to_string();
+    value.retryable = retryable;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1727,69 +1794,68 @@ async fn retranscribe_history_item(
         *error = None;
     }
     set_recording_state(&app, "transcribing");
+    // Keep the user's history FLAC untouched, but create and persist a non-retryable Recovery
+    // copy before OpenAI can receive this retranscription. A crash must block another request.
+    let pending = match retain_history_recording_copy(
+        Path::new(&audio_path),
+        entry.duration_seconds,
+        IN_FLIGHT_RECOVERY_ERROR,
+        false,
+        None,
+    ) {
+        Ok(pending) => pending,
+        Err(error) => {
+            set_error(&app, &error);
+            return Err(error);
+        }
+    };
+    let request_audio = PathBuf::from(&pending.path);
+    if let Err(error) = store_failed_recording(&app, &state, pending) {
+        set_error(&app, &error);
+        return Err(error);
+    }
     let app_for_progress = app.clone();
     let callback: transcription::ProgressCallback = Arc::new(move |percent, stage, determinate| {
         set_progress(&app_for_progress, percent, stage, determinate)
     });
-    match transcription::transcribe(Path::new(&audio_path), &key, &settings, Some(callback)).await {
+    match transcription::transcribe(&request_audio, &key, &settings, Some(callback)).await {
         Ok(text) => {
             let completed_text = text.clone();
             let completed = match finalize_success(
                 &app,
                 &settings,
-                Path::new(&audio_path),
+                &request_audio,
                 entry.duration_seconds,
                 text,
             ) {
                 Ok(completed) => completed,
                 Err(error) => {
-                    let failed = match retain_history_recording_copy(
-                        Path::new(&audio_path),
-                        entry.duration_seconds,
-                        &error.message,
-                        true,
-                        Some(completed_text),
-                    ) {
-                        Ok(failed) => failed,
-                        Err(retention_error) => {
-                            set_error(&app, &retention_error);
-                            return Err(retention_error);
-                        }
-                    };
-                    if let Err(storage_error) = store_failed_recording(&app, &state, failed) {
-                        set_error(&app, &storage_error);
-                        return Err(storage_error);
-                    }
+                    preserve_completed_recovery(&state, &error.message, completed_text);
+                    emit_current_failed_recording(&app, &state);
                     set_error(&app, &error.message);
                     return Err(error.message);
                 }
             };
-            set_recording_state(&app, "done");
-            let _ = app.emit("transcription:completed", &completed);
-            Ok(completed)
+            Ok(publish_recovery_completion(
+                &app,
+                &state,
+                &request_audio,
+                false,
+                completed,
+            ))
         }
         Err(failure) => {
-            if !failure.retryable {
-                let failed = match retain_history_recording_copy(
-                    Path::new(&audio_path),
-                    entry.duration_seconds,
-                    &failure.message,
-                    false,
-                    None,
-                ) {
-                    Ok(failed) => failed,
-                    Err(retention_error) => {
-                        set_error(&app, &retention_error);
-                        return Err(retention_error);
-                    }
-                };
-                if let Err(storage_error) = store_failed_recording(&app, &state, failed) {
-                    set_error(&app, &storage_error);
-                    return Err(storage_error);
-                }
-            }
-            set_error(&app, &failure.message);
-            Err(failure.message)
+            let message = match set_failed_recording_retryability(
+                &app,
+                &state,
+                failure.retryable,
+                &failure.message,
+            ) {
+                Ok(_) => failure.message,
+                Err(recovery_error) => format!("{} {recovery_error}", failure.message),
+            };
+            set_error(&app, &message);
+            Err(message)
         }
     }
 }

@@ -39,12 +39,13 @@ The current source contains additional safeguards that are not present in the ar
 - failed audio is recoverable even when its metadata is missing, and its filename records whether retry is safe without risking another API charge;
 - completed OpenAI text survives a local finalization failure, and its recovery action retries only local work while the audio filename remains fail-safe;
 - ambiguous API outcomes are fail-safe and non-retryable, including timeouts after request start, HTTP 5xx and unreadable HTTP 2xx responses; history retranscription preserves the original FLAC and creates a blocking non-retryable Recovery copy;
+- every new, recovery and history audio request is now persisted under a non-retryable Recovery filename before OpenAI can receive it, so a process crash cannot resurrect potentially charged audio as retryable; only a proven safe failure atomically restores the retryable marker;
 - history-linked files are accepted for opening, retranscription or deletion only when their names match the exact generated timestamp and current twelve-character or legacy six-character identifier format; newly saved FLAC/TXT files use current-user-only permissions;
 - diagnostic ZIPs use an exact generated filename allowlist, and at most one megabyte is read from each included Apple crash report;
 - temporary recording files and native audio-worker waits are bounded, including cleanup of results abandoned after a timeout;
 - long recovery errors wrap in the main window, and a failed automatic paste remains available in the menu bar after the toast disappears.
 
-The current source was inspected without launching the application or using the microphone. On 15 September 2026, the production frontend build, all 82 representative English error-localization cases, release configuration validation, all three website page checks and Rust Clippy for the Apple Silicon release target with warnings denied passed. The native release target and all test targets also compile. The unit tests were compiled but not executed because recording tests remain paused at the user's request. Every behavioral item below remains required on a fresh signed candidate.
+The current source was inspected without launching the application or using the microphone. On 15 September 2026, the production frontend build, all 85 representative English error-localization cases, release configuration validation, all three website page checks and Rust Clippy for the Apple Silicon release target with warnings denied passed. The native release target and all test targets also compile. The unit tests were compiled but not executed because recording tests remain paused at the user's request. Every behavioral item below remains required on a fresh signed candidate.
 
 ## Required before public launch
 
@@ -52,4 +53,5 @@ The current source was inspected without launching the application or using the 
 - Complete every behavioral item in [ACCEPTANCE.md](ACCEPTANCE.md) on the signed build while a tester is present.
 - Complete the critical onboarding and dictation path on a second Mac or clean macOS account.
 - Inject a failed `failed-recording.json` write, restart the signed app, and confirm that the newest Recovery audio reappears with its encoded retry status; a legacy file must reappear without a Retry action.
+- Force-quit during each OpenAI request path and confirm the pre-request Recovery marker survives restart as Delete-only without a second request; repeat just before request start and confirm no conflicting marker copies remain.
 - Upload the exact audited DMG and matching checksum to the AIDOO website with the privacy, support, and release-notes pages.

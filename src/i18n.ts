@@ -317,6 +317,7 @@ export function errorMessage(reason: unknown, language: AppLanguage) {
     "Настройките са заключени.": "Settings are temporarily unavailable. Try again.",
     "Историята е заключена.": "History is temporarily unavailable. Try again.",
     "Recovery състоянието е заключено.": "Recovery is temporarily unavailable. Try again.",
+    "Recovery аудио файлът не е валиден.": "The recovery audio file is invalid.",
     "API key cache е заключен.": "The API key is temporarily unavailable. Try again.",
     "Shortcut recorder-ът е заключен.": "Shortcut capture is temporarily unavailable. Try again.",
     "Аудио услугата не работи.": "The audio service is unavailable. Restart the app and try again.",
@@ -362,6 +363,8 @@ export function errorMessage(reason: unknown, language: AppLanguage) {
     ["Неуспешният запис не можа да бъде запазен:", "The failed recording could not be retained:"],
     ["Завършеният запис не можа да бъде запазен:", "The completed recording could not be retained:"],
     ["Recovery копието не можа да бъде запазено:", "The recovery copy could not be retained:"],
+    ["Recovery аудио файлът не може да бъде защитен:", "The recovery audio file could not be protected:"],
+    ["Recovery защитата не можа да бъде обновена:", "The recovery retry protection could not be updated:"],
     ["Ключът не можа да бъде запазен в Keychain:", "The key could not be saved in Keychain:"],
     ["Ключът не можа да бъде изтрит:", "The key could not be deleted:"],
     ["Текстът е готов, но клипбордът не е достъпен:", "The text is ready, but the clipboard is unavailable:"],
@@ -384,6 +387,8 @@ export function errorMessage(reason: unknown, language: AppLanguage) {
     ["историята не можа да бъде запазена:", "history could not be saved:"],
     ["Създадените локални файлове не са изтрити.", "Created local files were not deleted."],
     ["отговорът надвишава безопасния лимит.", "the response exceeds the safe limit."],
+    ["Recovery аудио файлът не може да бъде защитен:", "The recovery audio file could not be protected:"],
+    ["Recovery защитата не можа да бъде обновена:", "The recovery retry protection could not be updated:"],
   ];
   return fragments.reduce((result, [source, target]) => result.replace(source, target), translated);
 }
