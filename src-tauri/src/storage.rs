@@ -1,11 +1,14 @@
 use crate::models::{AppSettings, FailedRecording, TranscriptEntry};
 use chrono::Utc;
 use serde::{de::DeserializeOwned, Serialize};
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Seek, SeekFrom, Write};
 #[cfg(unix)]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
+
+const MAX_DIAGNOSTIC_BYTES: usize = 1_000_000;
+const RETAINED_DIAGNOSTIC_BYTES: usize = 500_000;
 
 pub fn data_dir() -> PathBuf {
     dirs::data_local_dir()
@@ -138,9 +141,15 @@ pub fn append_diagnostic(message: &str) {
     #[cfg(unix)]
     options.mode(0o600);
     if let Ok(mut file) = options.open(path) {
+        #[cfg(unix)]
+        let _ = file.set_permissions(fs::Permissions::from_mode(0o600));
         let _ = writeln!(file, "{} {}", Utc::now().to_rfc3339(), sanitized);
     }
     trim_diagnostics();
+}
+
+pub fn read_diagnostics_for_support() -> Option<Vec<u8>> {
+    read_regular_file_tail(&diagnostics_path(), MAX_DIAGNOSTIC_BYTES)
 }
 
 pub fn append_shortcut_diagnostic(message: &str) {
@@ -194,16 +203,77 @@ pub(crate) fn sanitize_support_text(message: &str, transcripts: &[String]) -> St
 
 fn trim_diagnostics() {
     let path = diagnostics_path();
-    let Ok(metadata) = fs::metadata(&path) else {
+    let Ok(metadata) = fs::symlink_metadata(&path) else {
         return;
     };
-    if metadata.len() <= 1_000_000 {
+    if !metadata.file_type().is_file() || metadata.len() <= MAX_DIAGNOSTIC_BYTES as u64 {
         return;
     }
-    if let Ok(contents) = fs::read(&path) {
-        let keep_from = contents.len().saturating_sub(500_000);
-        let _ = fs::write(path, &contents[keep_from..]);
+    if let Some(contents) = read_regular_file_tail(&path, RETAINED_DIAGNOSTIC_BYTES) {
+        let _ = write_private_bytes_atomic(&path, &contents);
     }
+}
+
+fn read_regular_file_tail(path: &Path, maximum_bytes: usize) -> Option<Vec<u8>> {
+    if !path.parent().is_some_and(|parent| {
+        fs::symlink_metadata(parent)
+            .ok()
+            .is_some_and(|metadata| metadata.file_type().is_dir())
+    }) {
+        return None;
+    }
+    if !fs::symlink_metadata(path)
+        .ok()
+        .is_some_and(|metadata| metadata.file_type().is_file())
+    {
+        return None;
+    }
+    let mut file = File::open(path).ok()?;
+    let metadata = file.metadata().ok()?;
+    if !metadata.file_type().is_file() {
+        return None;
+    }
+    let start = metadata.len().saturating_sub(maximum_bytes as u64);
+    file.seek(SeekFrom::Start(start)).ok()?;
+    let mut contents = Vec::with_capacity(maximum_bytes.min(metadata.len() as usize));
+    file.take(maximum_bytes as u64)
+        .read_to_end(&mut contents)
+        .ok()?;
+    Some(contents)
+}
+
+fn write_private_bytes_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        ensure_private_directory(parent)?;
+    }
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("aidoo-data");
+    let temporary = path.with_file_name(format!(
+        ".{file_name}.tmp-{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    let result = (|| {
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        options.mode(0o600);
+        let mut file = options.open(&temporary)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        drop(file);
+        fs::rename(&temporary, path)?;
+        #[cfg(unix)]
+        if let Some(parent) = path.parent() {
+            fs::File::open(parent)?.sync_all()?;
+        }
+        Ok::<(), std::io::Error>(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result.map_err(|error| error.to_string())
 }
 
 fn read_json<T: DeserializeOwned>(path: &Path) -> Option<T> {
@@ -227,38 +297,8 @@ fn read_json<T: DeserializeOwned>(path: &Path) -> Option<T> {
 }
 
 fn write_json_atomic<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        ensure_private_directory(parent)?;
-    }
-    let file_name = path
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("aidoo-data");
-    let temporary = path.with_file_name(format!(
-        ".{file_name}.tmp-{}",
-        uuid::Uuid::new_v4().simple()
-    ));
     let bytes = serde_json::to_vec_pretty(value).map_err(|error| error.to_string())?;
-    let result = (|| {
-        let mut options = OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        options.mode(0o600);
-        let mut file = options.open(&temporary)?;
-        file.write_all(&bytes)?;
-        file.sync_all()?;
-        drop(file);
-        fs::rename(&temporary, path)?;
-        #[cfg(unix)]
-        if let Some(parent) = path.parent() {
-            fs::File::open(parent)?.sync_all()?;
-        }
-        Ok::<(), std::io::Error>(())
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(&temporary);
-    }
-    result.map_err(|error| error.to_string())
+    write_private_bytes_atomic(path, &bytes)
 }
 
 #[cfg(test)]

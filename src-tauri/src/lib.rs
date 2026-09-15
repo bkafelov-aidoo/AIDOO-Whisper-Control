@@ -1979,7 +1979,7 @@ fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
         .map_err(|error| error.to_string())?;
     let mut zip = ZipWriter::new(file);
     let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
-    if let Ok(log) = std::fs::read(storage::diagnostics_path()) {
+    if let Some(log) = storage::read_diagnostics_for_support() {
         zip.start_file("diagnostics.log", options)
             .map_err(|error| error.to_string())?;
         let sanitized =
@@ -2054,9 +2054,9 @@ fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
     std::fs::rename(&temporary, &path).map_err(|error| error.to_string())?;
     pending.committed = true;
     #[cfg(unix)]
-    File::open(storage::data_dir())
-        .and_then(|directory| directory.sync_all())
-        .map_err(|error| error.to_string())?;
+    if let Err(error) = File::open(storage::data_dir()).and_then(|directory| directory.sync_all()) {
+        storage::append_diagnostic(&format!("diagnostic directory sync failed: {error}"));
+    }
     Ok(path.to_string_lossy().to_string())
 }
 
