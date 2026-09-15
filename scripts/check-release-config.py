@@ -333,6 +333,17 @@ def main() -> int:
     ):
         if rust_safety_guard not in rust_source:
             errors.append(f"Native safety lint is missing: {rust_safety_guard}")
+    for lifecycle_guard in (
+        'const APP_QUIT_MENU_ID: &str = "aidoo-app-quit";',
+        ".menu(build_application_menu)",
+        "request_app_quit(app)",
+        "refresh_application_menu(app);",
+        'window.label() == "overlay"',
+    ):
+        if lifecycle_guard not in rust_source:
+            errors.append(f"Native operation lifecycle guard is missing: {lifecycle_guard}")
+    if "PredefinedMenuItem::quit" in rust_source:
+        errors.append("The macOS application menu must not bypass the owned quit guard")
     handler_match = re.search(
         r"\.invoke_handler\(tauri::generate_handler!\[(.*?)\]\)",
         rust_source,

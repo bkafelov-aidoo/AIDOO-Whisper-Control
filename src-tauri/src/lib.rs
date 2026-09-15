@@ -20,7 +20,9 @@ use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{
+    AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu, HELP_SUBMENU_ID, WINDOW_SUBMENU_ID,
+};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State, WindowEvent};
 use zeroize::Zeroizing;
@@ -29,6 +31,8 @@ use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 const KEYRING_SERVICE: &str = "app.aidoo.whisper-lite";
 const KEYRING_USER: &str = "openai-api-key";
 const TRAY_ID: &str = "aidoo-whisper-lite";
+const APP_MENU_ID: &str = "aidoo-app-menu";
+const APP_QUIT_MENU_ID: &str = "aidoo-app-quit";
 const MAX_RECORDING_DURATION: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 const IN_FLIGHT_RECOVERY_ERROR: &str = "Възстановен е запис след прекъсване. Не може да бъде изпратен повторно автоматично, за да се избегне повторно API таксуване.";
 const CHARGED_RECOVERY_ERROR: &str =
@@ -594,6 +598,162 @@ fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<Menu<tauri::
     }
 }
 
+fn build_application_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    #[cfg(target_os = "macos")]
+    {
+        let app_name = app.package_info().name.clone();
+        let about_metadata = AboutMetadata {
+            name: Some(app_name.clone()),
+            version: Some(app.package_info().version.to_string()),
+            copyright: app.config().bundle.copyright.clone(),
+            authors: app
+                .config()
+                .bundle
+                .publisher
+                .clone()
+                .map(|value| vec![value]),
+            ..Default::default()
+        };
+        let english = uses_english_ui(app);
+        let quit = MenuItem::with_id(
+            app,
+            APP_QUIT_MENU_ID,
+            if english {
+                format!("Quit {app_name}")
+            } else {
+                format!("Изход от {app_name}")
+            },
+            true,
+            Some("CmdOrCtrl+Q"),
+        )?;
+        let app_menu = Submenu::with_id_and_items(
+            app,
+            APP_MENU_ID,
+            app_name,
+            true,
+            &[
+                &PredefinedMenuItem::about(app, None, Some(about_metadata))?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::services(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::hide(app, None)?,
+                &PredefinedMenuItem::hide_others(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &quit,
+            ],
+        )?;
+        let file_menu = Submenu::with_items(
+            app,
+            "File",
+            true,
+            &[&PredefinedMenuItem::close_window(app, None)?],
+        )?;
+        let edit_menu = Submenu::with_items(
+            app,
+            "Edit",
+            true,
+            &[
+                &PredefinedMenuItem::undo(app, None)?,
+                &PredefinedMenuItem::redo(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::cut(app, None)?,
+                &PredefinedMenuItem::copy(app, None)?,
+                &PredefinedMenuItem::paste(app, None)?,
+                &PredefinedMenuItem::select_all(app, None)?,
+            ],
+        )?;
+        let view_menu = Submenu::with_items(
+            app,
+            "View",
+            true,
+            &[&PredefinedMenuItem::fullscreen(app, None)?],
+        )?;
+        let window_menu = Submenu::with_id_and_items(
+            app,
+            WINDOW_SUBMENU_ID,
+            "Window",
+            true,
+            &[
+                &PredefinedMenuItem::minimize(app, None)?,
+                &PredefinedMenuItem::maximize(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::close_window(app, None)?,
+            ],
+        )?;
+        let help_menu = Submenu::with_id_and_items(app, HELP_SUBMENU_ID, "Help", true, &[])?;
+
+        Menu::with_items(
+            app,
+            &[
+                &app_menu,
+                &file_menu,
+                &edit_menu,
+                &view_menu,
+                &window_menu,
+                &help_menu,
+            ],
+        )
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    Menu::default(app)
+}
+
+fn operation_allows_quit(operation_active: bool) -> bool {
+    !operation_active
+}
+
+fn request_app_quit(app: &AppHandle) {
+    let operation_active = app
+        .state::<AppState>()
+        .operation_active
+        .load(Ordering::Acquire);
+    if operation_allows_quit(operation_active) {
+        app.exit(0);
+        return;
+    }
+
+    let message = if uses_english_ui(app) {
+        "Wait for the current operation to finish before quitting."
+    } else {
+        "Изчакайте текущата операция да приключи, преди да затворите приложението."
+    };
+    let _ = app.emit("toast", message);
+}
+
+fn refresh_application_menu(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        let operation_active = app
+            .state::<AppState>()
+            .operation_active
+            .load(Ordering::Acquire);
+        let Some(menu) = app.menu() else {
+            return;
+        };
+        let Some(app_menu) = menu
+            .get(APP_MENU_ID)
+            .and_then(|item| item.as_submenu().cloned())
+        else {
+            return;
+        };
+        let Some(quit) = app_menu
+            .get(APP_QUIT_MENU_ID)
+            .and_then(|item| item.as_menuitem().cloned())
+        else {
+            return;
+        };
+        let app_name = app.package_info().name.clone();
+        let label = if uses_english_ui(app) {
+            format!("Quit {app_name}")
+        } else {
+            format!("Изход от {app_name}")
+        };
+        let _ = quit.set_text(label);
+        let _ = quit.set_enabled(operation_allows_quit(operation_active));
+    }
+}
+
 fn update_tray_menu(app: &AppHandle, current: &str) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let english = uses_english_ui(app);
@@ -648,6 +808,7 @@ fn refresh_tray_menu(app: &AppHandle) {
     };
     let tray_state = resolved_tray_state(&current, granted, setup_ready, has_recovery);
     update_tray_menu(app, tray_state);
+    refresh_application_menu(app);
 }
 
 fn tray_setup_ready(state: &AppState) -> bool {
@@ -2587,9 +2748,10 @@ fn diagnostic_settings(settings: &AppSettings) -> serde_json::Value {
 mod local_path_tests {
     use super::{
         commit_staged_history_deletion, diagnostic_settings, is_managed_output_path,
-        localized_native_error, overlay_visible_for_state, path_is_authorized_for_open,
-        prepare_history_files_for_deletion, preserve_completed_recovery_with,
-        recording_watchdog_should_stop, recover_pending_history_deletion, recovery_plan,
+        localized_native_error, operation_allows_quit, overlay_visible_for_state,
+        path_is_authorized_for_open, prepare_history_files_for_deletion,
+        preserve_completed_recovery_with, recording_watchdog_should_stop,
+        recover_pending_history_deletion, recovery_plan,
         resolve_failed_recording_after_success_with, resolved_tray_state,
         restore_staged_history_files, save_local_transcription_files,
         save_local_transcription_files_with_stem, stage_history_files_for_deletion, tray_tooltip,
@@ -3173,6 +3335,12 @@ mod local_path_tests {
     }
 
     #[test]
+    fn quitting_is_blocked_for_the_full_native_operation() {
+        assert!(!operation_allows_quit(true));
+        assert!(operation_allows_quit(false));
+    }
+
+    #[test]
     fn stale_recording_watchdog_cannot_stop_a_new_recording() {
         assert!(recording_watchdog_should_stop(true, 7, 7));
         assert!(!recording_watchdog_should_stop(false, 7, 7));
@@ -3436,7 +3604,7 @@ fn install_tray(app: &tauri::App) -> tauri::Result<()> {
                     let _ = text_insertion::copy(&localized);
                 }
             }
-            "quit" => app.exit(0),
+            "quit" => request_app_quit(app),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -3462,11 +3630,19 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .manage(AppState::load())
+        .menu(build_application_menu)
+        .on_menu_event(|app, event| {
+            if event.id.as_ref() == APP_QUIT_MENU_ID {
+                request_app_quit(app);
+            }
+        })
         .on_window_event(|window, event| {
-            if window.label() == "main" {
-                if let WindowEvent::CloseRequested { api, .. } = event {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
                     api.prevent_close();
                     let _ = window.hide();
+                } else if window.label() == "overlay" {
+                    api.prevent_close();
                 }
             }
         })
