@@ -191,6 +191,17 @@ def main() -> int:
             "Release workflow actions must use immutable commit SHAs: "
             + ", ".join(unpinned_actions)
         )
+    for required_workflow_guard in (
+        "group: aidoo-whisper-lite-macos-${{ github.ref }}",
+        "cancel-in-progress: false",
+        "timeout-minutes: 75",
+        "umask 077",
+        "retention-days: 14",
+    ):
+        if required_workflow_guard not in workflow:
+            errors.append(
+                f"Release workflow guard is missing: {required_workflow_guard}"
+            )
 
     if errors:
         raise SystemExit("\n".join(errors))

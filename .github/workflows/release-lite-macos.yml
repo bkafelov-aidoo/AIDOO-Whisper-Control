@@ -9,9 +9,14 @@ permissions:
   contents: read
   checks: write
 
+concurrency:
+  group: aidoo-whisper-lite-macos-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: macos-14
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -39,6 +44,8 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
+          set -euo pipefail
+          umask 077
           trap 'rm -f certificate.p12' EXIT
           printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
@@ -69,3 +76,4 @@ jobs:
           name: aidoo-whisper-lite-macos-${{ github.ref_name }}
           path: release/
           if-no-files-found: error
+          retention-days: 14
