@@ -6,7 +6,7 @@ n_samples: 12000
 n_samples_val: 2500
 n_background_samples: 1500
 n_background_samples_val: 400
-tts_batch_size: 40
+tts_batch_size: 20
 
 custom_negative_phrases:
   - "aidoo"
