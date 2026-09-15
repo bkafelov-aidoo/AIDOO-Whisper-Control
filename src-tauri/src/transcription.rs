@@ -1,5 +1,5 @@
 use crate::models::AppSettings;
-use futures_util::TryStreamExt;
+use futures_util::{StreamExt, TryStreamExt};
 use reqwest::multipart::{Form, Part};
 use serde::Deserialize;
 #[cfg(unix)]
@@ -13,6 +13,9 @@ pub type ProgressCallback = Arc<dyn Fn(u8, &str, bool) + Send + Sync>;
 // OpenAI documents this limit as 25 MB. Use the decimal boundary so a file that
 // passes the local guard is never larger than the documented upload maximum.
 const MAX_TRANSCRIPTION_FILE_BYTES: u64 = 25_000_000;
+const MAX_TRANSCRIPTION_RESPONSE_BYTES: usize = 2_000_000;
+const MAX_API_ERROR_BYTES: usize = 64_000;
+const MAX_API_ERROR_MESSAGE_CHARS: usize = 500;
 const FILE_TOO_LARGE_PREFIX: &str = "Аудио файлът е по-голям от лимита на OpenAI от 25 MB.";
 
 #[derive(Deserialize)]
@@ -186,9 +189,10 @@ pub async fn transcribe(
     if !response.status().is_success() {
         return Err(api_error(response, "Транскрипцията не успя").await);
     }
-    let result: TranscriptionResponse = response
-        .json()
+    let body = read_response_body(response, MAX_TRANSCRIPTION_RESPONSE_BYTES)
         .await
+        .map_err(|error| format!("OpenAI върна невалиден отговор: {error}"))?;
+    let result: TranscriptionResponse = serde_json::from_slice(&body)
         .map_err(|error| format!("OpenAI върна невалиден отговор: {error}"))?;
     let text = result.text.trim().to_string();
     if text.is_empty() {
@@ -202,10 +206,13 @@ pub async fn transcribe(
 
 async fn api_error(response: reqwest::Response, prefix: &str) -> String {
     let status = response.status();
-    let body = response.text().await.unwrap_or_default();
-    let message = serde_json::from_str::<serde_json::Value>(&body)
+    let body = read_response_body(response, MAX_API_ERROR_BYTES)
+        .await
+        .unwrap_or_default();
+    let message = serde_json::from_slice::<serde_json::Value>(&body)
         .ok()
         .and_then(|value| value.pointer("/error/message")?.as_str().map(str::to_owned))
+        .map(|message| compact_api_message(&message))
         .unwrap_or_else(|| format!("HTTP {status}"));
     match status.as_u16() {
         401 => format!("{prefix}: невалиден или изтрит API ключ."),
@@ -216,9 +223,55 @@ async fn api_error(response: reqwest::Response, prefix: &str) -> String {
     }
 }
 
+async fn read_response_body(
+    response: reqwest::Response,
+    maximum_bytes: usize,
+) -> Result<Vec<u8>, String> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > maximum_bytes as u64)
+    {
+        return Err("отговорът надвишава безопасния лимит.".into());
+    }
+    let mut stream = response.bytes_stream();
+    let mut body = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|error| error.to_string())?;
+        if body.len().saturating_add(chunk.len()) > maximum_bytes {
+            return Err("отговорът надвишава безопасния лимит.".into());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
+}
+
+fn compact_api_message(message: &str) -> String {
+    let normalized = message.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.chars().count() <= MAX_API_ERROR_MESSAGE_CHARS {
+        normalized
+    } else {
+        format!(
+            "{}…",
+            normalized
+                .chars()
+                .take(MAX_API_ERROR_MESSAGE_CHARS - 1)
+                .collect::<String>()
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{encode_wav_to_flac, failure_is_retryable};
+    use super::{compact_api_message, encode_wav_to_flac, failure_is_retryable};
+
+    #[test]
+    fn api_error_messages_are_single_line_and_bounded() {
+        let message = format!("  first\n\tsecond {}", "x".repeat(700));
+        let compact = compact_api_message(&message);
+        assert!(!compact.contains('\n'));
+        assert_eq!(compact.chars().count(), 500);
+        assert!(compact.ends_with('…'));
+    }
 
     #[test]
     fn oversized_audio_failure_cannot_be_retried_unchanged() {

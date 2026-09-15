@@ -371,6 +371,7 @@ export function errorMessage(reason: unknown, language: AppLanguage) {
     ["историята е временно недостъпна.", "history is temporarily unavailable."],
     ["историята не можа да бъде запазена:", "history could not be saved:"],
     ["Създадените локални файлове не са изтрити.", "Created local files were not deleted."],
+    ["отговорът надвишава безопасния лимит.", "the response exceeds the safe limit."],
   ];
   return fragments.reduce((result, [source, target]) => result.replace(source, target), translated);
 }

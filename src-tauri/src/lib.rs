@@ -400,6 +400,10 @@ fn localized_native_error(error: &str, english: bool) -> String {
             "Създадените локални файлове не са изтрити.",
             "Created local files were not deleted.",
         )
+        .replace(
+            "отговорът надвишава безопасния лимит.",
+            "the response exceeds the safe limit.",
+        )
 }
 
 fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<Menu<tauri::Wry>> {
