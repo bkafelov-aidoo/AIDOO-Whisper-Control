@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a problem with AIDOO Whisper Lite for macOS
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve AIDOO Whisper Lite. Do not include an OpenAI API key, private transcript text, or audio you do not intend to share.
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Shown at the top of Settings.
+      placeholder: 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version and Mac model
+      placeholder: macOS 15.6, MacBook Air M2
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the shortcut, selected microphone, model, language, and storage settings when relevant.
+      placeholder: |
+        1. Open…
+        2. Hold…
+        3. Release…
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the full visible error message if one appeared.
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostic package (optional)
+      description: Create it in Settings → Diagnostics, inspect the ZIP, then drag it here only if you choose to share it.
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I checked this report and its attachments for API keys, private transcript text, and audio I do not intend to share.
+          required: true
