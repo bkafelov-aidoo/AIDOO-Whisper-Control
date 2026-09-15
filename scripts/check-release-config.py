@@ -81,6 +81,31 @@ def main() -> int:
     if tauri.get("app", {}).get("security", {}).get("csp") != expected_csp:
         errors.append("The WebView content security policy differs from the audited boundary")
 
+    overlay_windows = [
+        window
+        for window in tauri.get("app", {}).get("windows", [])
+        if window.get("label") == "overlay"
+    ]
+    if len(overlay_windows) != 1:
+        errors.append("The release must define exactly one overlay window")
+    else:
+        overlay_window = overlay_windows[0]
+        expected_overlay_window = {
+            "alwaysOnTop": True,
+            "visibleOnAllWorkspaces": True,
+            "focus": False,
+            "focusable": False,
+            "skipTaskbar": True,
+            "transparent": True,
+            "visible": False,
+        }
+        for name, expected in expected_overlay_window.items():
+            if overlay_window.get(name) != expected:
+                errors.append(
+                    f"Overlay {name} differs: {overlay_window.get(name)!r}; "
+                    f"expected {expected!r}"
+                )
+
     if set(bundle.get("targets", [])) != {"app", "dmg"}:
         errors.append("The macOS release must produce exactly app and dmg bundles")
     if "icons/icon.icns" not in bundle.get("icon", []):

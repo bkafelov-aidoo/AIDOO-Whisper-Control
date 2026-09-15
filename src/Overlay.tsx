@@ -19,7 +19,8 @@ const stateText = {
     starting: "Стартирам микрофона…",
     recording: "Слушам ви",
     transcribing: "Транскрибирам…",
-    done: "Текстът е готов",
+    done: "Готово за нов запис",
+    complete: "Текстът е транскрибиран и копиран.",
     error: "Възникна грешка",
     release: "Отпуснете shortcut-а за край",
   },
@@ -28,7 +29,8 @@ const stateText = {
     starting: "Starting the microphone…",
     recording: "Listening",
     transcribing: "Transcribing…",
-    done: "Text is ready",
+    done: "Ready for a new recording",
+    complete: "The text is transcribed and copied.",
     error: "Something went wrong",
     release: "Release the shortcut to finish",
   },
@@ -122,6 +124,7 @@ export default function Overlay() {
           {snapshot.state === "transcribing" && <span>{stage}</span>}
           {snapshot.state === "error" && <span className="error-text">{errorMessage(snapshot.error, language)}</span>}
           {snapshot.state === "starting" && <span>{stage}</span>}
+          {snapshot.state === "done" && <span>{label.complete}</span>}
           {notice && snapshot.state !== "error" && <span className="notice-text">{errorMessage(notice, language)}</span>}
         </div>
         {snapshot.state === "recording" && (

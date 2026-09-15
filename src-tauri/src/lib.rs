@@ -685,6 +685,13 @@ fn resolved_tray_state(
     }
 }
 
+fn overlay_visible_for_state(state: &str) -> bool {
+    matches!(
+        state,
+        "starting" | "recording" | "transcribing" | "done" | "error"
+    )
+}
+
 fn set_recording_state(app: &AppHandle, next: &str) {
     let state = app.state::<AppState>();
     if let Ok(mut current) = state.recording_status.lock() {
@@ -700,14 +707,12 @@ fn set_recording_state(app: &AppHandle, next: &str) {
     let generation = state.status_generation.fetch_add(1, Ordering::Relaxed) + 1;
     refresh_tray_menu(app);
     let _ = app.emit("recording:state", next);
-    match next {
-        "starting" | "recording" | "transcribing" | "done" | "error" => show_recording_overlay(app),
-        "idle" => {
-            if let Some(window) = app.get_webview_window("overlay") {
-                let _ = window.hide();
-            }
+    if overlay_visible_for_state(next) {
+        show_recording_overlay(app);
+    } else if next == "idle" {
+        if let Some(window) = app.get_webview_window("overlay") {
+            let _ = window.hide();
         }
-        _ => {}
     }
     emit_snapshot(app);
     if matches!(next, "done" | "error") {
@@ -741,6 +746,15 @@ fn set_progress(app: &AppHandle, percent: u8, stage: &str, determinate: bool) {
     };
     let _ = app.emit("recording:progress", &progress);
     emit_snapshot(app);
+    let state_name = app
+        .state::<AppState>()
+        .recording_status
+        .lock()
+        .map(|value| value.clone())
+        .unwrap_or_default();
+    if stage_changed && overlay_visible_for_state(&state_name) {
+        show_recording_overlay(app);
+    }
     if stage_changed {
         refresh_tray_menu(app);
     }
@@ -756,8 +770,13 @@ fn set_error(app: &AppHandle, error: &str) {
 }
 
 pub(crate) fn show_recording_overlay(app: &AppHandle) {
-    reposition_overlay_inner(app);
     if let Some(window) = app.get_webview_window("overlay") {
+        // Reassert the macOS panel behavior every time. This keeps the status visible above the
+        // user's current app and when dictation starts from another Space or a fullscreen app.
+        let _ = window.set_always_on_top(true);
+        let _ = window.set_visible_on_all_workspaces(true);
+        let _ = window.set_focusable(false);
+        reposition_overlay_inner(app);
         let _ = window.show();
     }
     emit_snapshot(app);
@@ -1110,6 +1129,7 @@ async fn stop_and_transcribe_inner(app: &AppHandle) -> Result<TranscriptionCompl
         transcription::transcribe(&request_audio, &api_key, &settings, Some(callback)).await;
     match result {
         Ok(text) => {
+            set_progress(app, 100, "finishing_locally", true);
             let completed_text = text.clone();
             let completed = match finalize_success(
                 app,
@@ -1660,6 +1680,7 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
     });
     match transcription::transcribe(&staged, &key, &settings, Some(callback)).await {
         Ok(text) => {
+            set_progress(&app, 100, "finishing_locally", true);
             let completed_text = text.clone();
             let completed =
                 match finalize_success(&app, &settings, &staged, failed.duration_seconds, text) {
@@ -1957,6 +1978,7 @@ async fn retranscribe_history_item(
     });
     match transcription::transcribe(&request_audio, &key, &settings, Some(callback)).await {
         Ok(text) => {
+            set_progress(&app, 100, "finishing_locally", true);
             let completed_text = text.clone();
             let completed = match finalize_success(
                 &app,
@@ -2565,9 +2587,9 @@ fn diagnostic_settings(settings: &AppSettings) -> serde_json::Value {
 mod local_path_tests {
     use super::{
         commit_staged_history_deletion, diagnostic_settings, is_managed_output_path,
-        localized_native_error, path_is_authorized_for_open, prepare_history_files_for_deletion,
-        preserve_completed_recovery_with, recording_watchdog_should_stop,
-        recover_pending_history_deletion, recovery_plan,
+        localized_native_error, overlay_visible_for_state, path_is_authorized_for_open,
+        prepare_history_files_for_deletion, preserve_completed_recovery_with,
+        recording_watchdog_should_stop, recover_pending_history_deletion, recovery_plan,
         resolve_failed_recording_after_success_with, resolved_tray_state,
         restore_staged_history_files, save_local_transcription_files,
         save_local_transcription_files_with_stem, stage_history_files_for_deletion, tray_tooltip,
@@ -3142,6 +3164,15 @@ mod local_path_tests {
     }
 
     #[test]
+    fn overlay_stays_visible_until_dictation_is_ready_again() {
+        for state in ["starting", "recording", "transcribing", "done", "error"] {
+            assert!(overlay_visible_for_state(state), "{state}");
+        }
+        assert!(!overlay_visible_for_state("idle"));
+        assert!(!overlay_visible_for_state("unknown"));
+    }
+
+    #[test]
     fn stale_recording_watchdog_cannot_stop_a_new_recording() {
         assert!(recording_watchdog_should_stop(true, 7, 7));
         assert!(!recording_watchdog_should_stop(false, 7, 7));
@@ -3444,6 +3475,9 @@ pub fn run() {
             if let Some(overlay) = app.get_webview_window("overlay") {
                 let _ = overlay.set_ignore_cursor_events(true);
                 let _ = overlay.set_shadow(false);
+                let _ = overlay.set_always_on_top(true);
+                let _ = overlay.set_visible_on_all_workspaces(true);
+                let _ = overlay.set_focusable(false);
             }
             shortcuts::install(app.handle().clone());
             storage::append_diagnostic("application started");

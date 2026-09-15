@@ -36,9 +36,11 @@
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
+        "visibleOnAllWorkspaces": true,
         "visible": false,
         "skipTaskbar": true,
-        "focus": false
+        "focus": false,
+        "focusable": false
       }
     ],
     "security": {
