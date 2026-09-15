@@ -11,7 +11,9 @@ const MAX_DIAGNOSTIC_BYTES: usize = 1_000_000;
 const RETAINED_DIAGNOSTIC_BYTES: usize = 500_000;
 const MAX_SETTINGS_JSON_BYTES: u64 = 1_000_000;
 const MAX_HISTORY_JSON_BYTES: u64 = 10_000_000;
-const MAX_FAILED_RECORDING_JSON_BYTES: u64 = 1_000_000;
+// A bounded OpenAI response can contain up to 2 MB of JSON. Re-serializing its decoded text can
+// expand escaped characters, so Recovery metadata gets a separate still-bounded allowance.
+const MAX_FAILED_RECORDING_JSON_BYTES: u64 = 16_000_000;
 
 pub fn data_dir() -> PathBuf {
     dirs::data_local_dir()
@@ -127,7 +129,7 @@ fn valid_failed_recording(recording: &FailedRecording) -> bool {
         .ok()
         .is_some_and(|metadata| metadata.file_type().is_file());
     path.parent() == Some(recovery.as_path())
-        && recovery_file_matches_metadata(name, recording.retryable)
+        && recovery_file_matches_metadata(name, recording)
         && is_regular_file
 }
 
@@ -182,6 +184,7 @@ fn newest_recovery_audio() -> Option<FailedRecording> {
         duration_seconds: 0.0,
         error: error.into(),
         retryable,
+        completed_text: None,
     })
 }
 
@@ -208,10 +211,12 @@ fn recovery_file_retryability(name: &str) -> Option<bool> {
     .then_some(false)
 }
 
-fn recovery_file_matches_metadata(name: &str, retryable: bool) -> bool {
+fn recovery_file_matches_metadata(name: &str, recording: &FailedRecording) -> bool {
     match recovery_file_retryability(name) {
-        Some(true) => retryable,
-        Some(false) if name.starts_with("failed-dictation-nonretryable-") => !retryable,
+        Some(true) => recording.retryable || recording.completed_text.is_some(),
+        Some(false) if name.starts_with("failed-dictation-nonretryable-") => {
+            !recording.retryable || recording.completed_text.is_some()
+        }
         Some(false) => true,
         None => false,
     }
@@ -457,6 +462,7 @@ mod tests {
         read_json, recovery_file_matches_metadata, recovery_file_retryability, sanitize_diagnostic,
         sanitize_support_text, write_json_atomic,
     };
+    use crate::models::FailedRecording;
     use serde_json::json;
 
     #[test]
@@ -533,6 +539,14 @@ mod tests {
     #[test]
     fn recovery_file_names_preserve_retry_safety() {
         let identifier = uuid::Uuid::new_v4();
+        let failed = |retryable, completed_text: Option<&str>| FailedRecording {
+            path: String::new(),
+            created_at: String::new(),
+            duration_seconds: 0.0,
+            error: String::new(),
+            retryable,
+            completed_text: completed_text.map(str::to_owned),
+        };
         assert_eq!(
             recovery_file_retryability(&format!("failed-dictation-retryable-{identifier}.flac")),
             Some(true)
@@ -552,15 +566,27 @@ mod tests {
         assert_eq!(recovery_file_retryability("someone-else.flac"), None);
         assert!(recovery_file_matches_metadata(
             &format!("failed-dictation-retryable-{identifier}.flac"),
-            true
+            &failed(true, None)
         ));
         assert!(!recovery_file_matches_metadata(
             &format!("failed-dictation-retryable-{identifier}.flac"),
-            false
+            &failed(false, None)
+        ));
+        assert!(recovery_file_matches_metadata(
+            &format!("failed-dictation-retryable-{identifier}.flac"),
+            &failed(true, Some("already transcribed"))
+        ));
+        assert!(recovery_file_matches_metadata(
+            &format!("failed-dictation-retryable-{identifier}.flac"),
+            &failed(false, Some("already transcribed"))
         ));
         assert!(!recovery_file_matches_metadata(
             &format!("failed-dictation-nonretryable-{identifier}.flac"),
-            true
+            &failed(true, None)
+        ));
+        assert!(recovery_file_matches_metadata(
+            &format!("failed-dictation-nonretryable-{identifier}.flac"),
+            &failed(true, Some("already transcribed"))
         ));
     }
 

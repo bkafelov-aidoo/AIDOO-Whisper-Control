@@ -32,6 +32,9 @@ export const copy = {
     failedBody: "Аудиото е запазено локално и може да бъде транскрибирано отново.",
     retainedTitle: "Запазен локален запис",
     retainedBody: "Този запис не може да бъде изпратен повторно без промяна. Изтрийте го, когато вече не ви е нужен.",
+    completedRecoveryTitle: "Готов текст за локално довършване",
+    completedRecoveryBody: "OpenAI вече е върнал текста. Локалният опит не изпраща аудиото повторно и не създава нова API такса.",
+    finishLocally: "Завърши локално",
     apiTitle: "OpenAI API ключ",
     apiHelp: "Ключът се пази само в macOS Keychain. ChatGPT абонаментът и API таксуването са отделни.",
     createKey: "Създай OpenAI API ключ",
@@ -145,6 +148,9 @@ export const copy = {
     failedBody: "The audio is stored locally and can be transcribed again.",
     retainedTitle: "Saved local recording",
     retainedBody: "This recording cannot be sent again unchanged. Delete it when you no longer need it.",
+    completedRecoveryTitle: "Text ready for local completion",
+    completedRecoveryBody: "OpenAI has already returned the text. Local completion does not send the audio again or create another API charge.",
+    finishLocally: "Finish locally",
     apiTitle: "OpenAI API key",
     apiHelp: "The key is stored only in macOS Keychain. ChatGPT subscriptions and API billing are separate.",
     createKey: "Create an OpenAI API key",
@@ -254,6 +260,7 @@ const progressCopy = {
     uploading_audio: "Изпращам аудиото",
     openai_transcribing: "OpenAI транскрибира",
     text_ready: "Текстът е готов",
+    finishing_locally: "Завършвам локално",
   },
   en: {
     preparing_audio: "Preparing audio",
@@ -262,6 +269,7 @@ const progressCopy = {
     uploading_audio: "Uploading audio",
     openai_transcribing: "OpenAI is transcribing",
     text_ready: "Text is ready",
+    finishing_locally: "Finishing locally",
   },
 } as const;
 

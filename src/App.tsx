@@ -32,7 +32,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { errorMessage, progressLabel, resolveLanguage, translator } from "./i18n";
+import { errorMessage, progressLabel, resolveLanguage, translator, type CopyKey } from "./i18n";
 import type {
   AppLanguage,
   AppSettings,
@@ -325,7 +325,11 @@ function Dashboard({ data, language, isBusy, onOpenOnboarding, onTest, onRetry, 
 
 function FailedCard({ failed, language, disabled, onRetry, onDelete }: { failed: FailedRecording; language: AppLanguage; disabled: boolean; onRetry: () => void; onDelete: () => void }) {
   const t = translator(language);
-  return <section className="failed-card" role="status"><AlertCircle /><div><strong>{t(failed.retryable ? "failedTitle" : "retainedTitle")}</strong><span>{t(failed.retryable ? "failedBody" : "retainedBody")}</span><small>{errorMessage(failed.error, language)}</small></div>{failed.retryable && <button className="secondary-button" disabled={disabled} onClick={onRetry}><RotateCcw />{t("retry")}</button>}<button className="icon-button danger" disabled={disabled} onClick={onDelete} aria-label={t("delete")}><Trash2 /></button></section>;
+  const canFinishLocally = Boolean(failed.completedText);
+  const canRetry = failed.retryable || canFinishLocally;
+  const title: CopyKey = canFinishLocally ? "completedRecoveryTitle" : failed.retryable ? "failedTitle" : "retainedTitle";
+  const body: CopyKey = canFinishLocally ? "completedRecoveryBody" : failed.retryable ? "failedBody" : "retainedBody";
+  return <section className="failed-card" role="status"><AlertCircle /><div><strong>{t(title)}</strong><span>{t(body)}</span><small>{errorMessage(failed.error, language)}</small></div>{canRetry && <button className="secondary-button" disabled={disabled} onClick={onRetry}><RotateCcw />{t(canFinishLocally ? "finishLocally" : "retry")}</button>}<button className="icon-button danger" disabled={disabled} onClick={onDelete} aria-label={t("delete")}><Trash2 /></button></section>;
 }
 
 function HistoryPage({ history, language, isBusy, onCopy, onOpen, onRetranscribe, onDelete }: { history: TranscriptEntry[]; language: AppLanguage; isBusy: boolean; onCopy: (text: string) => void; onOpen: (path: string) => void; onRetranscribe: (id: string) => void; onDelete: (entry: TranscriptEntry) => void }) {

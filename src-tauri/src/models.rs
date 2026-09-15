@@ -136,6 +136,7 @@ mod tests {
         .unwrap();
 
         assert!(recording.retryable);
+        assert!(recording.completed_text.is_none());
     }
 }
 
@@ -161,6 +162,8 @@ pub struct FailedRecording {
     pub error: String,
     #[serde(default = "default_true")]
     pub retryable: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub completed_text: Option<String>,
 }
 
 fn default_true() -> bool {
