@@ -1,6 +1,6 @@
 # macOS 1.0.0 acceptance status
 
-Status date: 14 September 2026
+Status date: 15 September 2026
 
 > The artifact recorded below is the last fully audited candidate. It is superseded by newer source changes and must not be published. Produce and audit a fresh signed build before launch, then replace this note and checksum with the final artifact evidence.
 
@@ -26,6 +26,20 @@ Status date: 14 September 2026
 - SHA-256: `b6a2a376e413d23a4743d9cba2b10130b5e9fa4c56d62014b49b1db8925260bb`.
 
 Earlier interactive checks on this Mac covered onboarding, settings, shortcut capture, the overlay state flow, FLAC/TXT/history persistence, recovery after a failed transcription, clipboard copy, and the close/reopen lifecycle. They were not repeated after the final privacy and packaging changes because microphone tests were paused at the user's request.
+
+## Current source after the superseded candidate
+
+The current source contains additional safeguards that are not present in the artifact above:
+
+- application commands and Tauri capabilities are separated by window, and the overlay receives only recording state;
+- release workflows are pinned, secrets are limited to the steps that need them, and releases require clean source at the exact version tag;
+- OpenAI uploads and response bodies have explicit size limits, API messages are bounded, and all network operations have timeouts;
+- settings, history and recovery metadata have read limits; malformed private JSON is preserved in a private quarantine file before safe recovery;
+- failed audio is recoverable even when its metadata is missing, and its filename records whether retry is safe without risking another API charge;
+- temporary recording files and native audio-worker waits are bounded, including cleanup of results abandoned after a timeout;
+- long recovery errors wrap in the main window, and a failed automatic paste remains available in the menu bar after the toast disappears.
+
+The current source was inspected without launching the application or using the microphone. Short compilation and static checks completed after the relevant changes, but the full automated suite and every behavioral item below remain required on a fresh signed candidate.
 
 ## Required before public launch
 
