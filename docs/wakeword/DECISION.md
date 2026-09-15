@@ -31,3 +31,7 @@ The classifier is releasable only with recorded evidence of:
 - recovery after sleep/wake and selected-microphone disconnect/reconnect.
 
 Synthetic metrics are a model-development gate. A short real-speaker and real-room acceptance pass remains mandatory before publishing a signed build.
+
+## Training provenance
+
+The checked-in classifier is trained with the adjacent `hey_aidoo.yaml` configuration and the LiveKit wake-word training repository at commit `95448a7559c453fcd87645bd67b247ffb45f85b0` (2 August 2026). The training environment uses Python 3.11 and the project's locked dependencies. Release metadata records the configuration hash, classifier hash, chosen threshold and held-out evaluation metrics so the shipped binary can be traced back to the evaluated model.
