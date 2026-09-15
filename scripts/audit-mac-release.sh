@@ -96,9 +96,9 @@ file "$app/Contents/MacOS/aidoo-whisper-lite" | grep -q 'arm64'
 test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = 'app.aidoo.whisper-lite'
 test "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$version"
 test "$(plutil -extract LSMinimumSystemVersion raw "$app/Contents/Info.plist")" = '13.0'
-test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Info.plist")" = 'AIDOO Whisper Lite uses your selected microphone only while you hold the dictation shortcut or test the microphone.'
-test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Resources/en.lproj/InfoPlist.strings")" = 'AIDOO Whisper Lite uses your selected microphone only while you hold the dictation shortcut or test the microphone.'
-test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Resources/bg.lproj/InfoPlist.strings")" = 'AIDOO Whisper Lite използва избрания микрофон само докато задържате shortcut-а за диктовка или тествате микрофона.'
+test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Info.plist")" = 'AIDOO Whisper Lite uses your selected microphone for dictation and testing. If you enable Hey, AIDOO, wake-phrase detection stays local on this Mac.'
+test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Resources/en.lproj/InfoPlist.strings")" = 'AIDOO Whisper Lite uses your selected microphone for dictation and testing. If you enable Hey, AIDOO, wake-phrase detection stays local on this Mac.'
+test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Resources/bg.lproj/InfoPlist.strings")" = 'AIDOO Whisper Lite използва избрания микрофон за диктовка и тест. Ако включите Hey, AIDOO, разпознаването на фразата остава локално на този Mac.'
 test -f "$app/Contents/Resources/THIRD_PARTY_NOTICES.txt"
 cmp -s "$app/Contents/Resources/icon.icns" "$project_root/src-tauri/icons/icon.icns"
 

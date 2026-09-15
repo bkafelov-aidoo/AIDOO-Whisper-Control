@@ -1,1 +1,1 @@
-NSMicrophoneUsageDescription = "AIDOO Whisper Lite използва избрания микрофон само докато задържате shortcut-а за диктовка или тествате микрофона.";
+NSMicrophoneUsageDescription = "AIDOO Whisper Lite използва избрания микрофон за диктовка и тест. Ако включите Hey, AIDOO, разпознаването на фразата остава локално на този Mac.";

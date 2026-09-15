@@ -1,1 +1,1 @@
-NSMicrophoneUsageDescription = "AIDOO Whisper Lite uses your selected microphone only while you hold the dictation shortcut or test the microphone.";
+NSMicrophoneUsageDescription = "AIDOO Whisper Lite uses your selected microphone for dictation and testing. If you enable Hey, AIDOO, wake-phrase detection stays local on this Mac.";
