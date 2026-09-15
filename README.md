@@ -57,10 +57,15 @@ The wizard verifies the exact Developer ID Application identity before writing e
 
 ## Source layout
 
-- `src/` — React interface, onboarding, settings, history and overlay.
-- `src-tauri/src/` — small native modules for audio, shortcuts, Keychain, local files and OpenAI requests.
+- `src/App.tsx` — application shell and native event coordination.
+- `src/pages/` — complete product screens; `src/components/` contains reusable interface sections, `src/hooks/` owns React lifecycles, and `src/lib/` contains framework-independent helpers.
+- `src-tauri/src/lib.rs` — Tauri composition root and process lifecycle.
+- `src-tauri/src/app_ui.rs`, `dictation.rs`, `recovery.rs` and `commands.rs` — native presentation, recording orchestration, fail-safe completion and the command interface.
+- `src-tauri/src/audio.rs`, `shortcuts.rs`, `storage.rs` and `transcription.rs` — focused adapters for devices, operating-system input, persistence and OpenAI.
 - `website/` — ready-to-publish privacy, support and release pages.
 - `docs/` — architecture, model source, release and manual acceptance checklist.
+
+`npm run check:structure` prevents source files from growing beyond 1,000 lines. Split at a cohesive module seam before extending a file past that limit.
 
 ## Support
 

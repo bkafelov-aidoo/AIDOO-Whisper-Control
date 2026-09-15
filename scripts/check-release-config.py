@@ -170,7 +170,9 @@ def main() -> int:
         if opener.get("deny"):
             errors.append("The scoped URL opener must not define an unexpected deny list")
 
-    frontend_source = (ROOT / "src/App.tsx").read_text()
+    frontend_source = "\n".join(
+        path.read_text() for path in (ROOT / "src").rglob("*.tsx")
+    )
     expected_support_binding = 'const SUPPORT_EMAIL_URL = "mailto:support@aidoo.bg";'
     if frontend_source.count(expected_support_binding) != 1:
         errors.append("The frontend must bind support to the exact allowlisted AIDOO email")
@@ -327,7 +329,9 @@ def main() -> int:
         if manifest_match
         else set()
     )
-    rust_source = (ROOT / "src-tauri/src/lib.rs").read_text()
+    rust_source = "\n".join(
+        path.read_text() for path in (ROOT / "src-tauri/src").rglob("*.rs")
+    )
     for rust_safety_guard in (
         "#![deny(unsafe_op_in_unsafe_fn)]",
         "#![deny(clippy::undocumented_unsafe_blocks)]",
