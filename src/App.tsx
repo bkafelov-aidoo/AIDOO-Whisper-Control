@@ -69,7 +69,14 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const next = await invoke<BootstrapState>("bootstrap");
+      const nativeState = await invoke<BootstrapState>("bootstrap");
+      let next = nativeState;
+      try {
+        const launchAtLogin = await isEnabled();
+        if (launchAtLogin !== nativeState.settings.launchAtLogin) {
+          next = { ...nativeState, settings: { ...nativeState.settings, launchAtLogin } };
+        }
+      } catch { /* Keep the last persisted value when macOS cannot report Login Item state. */ }
       setData((current) => current && settingsMatch(current.settings, next.settings) ? { ...next, settings: current.settings } : next);
       setBootstrapError(null);
       return next;
@@ -518,6 +525,20 @@ function useShortcutCapture(active: boolean, setActive: (active: boolean) => voi
       if (activeRef.current) void invoke("cancel_shortcut_capture");
     };
   }, [setActive]);
+
+  useEffect(() => {
+    if (!active) return;
+    const cancelWithEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.repeat) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void invoke("cancel_shortcut_capture")
+        .catch((reason) => errorRef.current(String(reason)))
+        .finally(() => setActive(false));
+    };
+    window.addEventListener("keydown", cancelWithEscape, true);
+    return () => window.removeEventListener("keydown", cancelWithEscape, true);
+  }, [active, setActive]);
 }
 
 function DeleteDialog({ entry, language, onCancel, onDelete }: { entry: TranscriptEntry; language: AppLanguage; onCancel: () => void; onDelete: (deleteFiles: boolean) => void }) {

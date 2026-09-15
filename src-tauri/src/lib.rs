@@ -1194,6 +1194,15 @@ fn save_local_transcription_files(
     staged_audio: &Path,
     text: &str,
 ) -> Result<(Option<PathBuf>, Option<PathBuf>), FinalizationError> {
+    save_local_transcription_files_with_stem(settings, staged_audio, text, &safe_file_stem())
+}
+
+fn save_local_transcription_files_with_stem(
+    settings: &AppSettings,
+    staged_audio: &Path,
+    text: &str,
+    stem: &str,
+) -> Result<(Option<PathBuf>, Option<PathBuf>), FinalizationError> {
     let output_dir = selected_output_dir(settings);
     if settings.save_audio || settings.save_text {
         std::fs::create_dir_all(&output_dir).map_err(|error| {
@@ -1203,7 +1212,6 @@ fn save_local_transcription_files(
             )
         })?;
     }
-    let stem = safe_file_stem();
     let audio_path = if settings.save_audio {
         let path = output_dir.join(format!("{stem}.flac"));
         copy_output_atomic(staged_audio, &path).map_err(|error| {
@@ -2562,8 +2570,9 @@ mod local_path_tests {
         recover_pending_history_deletion, recovery_plan,
         resolve_failed_recording_after_success_with, resolved_tray_state,
         restore_staged_history_files, save_local_transcription_files,
-        stage_history_files_for_deletion, tray_tooltip, AppSettings, FailedRecording, RecoveryPlan,
-        TranscriptEntry, CHARGED_RECOVERY_ERROR,
+        save_local_transcription_files_with_stem, stage_history_files_for_deletion, tray_tooltip,
+        AppSettings, FailedRecording, PendingDiagnosticFile, RecoveryPlan, TranscriptEntry,
+        CHARGED_RECOVERY_ERROR,
     };
     use std::path::{Path, PathBuf};
     use std::sync::Mutex;
@@ -2847,6 +2856,74 @@ mod local_path_tests {
             }
             std::fs::remove_dir_all(root).unwrap();
         }
+    }
+
+    #[test]
+    fn txt_failure_keeps_completed_audio_and_removes_temporary_output() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-partial-local-save-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let output = root.join("output");
+        std::fs::create_dir_all(output.join("fixed.txt")).unwrap();
+        let source = root.join("source.flac");
+        std::fs::write(&source, b"fLaC private audio").unwrap();
+        let settings = AppSettings {
+            save_audio: true,
+            save_text: true,
+            output_directory: Some(output.to_string_lossy().to_string()),
+            ..AppSettings::default()
+        };
+
+        let error = save_local_transcription_files_with_stem(
+            &settings,
+            &source,
+            "completed private text",
+            "fixed",
+        )
+        .unwrap_err();
+
+        assert!(error.message.contains("TXT файлът не може да бъде запазен"));
+        assert!(error
+            .message
+            .contains("Създадените локални файлове не са изтрити"));
+        assert_eq!(
+            std::fs::read(output.join("fixed.flac")).unwrap(),
+            b"fLaC private audio"
+        );
+        assert!(std::fs::read_dir(&output).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".fixed.txt.tmp-")
+        }));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn diagnostic_failure_guard_removes_only_uncommitted_temporary_file() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-diagnostic-cleanup-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let abandoned = root.join("abandoned.zip.tmp");
+        std::fs::write(&abandoned, b"partial private diagnostics").unwrap();
+        drop(PendingDiagnosticFile {
+            path: abandoned.clone(),
+            committed: false,
+        });
+        assert!(!abandoned.exists());
+
+        let committed = root.join("committed.zip");
+        std::fs::write(&committed, b"complete private diagnostics").unwrap();
+        drop(PendingDiagnosticFile {
+            path: committed.clone(),
+            committed: true,
+        });
+        assert!(committed.is_file());
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     fn temporary_history_entry(root: &Path) -> TranscriptEntry {
