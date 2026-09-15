@@ -85,6 +85,21 @@ def main() -> int:
         if required_url not in serialized_permissions:
             errors.append(f"Required external URL permission is missing: {required_url}")
 
+    workflow = (ROOT.parent / ".github/workflows/release-lite-macos.yml").read_text()
+    action_references = re.findall(
+        r"^\s*-?\s*uses:\s*[^@\s]+@([^\s#]+)", workflow, re.MULTILINE
+    )
+    unpinned_actions = [
+        reference
+        for reference in action_references
+        if not re.fullmatch(r"[0-9a-f]{40}", reference)
+    ]
+    if unpinned_actions:
+        errors.append(
+            "Release workflow actions must use immutable commit SHAs: "
+            + ", ".join(unpinned_actions)
+        )
+
     if errors:
         raise SystemExit("\n".join(errors))
     print("macOS release configuration validation passed.")
