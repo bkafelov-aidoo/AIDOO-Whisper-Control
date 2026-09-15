@@ -11,6 +11,7 @@ const initial: RecordingSnapshot = {
   progress: { percent: 0, stage: "", determinate: false },
   elapsedSeconds: 0,
   error: null,
+  trigger: null,
 };
 
 const stateText = {
@@ -23,6 +24,7 @@ const stateText = {
     complete: "Текстът е транскрибиран и копиран.",
     error: "Възникна грешка",
     release: "Отпуснете shortcut-а за край",
+    voiceStop: "Спрете с бутона или направете пауза",
     stop: "Стоп",
     stopTitle: "Спри записа и започни транскрипцията",
   },
@@ -35,6 +37,7 @@ const stateText = {
     complete: "The text is transcribed and copied.",
     error: "Something went wrong",
     release: "Release the shortcut to finish",
+    voiceStop: "Use Stop or pause when you are done",
     stop: "Stop",
     stopTitle: "Stop recording and start transcription",
   },
@@ -131,7 +134,7 @@ export default function Overlay() {
         <div className={`overlay-state-icon ${snapshot.state}`} aria-hidden="true">{icon}</div>
         <div className="overlay-copy" role={snapshot.state === "error" ? "alert" : "status"} aria-live={snapshot.state === "error" ? "assertive" : "polite"} aria-atomic="true">
           <strong>{label[snapshot.state]}</strong>
-          {snapshot.state === "recording" && <span>{label.release}</span>}
+          {snapshot.state === "recording" && <span>{snapshot.trigger === "voice" ? label.voiceStop : label.release}</span>}
           {snapshot.state === "transcribing" && <span>{stage}</span>}
           {snapshot.state === "error" && <span className="error-text">{errorMessage(snapshot.error, language)}</span>}
           {snapshot.state === "starting" && <span>{stage}</span>}

@@ -6,7 +6,7 @@ use std::io::BufWriter;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
@@ -43,10 +43,19 @@ struct ActiveRecording {
     writer: Arc<Mutex<Option<RecordingWriter>>>,
     path: PathBuf,
     captured_frames: Arc<AtomicU64>,
+    last_voice_frame: Arc<AtomicU64>,
+    speech_detected: Arc<AtomicBool>,
     peak_level_bits: Arc<AtomicU32>,
     write_error: Arc<Mutex<Option<String>>>,
     sample_rate: u32,
     keep_file: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RecordingActivity {
+    pub duration_seconds: f64,
+    pub silence_seconds: f64,
+    pub speech_detected: bool,
 }
 
 type RecordingWriter = hound::WavWriter<BufWriter<File>>;
@@ -89,6 +98,7 @@ enum RecorderCommand {
         MicrophoneRoutingConfig,
         mpsc::Sender<Result<MicrophoneProbe, String>>,
     ),
+    Activity(mpsc::Sender<Result<RecordingActivity, String>>),
 }
 
 #[derive(Clone)]
@@ -131,6 +141,13 @@ impl RecorderService {
                         };
                         let _ = reply.send(result);
                     }
+                    RecorderCommand::Activity(reply) => {
+                        let result = active
+                            .as_ref()
+                            .ok_or_else(|| "Няма активен запис.".to_string())
+                            .map(recording_activity);
+                        let _ = reply.send(result);
+                    }
                 }
             }
         });
@@ -170,6 +187,16 @@ impl RecorderService {
         let (reply, response) = mpsc::channel();
         self.sender
             .send(RecorderCommand::Probe(routing, reply))
+            .map_err(|_| "Аудио услугата не работи.".to_string())?;
+        response
+            .recv_timeout(AUDIO_COMMAND_TIMEOUT)
+            .map_err(|_| "Аудио услугата не отговори.".to_string())?
+    }
+
+    pub fn activity(&self) -> Result<RecordingActivity, String> {
+        let (reply, response) = mpsc::channel();
+        self.sender
+            .send(RecorderCommand::Activity(reply))
             .map_err(|_| "Аудио услугата не работи.".to_string())?;
         response
             .recv_timeout(AUDIO_COMMAND_TIMEOUT)
@@ -325,6 +352,8 @@ fn start_on_device(device: cpal::Device) -> Result<ActiveRecording, String> {
     }
     let writer = Arc::new(Mutex::new(Some(writer)));
     let captured_frames = Arc::new(AtomicU64::new(0));
+    let last_voice_frame = Arc::new(AtomicU64::new(0));
+    let speech_detected = Arc::new(AtomicBool::new(false));
     let peak_level_bits = Arc::new(AtomicU32::new(0.0_f32.to_bits()));
     let write_error = Arc::new(Mutex::new(None));
     let error_callback = |error| eprintln!("audio stream error: {error}");
@@ -334,11 +363,22 @@ fn start_on_device(device: cpal::Device) -> Result<ActiveRecording, String> {
             let writer = writer.clone();
             let frames = captured_frames.clone();
             let peak = peak_level_bits.clone();
+            let last_voice = last_voice_frame.clone();
+            let speech = speech_detected.clone();
             let write_error = write_error.clone();
             device.build_input_stream(
                 &config,
                 move |data: &[f32], _| {
-                    write_mono_frames(&writer, &frames, &peak, &write_error, data, channel_count);
+                    write_mono_frames(
+                        &writer,
+                        &frames,
+                        &peak,
+                        &last_voice,
+                        &speech,
+                        &write_error,
+                        data,
+                        channel_count,
+                    );
                 },
                 error_callback,
                 None,
@@ -348,6 +388,8 @@ fn start_on_device(device: cpal::Device) -> Result<ActiveRecording, String> {
             let writer = writer.clone();
             let frames = captured_frames.clone();
             let peak = peak_level_bits.clone();
+            let last_voice = last_voice_frame.clone();
+            let speech = speech_detected.clone();
             let write_error = write_error.clone();
             device.build_input_stream(
                 &config,
@@ -360,6 +402,8 @@ fn start_on_device(device: cpal::Device) -> Result<ActiveRecording, String> {
                         &writer,
                         &frames,
                         &peak,
+                        &last_voice,
+                        &speech,
                         &write_error,
                         &converted,
                         channel_count,
@@ -373,6 +417,8 @@ fn start_on_device(device: cpal::Device) -> Result<ActiveRecording, String> {
             let writer = writer.clone();
             let frames = captured_frames.clone();
             let peak = peak_level_bits.clone();
+            let last_voice = last_voice_frame.clone();
+            let speech = speech_detected.clone();
             let write_error = write_error.clone();
             device.build_input_stream(
                 &config,
@@ -385,6 +431,8 @@ fn start_on_device(device: cpal::Device) -> Result<ActiveRecording, String> {
                         &writer,
                         &frames,
                         &peak,
+                        &last_voice,
+                        &speech,
                         &write_error,
                         &converted,
                         channel_count,
@@ -414,6 +462,8 @@ fn start_on_device(device: cpal::Device) -> Result<ActiveRecording, String> {
         writer,
         path,
         captured_frames,
+        last_voice_frame,
+        speech_detected,
         peak_level_bits,
         write_error,
         sample_rate,
@@ -443,6 +493,8 @@ fn write_mono_frames(
     writer: &Arc<Mutex<Option<RecordingWriter>>>,
     captured_frames: &Arc<AtomicU64>,
     peak_level_bits: &Arc<AtomicU32>,
+    last_voice_frame: &Arc<AtomicU64>,
+    speech_detected: &Arc<AtomicBool>,
     write_error: &Arc<Mutex<Option<String>>>,
     interleaved: &[f32],
     channels: u16,
@@ -456,9 +508,11 @@ fn write_mono_frames(
         return;
     };
     let mut written = 0_u64;
+    let mut energy = 0.0_f64;
     for frame in interleaved.chunks(channels) {
         let mono = frame.iter().copied().sum::<f32>() / frame.len() as f32;
         let level = mono.abs().clamp(0.0, 1.0);
+        energy += f64::from(mono) * f64::from(mono);
         peak_level_bits.fetch_max(level.to_bits(), Ordering::Relaxed);
         let value = (mono.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
         if let Err(error) = writer.write_sample(value) {
@@ -467,7 +521,24 @@ fn write_mono_frames(
         }
         written += 1;
     }
-    captured_frames.fetch_add(written, Ordering::Relaxed);
+    let previous = captured_frames.fetch_add(written, Ordering::Relaxed);
+    if written > 0 {
+        let rms = (energy / written as f64).sqrt() as f32;
+        if rms >= 0.012 {
+            speech_detected.store(true, Ordering::Relaxed);
+            last_voice_frame.store(previous + written, Ordering::Relaxed);
+        }
+    }
+}
+
+fn recording_activity(recording: &ActiveRecording) -> RecordingActivity {
+    let captured = recording.captured_frames.load(Ordering::Relaxed);
+    let last_voice = recording.last_voice_frame.load(Ordering::Relaxed);
+    RecordingActivity {
+        duration_seconds: captured as f64 / recording.sample_rate as f64,
+        silence_seconds: captured.saturating_sub(last_voice) as f64 / recording.sample_rate as f64,
+        speech_detected: recording.speech_detected.load(Ordering::Relaxed),
+    }
 }
 
 fn remember_write_error(target: &Arc<Mutex<Option<String>>>, error: &str) {
@@ -650,12 +721,16 @@ mod tests {
         )));
         let captured_frames = Arc::new(AtomicU64::new(0));
         let peak = Arc::new(AtomicU32::new(0.0_f32.to_bits()));
+        let last_voice_frame = Arc::new(AtomicU64::new(0));
+        let speech_detected = Arc::new(AtomicBool::new(false));
         let error = Arc::new(Mutex::new(None));
 
         write_mono_frames(
             &writer,
             &captured_frames,
             &peak,
+            &last_voice_frame,
+            &speech_detected,
             &error,
             &[0.5, 0.5, -0.25, -0.25],
             2,
@@ -664,6 +739,8 @@ mod tests {
 
         assert_eq!(captured_frames.load(Ordering::Relaxed), 2);
         assert_eq!(f32::from_bits(peak.load(Ordering::Relaxed)), 0.5);
+        assert_eq!(last_voice_frame.load(Ordering::Relaxed), 2);
+        assert!(speech_detected.load(Ordering::Relaxed));
         assert!(error.lock().unwrap().is_none());
         let samples = hound::WavReader::open(&path)
             .unwrap()

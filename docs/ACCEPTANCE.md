@@ -37,6 +37,19 @@ The remaining checks below are behavioral and must be completed on the signed bu
 - Disable automatic fallback, disconnect the selected microphone and confirm recording is refused with a clear error.
 - With Settings or the reopened onboarding visible, start dictation and confirm API key, microphone, shortcut and every settings control becomes disabled while recording or transcribing; confirm the native layer also rejects direct mutations.
 
+## Hey, AIDOO
+
+- Confirm voice activation is off after a clean install and that enabling it explains the persistent macOS microphone indicator and local-only two-second buffer.
+- With activation enabled, say “Hey, AIDOO” in a quiet room and with office noise. Confirm one acknowledgement sound, an overlay that says it is listening, and no wake phrase in the saved recording.
+- Start by voice, speak, then pause. Confirm one transcription begins after about 1.5 seconds, while the overlay Stop button remains usable throughout recording.
+- Trigger the wake word and remain silent. Confirm cancellation after about five seconds, a clear message, no history/FLAC/TXT item and no OpenAI request.
+- Confirm shortcut-started recordings still require key-up or Stop and are not ended by the voice silence timer.
+- Say the held-out positive set from several distances, accents and speaker voices; record recall and require at least 90%, targeting 95%.
+- Play at least eight hours of held-out speech, media and room noise without the wake phrase; require no more than one false activation. Include “AIDOO”, “I do”, “yeah I do”, “hey I don’t”, “hey audio” and “play audio”. Document that exact “hey, I do” is acoustically indistinguishable and may activate.
+- Measure phrase-end to acknowledgement/overlay latency and require less than 500 ms. Measure idle CPU on the oldest supported Apple Silicon Mac and require approximately 1% or less.
+- Sleep and wake the Mac, then disconnect/reconnect the selected microphone with automatic fallback both enabled and disabled. Confirm the menu state and listener recover without duplicate streams or a hidden failure.
+- Inspect app data, output files and network traffic while speaking before the wake word. Confirm the pre-trigger ring buffer is memory-only and no request is made.
+
 ## Local data
 
 - Test all combinations of FLAC, TXT and history toggles.

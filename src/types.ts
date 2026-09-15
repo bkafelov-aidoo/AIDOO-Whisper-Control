@@ -13,6 +13,8 @@ export interface AppSettings {
   launchAtLogin: boolean;
   microphoneName: string | null;
   automaticMicrophoneFallback: boolean;
+  wakeWordEnabled: boolean;
+  wakeWordAutoStop: boolean;
   dictationShortcut: ShortcutBinding;
 }
 
@@ -55,6 +57,7 @@ export interface RecordingSnapshot {
   progress: RecordingProgress;
   elapsedSeconds: number;
   error: string | null;
+  trigger: "shortcut" | "voice" | null;
 }
 
 export interface BootstrapState {

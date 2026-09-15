@@ -39,6 +39,8 @@ pub struct AppSettings {
     pub launch_at_login: bool,
     pub microphone_name: Option<String>,
     pub automatic_microphone_fallback: bool,
+    pub wake_word_enabled: bool,
+    pub wake_word_auto_stop: bool,
     pub dictation_shortcut: ShortcutBinding,
 }
 
@@ -57,6 +59,8 @@ impl Default for AppSettings {
             launch_at_login: false,
             microphone_name: None,
             automatic_microphone_fallback: true,
+            wake_word_enabled: false,
+            wake_word_auto_stop: true,
             dictation_shortcut: ShortcutBinding::key("alt_gr", &[]),
         }
     }
@@ -195,6 +199,7 @@ pub struct RecordingSnapshot {
     pub progress: RecordingProgress,
     pub elapsed_seconds: f64,
     pub error: Option<String>,
+    pub trigger: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

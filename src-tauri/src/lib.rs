@@ -7,6 +7,7 @@ mod shortcuts;
 mod storage;
 mod text_insertion;
 mod transcription;
+mod wake_word;
 
 use chrono::{Local, Utc};
 use models::{
@@ -23,6 +24,7 @@ use std::sync::{Arc, Mutex};
 use tauri::menu::{
     AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu, HELP_SUBMENU_ID, WINDOW_SUBMENU_ID,
 };
+use tauri::path::BaseDirectory;
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State, WindowEvent};
 use zeroize::Zeroizing;
@@ -34,6 +36,9 @@ const TRAY_ID: &str = "aidoo-whisper-lite";
 const APP_MENU_ID: &str = "aidoo-app-menu";
 const APP_QUIT_MENU_ID: &str = "aidoo-app-quit";
 const MAX_RECORDING_DURATION: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+const WAKE_WORD_THRESHOLD: f32 = 0.68;
+const VOICE_SILENCE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1_500);
+const VOICE_NO_SPEECH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 const IN_FLIGHT_RECOVERY_ERROR: &str = "Възстановен е запис след прекъсване. Не може да бъде изпратен повторно автоматично, за да се избегне повторно API таксуване.";
 const CHARGED_RECOVERY_ERROR: &str =
     "Този recovery запис вече е транскрибиран. Изберете „Изтрий“, за да не бъде таксуван повторно.";
@@ -59,15 +64,18 @@ struct AppState {
     history: Mutex<Vec<TranscriptEntry>>,
     failed_recording: Mutex<Option<FailedRecording>>,
     recorder: audio::RecorderService,
+    wake_word: wake_word::WakeWordService,
     shortcut_capture: Mutex<Option<String>>,
     recording_status: Mutex<String>,
     recording_progress: Mutex<RecordingProgress>,
     recording_started_at: Mutex<Option<std::time::Instant>>,
+    recording_trigger: Mutex<Option<String>>,
     recording_active: AtomicBool,
     operation_active: AtomicBool,
     stop_requested: AtomicBool,
     status_generation: AtomicU64,
     last_recording_error: Mutex<Option<String>>,
+    wake_word_listening: AtomicBool,
     api_key: Mutex<Option<Zeroizing<String>>>,
 }
 
@@ -90,6 +98,7 @@ impl AppState {
             history: Mutex::new(history),
             failed_recording: Mutex::new(failed_recording),
             recorder: audio::RecorderService::new(),
+            wake_word: wake_word::WakeWordService::new(),
             shortcut_capture: Mutex::new(None),
             recording_status: Mutex::new(if recovery_error.is_some() {
                 "error".into()
@@ -98,11 +107,13 @@ impl AppState {
             }),
             recording_progress: Mutex::new(RecordingProgress::default()),
             recording_started_at: Mutex::new(None),
+            recording_trigger: Mutex::new(None),
             recording_active: AtomicBool::new(false),
             operation_active: AtomicBool::new(false),
             stop_requested: AtomicBool::new(false),
             status_generation: AtomicU64::new(0),
             last_recording_error: Mutex::new(recovery_error),
+            wake_word_listening: AtomicBool::new(false),
             api_key: Mutex::new(api_key),
         }
     }
@@ -116,6 +127,102 @@ fn keyring_entry() -> Result<keyring::Entry, String> {
 #[link(name = "ApplicationServices", kind = "framework")]
 extern "C" {
     fn AXIsProcessTrusted() -> bool;
+}
+
+#[cfg(target_os = "macos")]
+#[link(name = "AudioToolbox", kind = "framework")]
+extern "C" {
+    fn AudioServicesPlaySystemSound(sound_id: u32);
+}
+
+fn play_wake_acknowledgement() {
+    #[cfg(target_os = "macos")]
+    // SAFETY: AudioServicesPlaySystemSound accepts a value-type system sound identifier and does
+    // not retain pointers or caller-owned memory. 1113 is a built-in macOS alert sound.
+    unsafe {
+        AudioServicesPlaySystemSound(1113);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn install_macos_power_observers(app: AppHandle) {
+    use block2::RcBlock;
+    use objc2_app_kit::{
+        NSWorkspace, NSWorkspaceDidWakeNotification, NSWorkspaceWillSleepNotification,
+    };
+    use objc2_foundation::NSNotification;
+    use std::ptr::NonNull;
+
+    let center = NSWorkspace::sharedWorkspace().notificationCenter();
+    let sleep_app = app.clone();
+    let sleep_block = RcBlock::new(move |_: NonNull<NSNotification>| {
+        storage::append_diagnostic("system will sleep; wake word listener stopped");
+        stop_wake_word_listener(&sleep_app.state::<AppState>());
+    });
+    let wake_block = RcBlock::new(move |_: NonNull<NSNotification>| {
+        storage::append_diagnostic("system woke; scheduling wake word listener restart");
+        schedule_wake_word_reconcile(&app, std::time::Duration::from_secs(1));
+    });
+    // SAFETY: NSWorkspace owns its notification center for the application lifetime. Both blocks
+    // capture only owned AppHandle values, accept the documented NSNotification argument, and the
+    // center retains the returned observer tokens until process exit.
+    unsafe {
+        let _ = center.addObserverForName_object_queue_usingBlock(
+            Some(NSWorkspaceWillSleepNotification),
+            None,
+            None,
+            &sleep_block,
+        );
+        let _ = center.addObserverForName_object_queue_usingBlock(
+            Some(NSWorkspaceDidWakeNotification),
+            None,
+            None,
+            &wake_block,
+        );
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn install_macos_power_observers(_app: AppHandle) {}
+
+fn install_wake_word_events(app: AppHandle) {
+    let Some(events) = app.state::<AppState>().wake_word.take_events() else {
+        return;
+    };
+    std::thread::Builder::new()
+        .name("aidoo-wakeword-events".into())
+        .spawn(move || {
+            while let Ok(event) = events.recv() {
+                match event {
+                    wake_word::WakeWordEvent::Detected { confidence } => {
+                        let state = app.state::<AppState>();
+                        if !state.wake_word_listening.load(Ordering::Acquire)
+                            || !wake_word_should_listen(&state)
+                        {
+                            continue;
+                        }
+                        stop_wake_word_listener(&state);
+                        storage::append_diagnostic(&format!(
+                            "wake word detected; confidence={confidence:.3}"
+                        ));
+                        play_wake_acknowledgement();
+                        if let Err(error) = start_recording_inner(&app, "voice") {
+                            set_error(&app, &error);
+                        }
+                    }
+                    wake_word::WakeWordEvent::Failed(error) => {
+                        let state = app.state::<AppState>();
+                        stop_wake_word_listener(&state);
+                        storage::append_diagnostic(&format!("wake word stream failed: {error}"));
+                        let _ = app.emit("wake-word:status", "error");
+                        let _ = app.emit("toast", &error);
+                        refresh_tray_menu(&app);
+                        schedule_wake_word_reconcile(&app, std::time::Duration::from_secs(5));
+                    }
+                }
+            }
+        })
+        .expect("wake word event thread must start");
 }
 
 pub(crate) fn accessibility_granted() -> bool {
@@ -154,11 +261,17 @@ fn recording_snapshot(state: &AppState) -> RecordingSnapshot {
         .lock()
         .ok()
         .and_then(|value| value.clone());
+    let trigger = state
+        .recording_trigger
+        .lock()
+        .ok()
+        .and_then(|value| value.clone());
     RecordingSnapshot {
         state: state_name,
         progress,
         elapsed_seconds,
         error,
+        trigger,
     }
 }
 
@@ -194,6 +307,7 @@ fn status_label(state: &str, english: bool) -> &'static str {
         (true, "recovery") => "Status: action required",
         (true, "setup") => "Status: finish setup",
         (true, "permission") => "Status: permission required",
+        (true, "wake-listening") => "Status: listening for “Hey, AIDOO”",
         (true, _) => "Status: ready for dictation",
         (false, "starting") => "Състояние: стартирам микрофона",
         (false, "recording") => "Състояние: записвам · отпуснете shortcut-а за край",
@@ -203,6 +317,7 @@ fn status_label(state: &str, english: bool) -> &'static str {
         (false, "recovery") => "Състояние: нужно е действие",
         (false, "setup") => "Състояние: довършете настройката",
         (false, "permission") => "Състояние: нужно е разрешение",
+        (false, "wake-listening") => "Състояние: слушам за „Hey, AIDOO“",
         (false, _) => "Състояние: готов за диктовка",
     }
 }
@@ -495,12 +610,26 @@ fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<Menu<tauri::
         .lock()
         .map(|progress| progress.stage.clone())
         .unwrap_or_default();
-    let status_text = if matches!(current, "starting" | "transcribing") {
+    let mut status_text = if matches!(current, "starting" | "transcribing") {
         progress_status_label(&progress_stage, english)
             .unwrap_or_else(|| status_label(current, english))
     } else {
         status_label(current, english)
-    };
+    }
+    .to_string();
+    let voice_recording = app
+        .state::<AppState>()
+        .recording_trigger
+        .lock()
+        .map(|trigger| trigger.as_deref() == Some("voice"))
+        .unwrap_or(false);
+    if current == "recording" && voice_recording {
+        status_text = if english {
+            "Status: recording · use Stop or pause when done".into()
+        } else {
+            "Състояние: записвам · натиснете Стоп или направете пауза".into()
+        };
+    }
     let operation_active = app
         .state::<AppState>()
         .operation_active
@@ -775,6 +904,7 @@ fn tray_tooltip(current: &str, english: bool) -> &'static str {
         (true, "recovery") => "AIDOO Whisper Lite — action required",
         (true, "setup") => "AIDOO Whisper Lite — finish setup",
         (true, "permission") => "AIDOO Whisper Lite — permission required",
+        (true, "wake-listening") => "AIDOO Whisper Lite — listening for Hey, AIDOO",
         (true, _) => "AIDOO Whisper Lite — ready",
         (false, "starting") => "AIDOO Whisper Lite — стартирам микрофона",
         (false, "recording") => "AIDOO Whisper Lite — записвам",
@@ -784,6 +914,7 @@ fn tray_tooltip(current: &str, english: bool) -> &'static str {
         (false, "recovery") => "AIDOO Whisper Lite — нужно е действие",
         (false, "setup") => "AIDOO Whisper Lite — довършете настройката",
         (false, "permission") => "AIDOO Whisper Lite — нужно е разрешение",
+        (false, "wake-listening") => "AIDOO Whisper Lite — слушам за Hey, AIDOO",
         (false, _) => "AIDOO Whisper Lite — готов",
     }
 }
@@ -806,7 +937,10 @@ fn refresh_tray_menu(app: &AppHandle) {
     } else {
         true
     };
-    let tray_state = resolved_tray_state(&current, granted, setup_ready, has_recovery);
+    let mut tray_state = resolved_tray_state(&current, granted, setup_ready, has_recovery);
+    if tray_state == "idle" && state.wake_word_listening.load(Ordering::Acquire) {
+        tray_state = "wake-listening";
+    }
     update_tray_menu(app, tray_state);
     refresh_application_menu(app);
 }
@@ -869,6 +1003,11 @@ fn set_recording_state(app: &AppHandle, next: &str) {
             _ => *started = None,
         }
     }
+    if next == "idle" {
+        if let Ok(mut trigger) = state.recording_trigger.lock() {
+            *trigger = None;
+        }
+    }
     let generation = state.status_generation.fetch_add(1, Ordering::Relaxed) + 1;
     refresh_tray_menu(app);
     let _ = app.emit("recording:state", next);
@@ -893,6 +1032,8 @@ fn set_recording_state(app: &AppHandle, next: &str) {
                 set_recording_state(&app, "idle");
             }
         });
+    } else if next == "idle" {
+        schedule_wake_word_reconcile(app, std::time::Duration::from_millis(300));
     }
 }
 
@@ -1118,14 +1259,104 @@ pub(crate) fn release_shortcut_capture_operation(app: &AppHandle) {
     refresh_tray_menu(app);
 }
 
-fn start_recording_inner(app: &AppHandle) -> Result<audio::AudioStartInfo, String> {
+fn wake_word_model_path(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .resolve("wakeword/hey_aidoo.onnx", BaseDirectory::Resource)
+        .map_err(|error| format!("Пътят до wake-word модела не е достъпен: {error}"))
+}
+
+fn wake_word_should_listen(state: &AppState) -> bool {
+    let settings_ready = state
+        .settings
+        .lock()
+        .map(|settings| settings.onboarding_complete && settings.wake_word_enabled)
+        .unwrap_or(false);
+    let has_api_key = state
+        .api_key
+        .lock()
+        .map(|key| key.is_some())
+        .unwrap_or(false);
+    let has_recovery = state
+        .failed_recording
+        .lock()
+        .map(|recording| recording.is_some())
+        .unwrap_or(true);
+    settings_ready
+        && has_api_key
+        && accessibility_granted()
+        && !has_recovery
+        && !state.operation_active.load(Ordering::Acquire)
+        && !state.recording_active.load(Ordering::Acquire)
+}
+
+fn stop_wake_word_listener(state: &AppState) {
+    if state.wake_word_listening.swap(false, Ordering::AcqRel) {
+        state.wake_word.stop();
+    }
+}
+
+fn reconcile_wake_word_listener(app: &AppHandle) {
     let state = app.state::<AppState>();
+    if !wake_word_should_listen(&state) {
+        stop_wake_word_listener(&state);
+        return;
+    }
+    if state
+        .wake_word_listening
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return;
+    }
+    let settings = match state.settings.lock() {
+        Ok(settings) => settings.clone(),
+        Err(_) => {
+            state.wake_word_listening.store(false, Ordering::Release);
+            return;
+        }
+    };
+    let routing = audio::MicrophoneRoutingConfig {
+        preferred_name: settings.microphone_name,
+        automatic_fallback: settings.automatic_microphone_fallback,
+    };
+    let result = wake_word_model_path(app)
+        .and_then(|path| state.wake_word.start(routing, path, WAKE_WORD_THRESHOLD));
+    match result {
+        Ok(device) => {
+            storage::append_diagnostic(&format!("wake word listener started; device={device}"));
+            let _ = app.emit("wake-word:status", "listening");
+            refresh_tray_menu(app);
+        }
+        Err(error) => {
+            state.wake_word_listening.store(false, Ordering::Release);
+            storage::append_diagnostic(&format!("wake word listener failed: {error}"));
+            let _ = app.emit("wake-word:status", "error");
+            let _ = app.emit("toast", error);
+            refresh_tray_menu(app);
+        }
+    }
+}
+
+fn schedule_wake_word_reconcile(app: &AppHandle, delay: std::time::Duration) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(delay).await;
+        reconcile_wake_word_listener(&app);
+    });
+}
+
+fn start_recording_inner(app: &AppHandle, trigger: &str) -> Result<audio::AudioStartInfo, String> {
+    let state = app.state::<AppState>();
+    stop_wake_word_listener(&state);
     let operation = acquire_operation(app, &state)?;
     let settings = ready_dictation_settings(&state)?;
     if state.recording_active.swap(true, Ordering::AcqRel) {
         return Err("Вече има активен запис.".into());
     }
     state.stop_requested.store(false, Ordering::Release);
+    if let Ok(mut current_trigger) = state.recording_trigger.lock() {
+        *current_trigger = Some(trigger.into());
+    }
     if let Ok(mut error) = state.last_recording_error.lock() {
         *error = None;
     }
@@ -1163,15 +1394,90 @@ fn start_recording_inner(app: &AppHandle) -> Result<audio::AudioStartInfo, Strin
                         request_dictation_stop(&timeout_app);
                     }
                 });
+                if trigger == "voice" && settings.wake_word_auto_stop {
+                    start_voice_auto_stop_watchdog(app, recording_generation);
+                }
             }
             operation.disarm();
             Ok(info)
         }
         Err(error) => {
             state.recording_active.store(false, Ordering::Release);
+            if let Ok(mut current_trigger) = state.recording_trigger.lock() {
+                *current_trigger = None;
+            }
+            schedule_wake_word_reconcile(app, std::time::Duration::from_millis(300));
             Err(error)
         }
     }
+}
+
+fn start_voice_auto_stop_watchdog(app: &AppHandle, recording_generation: u64) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            let state = app.state::<AppState>();
+            if !recording_watchdog_should_stop(
+                state.recording_active.load(Ordering::Acquire),
+                state.status_generation.load(Ordering::Acquire),
+                recording_generation,
+            ) {
+                return;
+            }
+            let Ok(activity) = state.recorder.activity() else {
+                return;
+            };
+            match voice_watchdog_action(activity) {
+                VoiceWatchdogAction::Continue => {}
+                VoiceWatchdogAction::Transcribe => {
+                    request_dictation_stop(&app);
+                    return;
+                }
+                VoiceWatchdogAction::Cancel => {
+                    cancel_empty_voice_recording(&app);
+                    return;
+                }
+            }
+        }
+    });
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VoiceWatchdogAction {
+    Continue,
+    Transcribe,
+    Cancel,
+}
+
+fn voice_watchdog_action(activity: audio::RecordingActivity) -> VoiceWatchdogAction {
+    if activity.speech_detected && activity.silence_seconds >= VOICE_SILENCE_TIMEOUT.as_secs_f64() {
+        VoiceWatchdogAction::Transcribe
+    } else if !activity.speech_detected
+        && activity.duration_seconds >= VOICE_NO_SPEECH_TIMEOUT.as_secs_f64()
+    {
+        VoiceWatchdogAction::Cancel
+    } else {
+        VoiceWatchdogAction::Continue
+    }
+}
+
+fn cancel_empty_voice_recording(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    if !state.recording_active.swap(false, Ordering::AcqRel)
+        || state.stop_requested.swap(true, Ordering::AcqRel)
+    {
+        return;
+    }
+    let _operation = release_active_operation(app, &state);
+    if let Ok(captured) = state.recorder.finish() {
+        let _ = std::fs::remove_file(&captured.path);
+    }
+    let _ = app.emit(
+        "toast",
+        "Не чух реч след „Hey, AIDOO“. Записът е отменен и не е изпращан.",
+    );
+    set_recording_state(app, "idle");
 }
 
 fn recording_watchdog_should_stop(
@@ -1183,7 +1489,7 @@ fn recording_watchdog_should_stop(
 }
 
 pub(crate) fn request_dictation_start(app: &AppHandle) -> bool {
-    match start_recording_inner(app) {
+    match start_recording_inner(app, "shortcut") {
         Ok(_) => true,
         Err(error) => {
             set_error(app, &error);
@@ -1212,7 +1518,7 @@ pub(crate) fn request_dictation_stop(app: &AppHandle) {
 
 #[tauri::command]
 fn start_recording(app: AppHandle) -> Result<audio::AudioStartInfo, String> {
-    start_recording_inner(&app).inspect_err(|error| set_error(&app, error))
+    start_recording_inner(&app, "shortcut").inspect_err(|error| set_error(&app, error))
 }
 
 #[tauri::command]
@@ -2271,8 +2577,12 @@ fn update_settings(
         .settings
         .lock()
         .map_err(|_| "Настройките са заключени.")? = settings.clone();
+    if !settings.wake_word_enabled {
+        stop_wake_word_listener(&state);
+    }
     refresh_tray_menu(&app);
     let _ = app.emit("settings:changed", &settings);
+    schedule_wake_word_reconcile(&app, std::time::Duration::from_millis(300));
     Ok(settings)
 }
 
@@ -2294,6 +2604,7 @@ async fn save_api_key(
         .lock()
         .map_err(|_| "API key cache е заключен.")? = Some(key);
     refresh_tray_menu(&app);
+    schedule_wake_word_reconcile(&app, std::time::Duration::from_millis(300));
     Ok(())
 }
 
@@ -2308,6 +2619,7 @@ fn delete_api_key(app: AppHandle, state: State<'_, AppState>) -> Result<(), Stri
         .api_key
         .lock()
         .map_err(|_| "API key cache е заключен.")? = None;
+    stop_wake_word_listener(&state);
     refresh_tray_menu(&app);
     Ok(())
 }
@@ -2751,6 +3063,8 @@ fn diagnostic_settings(settings: &AppSettings) -> serde_json::Value {
         "launchAtLogin": settings.launch_at_login,
         "microphone": if settings.microphone_name.is_some() { "custom" } else { "system-default" },
         "automaticMicrophoneFallback": settings.automatic_microphone_fallback,
+        "wakeWordEnabled": settings.wake_word_enabled,
+        "wakeWordAutoStop": settings.wake_word_auto_stop,
         "dictationShortcut": settings.dictation_shortcut,
     })
 }
@@ -2766,11 +3080,51 @@ mod local_path_tests {
         resolve_failed_recording_after_success_with, resolved_tray_state,
         restore_staged_history_files, save_local_transcription_files,
         save_local_transcription_files_with_stem, stage_history_files_for_deletion, tray_tooltip,
-        AppSettings, FailedRecording, PendingDiagnosticFile, RecoveryPlan, TranscriptEntry,
-        CHARGED_RECOVERY_ERROR,
+        voice_watchdog_action, AppSettings, FailedRecording, PendingDiagnosticFile, RecoveryPlan,
+        TranscriptEntry, VoiceWatchdogAction, CHARGED_RECOVERY_ERROR,
     };
     use std::path::{Path, PathBuf};
     use std::sync::Mutex;
+
+    #[test]
+    fn voice_watchdog_waits_for_speech_then_transcribes_after_the_pause() {
+        let waiting = crate::audio::RecordingActivity {
+            duration_seconds: 4.9,
+            silence_seconds: 4.9,
+            speech_detected: false,
+        };
+        assert_eq!(
+            voice_watchdog_action(waiting),
+            VoiceWatchdogAction::Continue
+        );
+
+        let empty = crate::audio::RecordingActivity {
+            duration_seconds: 5.0,
+            silence_seconds: 5.0,
+            speech_detected: false,
+        };
+        assert_eq!(voice_watchdog_action(empty), VoiceWatchdogAction::Cancel);
+
+        let speaking = crate::audio::RecordingActivity {
+            duration_seconds: 2.0,
+            silence_seconds: 1.49,
+            speech_detected: true,
+        };
+        assert_eq!(
+            voice_watchdog_action(speaking),
+            VoiceWatchdogAction::Continue
+        );
+
+        let finished = crate::audio::RecordingActivity {
+            duration_seconds: 3.0,
+            silence_seconds: 1.5,
+            speech_detected: true,
+        };
+        assert_eq!(
+            voice_watchdog_action(finished),
+            VoiceWatchdogAction::Transcribe
+        );
+    }
 
     fn history_entry() -> TranscriptEntry {
         TranscriptEntry {
@@ -3676,6 +4030,9 @@ pub fn run() {
                 let _ = overlay.set_focusable(false);
             }
             shortcuts::install(app.handle().clone());
+            install_wake_word_events(app.handle().clone());
+            install_macos_power_observers(app.handle().clone());
+            schedule_wake_word_reconcile(app.handle(), std::time::Duration::from_millis(500));
             storage::append_diagnostic("application started");
             Ok(())
         })
@@ -3724,6 +4081,10 @@ pub fn run() {
             has_visible_windows: false,
             ..
         } => show_main_window(app, false),
+        tauri::RunEvent::Resumed => {
+            stop_wake_word_listener(&app.state::<AppState>());
+            schedule_wake_word_reconcile(app, std::time::Duration::from_secs(1));
+        }
         _ => {}
     });
 }

@@ -12,10 +12,13 @@ A focused macOS voice typing app. Hold a keyboard shortcut, speak, and release i
 - Optional FLAC, TXT and 10-item local history, with independent controls.
 - Automatic paste with a clear clipboard fallback message.
 - A static AIDOO menu bar icon and a bottom-center recording/status overlay.
+- Optional local “Hey, AIDOO” activation, with a visible macOS microphone indicator, acknowledgement sound, overlay Stop button and optional silence-based finish.
 - Failed audio survives restarts until the user retries or deletes it.
 - If OpenAI has already returned text, recovery finishes clipboard and local files without sending or charging the audio again.
 - New versions are distributed as notarized DMG downloads from the AIDOO website.
 - No analytics. Diagnostics are created locally only when the user requests them.
+
+When “Hey, AIDOO” is enabled, the app continuously reads the selected microphone through a two-second in-memory ring buffer. Detection runs on the Mac; pre-trigger audio is never written or sent. Because the brand phrase sounds the same as the English words “hey, I do”, that exact spoken sentence can also activate dictation.
 
 ## Requirements
 
@@ -58,7 +61,7 @@ The wizard verifies the exact Developer ID Application identity before writing e
 ## Source layout
 
 - `src/` — React interface, onboarding, settings, history and overlay.
-- `src-tauri/src/` — small native modules for audio, shortcuts, Keychain, local files and OpenAI requests.
+- `src-tauri/src/` — small native modules for audio, wake-word detection, shortcuts, Keychain, local files and OpenAI requests.
 - `website/` — ready-to-publish privacy, support and release pages.
 - `docs/` — architecture, model source, release and manual acceptance checklist.
 

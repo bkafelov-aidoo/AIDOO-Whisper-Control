@@ -1,0 +1,52 @@
+model_name: hey_aidoo
+# AIDOO is pronounced “eye-doo”. Both spellings diversify the positive TTS set.
+target_phrases: ["hey aidoo", "hey eye do"]
+
+n_samples: 12000
+n_samples_val: 2500
+n_background_samples: 1500
+n_background_samples_val: 400
+tts_batch_size: 40
+
+custom_negative_phrases:
+  - "aidoo"
+  - "eye do"
+  - "I do"
+  - "yeah I do"
+  - "hey I don't"
+  - "hey I did"
+  - "hey adu"
+  - "hey audio"
+  - "hey adobe"
+  - "hey edu"
+  - "they do"
+  - "how do"
+  - "what do"
+  - "play audio"
+
+data_dir: /tmp/aidoo-wakeword-training/data
+output_dir: /tmp/aidoo-wakeword-training/output
+
+augmentation:
+  clip_duration: 2.0
+  batch_size: 16
+  rounds: 2
+  background_paths: [/tmp/aidoo-wakeword-training/data/backgrounds]
+  rir_paths: [/tmp/aidoo-wakeword-training/data/rirs]
+
+model:
+  model_type: conv_attention
+  model_size: medium
+
+steps: 60000
+learning_rate: 0.0001
+weight_decay: 0.01
+label_smoothing: 0.05
+max_negative_weight: 3000
+target_fp_per_hour: 0.1
+
+batch_n_per_class:
+  positive: 50
+  adversarial_negative: 50
+  ACAV100M_sample: 0
+  background_noise: 50
