@@ -183,6 +183,26 @@ fn status_label(state: &str, english: bool) -> &'static str {
     }
 }
 
+fn progress_status_label(stage: &str, english: bool) -> Option<&'static str> {
+    match (english, stage) {
+        (true, "preparing_audio") => Some("Status: preparing audio"),
+        (true, "starting_microphone") => Some("Status: starting the microphone"),
+        (true, "compressing_audio") => Some("Status: compressing to FLAC"),
+        (true, "uploading_audio") => Some("Status: uploading audio"),
+        (true, "openai_transcribing") => Some("Status: OpenAI is transcribing"),
+        (true, "text_ready") => Some("Status: text is ready"),
+        (true, "finishing_locally") => Some("Status: finishing locally"),
+        (false, "preparing_audio") => Some("Състояние: подготвям аудиото"),
+        (false, "starting_microphone") => Some("Състояние: стартирам микрофона"),
+        (false, "compressing_audio") => Some("Състояние: компресирам в FLAC"),
+        (false, "uploading_audio") => Some("Състояние: изпращам аудиото"),
+        (false, "openai_transcribing") => Some("Състояние: OpenAI транскрибира"),
+        (false, "text_ready") => Some("Състояние: текстът е готов"),
+        (false, "finishing_locally") => Some("Състояние: завършвам локално"),
+        _ => None,
+    }
+}
+
 fn compact_error(error: &str) -> String {
     let normalized = error.split_whitespace().collect::<Vec<_>>().join(" ");
     if normalized.chars().count() <= 150 {
@@ -445,18 +465,24 @@ fn localized_native_error(error: &str, english: bool) -> String {
 
 fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<Menu<tauri::Wry>> {
     let english = uses_english_ui(app);
+    let progress_stage = app
+        .state::<AppState>()
+        .recording_progress
+        .lock()
+        .map(|progress| progress.stage.clone())
+        .unwrap_or_default();
+    let status_text = if matches!(current, "starting" | "transcribing") {
+        progress_status_label(&progress_stage, english)
+            .unwrap_or_else(|| status_label(current, english))
+    } else {
+        status_label(current, english)
+    };
     let operation_active = app
         .state::<AppState>()
         .operation_active
         .load(Ordering::Acquire)
         || matches!(current, "starting" | "recording" | "transcribing");
-    let status = MenuItem::with_id(
-        app,
-        "status",
-        status_label(current, english),
-        false,
-        None::<&str>,
-    )?;
+    let status = MenuItem::with_id(app, "status", status_text, false, None::<&str>)?;
     let show = MenuItem::with_id(
         app,
         "show",
@@ -678,11 +704,18 @@ fn set_progress(app: &AppHandle, percent: u8, stage: &str, determinate: bool) {
         stage: stage.into(),
         determinate,
     };
-    if let Ok(mut current) = app.state::<AppState>().recording_progress.lock() {
+    let stage_changed = if let Ok(mut current) = app.state::<AppState>().recording_progress.lock() {
+        let changed = current.stage != progress.stage;
         *current = progress.clone();
-    }
+        changed
+    } else {
+        false
+    };
     let _ = app.emit("recording:progress", &progress);
     emit_snapshot(app);
+    if stage_changed {
+        refresh_tray_menu(app);
+    }
 }
 
 fn set_error(app: &AppHandle, error: &str) {
@@ -939,6 +972,7 @@ pub(crate) fn request_dictation_stop(app: &AppHandle) {
     if state.stop_requested.swap(true, Ordering::AcqRel) {
         return;
     }
+    set_progress(app, 1, "preparing_audio", false);
     set_recording_state(app, "transcribing");
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -969,6 +1003,7 @@ async fn stop_and_transcribe(app: AppHandle) -> Result<TranscriptionCompleted, S
     {
         return Err("Транскрипцията вече е стартирана.".into());
     }
+    set_progress(&app, 1, "preparing_audio", false);
     set_recording_state(&app, "transcribing");
     stop_and_transcribe_inner(&app)
         .await
@@ -1508,6 +1543,7 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
     if let Ok(mut error) = state.last_recording_error.lock() {
         *error = None;
     }
+    set_progress(&app, 1, "preparing_audio", false);
     set_recording_state(&app, "transcribing");
     let temporary_flac = source
         .extension()
@@ -1833,6 +1869,7 @@ async fn retranscribe_history_item(
     if let Ok(mut error) = state.last_recording_error.lock() {
         *error = None;
     }
+    set_progress(&app, 1, "preparing_audio", false);
     set_recording_state(&app, "transcribing");
     // Keep the user's history FLAC untouched, but create and persist a non-retryable Recovery
     // copy before OpenAI can receive this retranscription. A crash must block another request.
@@ -2389,6 +2426,29 @@ mod local_path_tests {
             "permission"
         );
         assert_eq!(resolved_tray_state("idle", true, false, false), "setup");
+    }
+
+    #[test]
+    fn tray_reports_every_processing_stage_in_both_languages() {
+        for stage in [
+            "preparing_audio",
+            "starting_microphone",
+            "compressing_audio",
+            "uploading_audio",
+            "openai_transcribing",
+            "text_ready",
+            "finishing_locally",
+        ] {
+            assert!(
+                super::progress_status_label(stage, true).is_some(),
+                "{stage}"
+            );
+            assert!(
+                super::progress_status_label(stage, false).is_some(),
+                "{stage}"
+            );
+        }
+        assert_eq!(super::progress_status_label("unknown", true), None);
     }
 
     #[test]

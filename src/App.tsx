@@ -308,6 +308,8 @@ function Dashboard({ data, language, isBusy, onOpenOnboarding, onTest, onRetry, 
   const shortcut = formatShortcut(data.settings.dictationShortcut);
   const isReady = appIsReady(data);
   const status = appStatus(data, language);
+  const isProcessing = data.recording.state === "starting" || data.recording.state === "transcribing";
+  const processingStage = progressLabel(data.recording.progress.stage, language);
   return (
     <div className="page dashboard">
       <header className="page-header"><div><span className="eyebrow">AIDOO WHISPER LITE</span><h1>{t("dictation")}</h1><p>{t("tagline")}</p></div><StatusPill tone={status.tone} label={status.label} /></header>
@@ -317,7 +319,7 @@ function Dashboard({ data, language, isBusy, onOpenOnboarding, onTest, onRetry, 
       <section className={`dictation-hero ${data.recording.state}`}>
         <div className="hero-glow" />
         <div className="shortcut-key"><span>{shortcut}</span><small>{t("holdLabel")}</small></div>
-        <div className="hero-copy"><span className="eyebrow">{t("pushToTalk")}</span><h2>{data.recording.state === "recording" ? t("recording") : data.recording.state === "transcribing" ? t("transcribing") : t("holdShortcut", { shortcut })}</h2><p>{data.recording.state === "transcribing" ? progressLabel(data.recording.progress.stage, language) : t("autoPasteHelp")}</p></div>
+        <div className="hero-copy"><span className="eyebrow">{t("pushToTalk")}</span><h2>{data.recording.state === "starting" ? progressLabel("starting_microphone", language) : data.recording.state === "recording" ? t("recording") : data.recording.state === "transcribing" ? t("transcribing") : data.recording.state === "done" ? progressLabel("text_ready", language) : data.recording.state === "error" ? t("errorState") : t("holdShortcut", { shortcut })}</h2><p>{isProcessing ? processingStage : data.recording.state === "error" && data.recording.error ? errorMessage(data.recording.error, language) : t("autoPasteHelp")}</p>{isProcessing && <div className={`hero-progress ${data.recording.progress.determinate ? "" : "indeterminate"}`} role="progressbar" aria-label={processingStage} aria-valuemin={data.recording.progress.determinate ? 0 : undefined} aria-valuemax={data.recording.progress.determinate ? 100 : undefined} aria-valuenow={data.recording.progress.determinate ? data.recording.progress.percent : undefined}><i style={{ width: data.recording.progress.determinate ? `${data.recording.progress.percent}%` : "38%" }} /></div>}</div>
         <button className="hero-action" disabled={!isReady || (isBusy && data.recording.state !== "recording")} onClick={onTest}>{data.recording.state === "recording" ? <><AudioLines />{t("stopTest")}</> : <><Play />{t("startTest")}</>}</button>
       </section>
       {data.failedRecording && <FailedCard failed={data.failedRecording} language={language} disabled={isBusy} onRetry={onRetry} onDelete={onDeleteFailed} />}
@@ -591,7 +593,10 @@ function appStatus(data: BootstrapState, language: AppLanguage): { tone: StatusT
   }
   if (data.recording.state === "recording") return { tone: "busy", label: t("recording") };
   if (data.recording.state === "transcribing") return { tone: "busy", label: t("transcribing") };
-  if (data.recording.state === "error") return { tone: "attention", label: t("notReady") };
+  if (data.recording.state === "done") {
+    return { tone: "ready", label: progressLabel("text_ready", language) };
+  }
+  if (data.recording.state === "error") return { tone: "attention", label: t("errorState") };
   return appIsReady(data)
     ? { tone: "ready", label: t("ready") }
     : { tone: "attention", label: t("notReady") };
