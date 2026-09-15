@@ -164,7 +164,9 @@ select { min-width: 190px; }
 .model-language-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .model-option { min-height: 146px; padding: 14px; border: 1px solid #d3dde7; border-radius: 13px; background: #fafbfd; color: #314a61; display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto 1fr auto; column-gap: 10px; text-align: left; cursor: pointer; }
 .model-option > span { grid-row: 1 / 5; width: 33px; height: 33px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
-.model-option > span svg { width: 15px; }
+.model-option > span svg { width: 18px; }
+.model-level-icon line { stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
+.model-level-icon .inactive { opacity: .18; }
 .model-option strong { font-size: 13px; }
 .model-option small { color: var(--muted); font-size: 11px; line-height: 1.45; }
 .model-option em { align-self: end; color: #246aa9; font-size: 10px; font-style: normal; font-weight: 650; }
