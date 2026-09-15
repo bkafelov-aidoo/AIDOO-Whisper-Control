@@ -4,6 +4,27 @@ set -euo pipefail
 project_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$project_root"
 
+# Keep notarization credentials out of npm, Cargo and package build processes.
+# They are exported only to the two short-lived notarization commands below.
+notary_apple_id="${APPLE_ID:-}"
+notary_apple_password="${APPLE_PASSWORD:-}"
+notary_team_id="${APPLE_TEAM_ID:-}"
+notary_api_key_path="${APPLE_API_KEY_PATH:-}"
+notary_api_key="${APPLE_API_KEY:-}"
+notary_api_issuer="${APPLE_API_ISSUER:-}"
+unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
+unset APPLE_API_KEY_PATH APPLE_API_KEY APPLE_API_ISSUER
+
+run_notarization() {
+  APPLE_ID="$notary_apple_id" \
+    APPLE_PASSWORD="$notary_apple_password" \
+    APPLE_TEAM_ID="$notary_team_id" \
+    APPLE_API_KEY_PATH="$notary_api_key_path" \
+    APPLE_API_KEY="$notary_api_key" \
+    APPLE_API_ISSUER="$notary_api_issuer" \
+    "$@"
+}
+
 working_tree_state="$(git status --porcelain=v1 --untracked-files=normal -- .)"
 if [[ -n "$working_tree_state" ]]; then
   printf 'Refusing to release from a working tree with uncommitted Lite changes:\n%s\n' \
@@ -39,9 +60,7 @@ cargo clippy --release --target aarch64-apple-darwin --manifest-path src-tauri/C
 # The release scripts notarize the stapled app first, then rebuild and notarize
 # the DMG. Keep Tauri's automatic notarization disabled so CI and local releases
 # use this exact sequence once.
-env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
-  -u APPLE_API_KEY -u APPLE_API_ISSUER -u APPLE_API_KEY_PATH \
-  npx tauri build --target aarch64-apple-darwin --bundles app,dmg
+npx tauri build --target aarch64-apple-darwin --bundles app,dmg
 
 dmg="$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/dmg/AIDOO Whisper Lite_${version}_aarch64.dmg"
 app="$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/macos/AIDOO Whisper Lite.app"
@@ -55,7 +74,7 @@ signature="$(codesign -d --verbose=4 "$app" 2>&1)"
 printf '%s' "$signature" | grep -Fq 'Authority=Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)'
 printf '%s' "$signature" | grep -Fq 'TeamIdentifier=4KKVT2TUUA'
 printf '%s' "$signature" | grep -Eq '^CodeDirectory .*flags=.*runtime'
-"$project_root/scripts/notarize-app-mac.sh" "$app"
+run_notarization "$project_root/scripts/notarize-app-mac.sh" "$app"
 
 # Rebuild the disk image from the stapled application so offline Gatekeeper validation
 # succeeds for the exact copy that users install from the AIDOO website.
@@ -90,7 +109,13 @@ dmg_signature="$(codesign -d --verbose=4 "$dmg" 2>&1)"
 printf '%s' "$dmg_signature" | grep -Fq "Authority=$expected_signing_identity"
 printf '%s' "$dmg_signature" | grep -Fq 'TeamIdentifier=4KKVT2TUUA'
 
-"$project_root/scripts/notarize-mac.sh" "$dmg"
+run_notarization "$project_root/scripts/notarize-mac.sh" "$dmg"
+notary_apple_id=""
+notary_apple_password=""
+notary_team_id=""
+notary_api_key_path=""
+notary_api_key=""
+notary_api_issuer=""
 
 hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$verify_mount" -quiet
 mounted=true
