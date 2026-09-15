@@ -1,0 +1,71 @@
+name: Release AIDOO Whisper Lite for macOS
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["lite-v*"]
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+          targets: aarch64-apple-darwin
+          components: clippy
+      - name: Audit locked Rust dependencies
+        uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: src-tauri
+      - name: Validate macOS release configuration
+        run: python3 scripts/check-release-config.py
+      - name: Validate macOS dependency boundary
+        run: python3 scripts/check-macos-dependencies.py
+      - name: Import Developer ID certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          trap 'rm -f certificate.p12' EXIT
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+      - run: npm ci
+      - name: Audit production JavaScript dependencies
+        run: npm audit --omit=dev
+      - name: Verify third-party notices are current
+        run: |
+          python3 scripts/generate-third-party-notices.py
+          git diff --exit-code -- resources/THIRD_PARTY_NOTICES.txt
+      - name: Build, notarize and audit the website release
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash scripts/release-mac.sh
+      - name: Remove signing keychain
+        if: always()
+        run: security delete-keychain build.keychain || true
+      - name: Store website release files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aidoo-whisper-lite-macos-${{ github.ref_name }}
+          path: release/
+          if-no-files-found: error

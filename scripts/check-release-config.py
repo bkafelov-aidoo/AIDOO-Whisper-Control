@@ -177,7 +177,7 @@ def main() -> int:
     if manifest_commands != allowed_commands:
         errors.append("Application command permissions do not cover the exact manifest")
 
-    workflow = (ROOT.parent / ".github/workflows/release-lite-macos.yml").read_text()
+    workflow = (ROOT / ".github/workflows/release-lite-macos.yml").read_text()
     action_references = re.findall(
         r"^\s*-?\s*uses:\s*[^@\s]+@([^\s#]+)", workflow, re.MULTILINE
     )
