@@ -13,7 +13,7 @@ use models::{
 use std::fs::File;
 use std::io::Write;
 #[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -221,6 +221,12 @@ fn localized_native_error(error: &str, english: bool) -> String {
         "Транскрипцията е готова, но старият recovery запис не можа да бъде изчистен. Изберете „Изтрий“; нов опит може да доведе до повторно API таксуване." => {
             Some("The transcription succeeded, but the old recovery item could not be cleared. Choose Delete; another retry may create another API charge.")
         }
+        "Възстановен е неуспешен запис след прекъсване. Можете да опитате отново." => {
+            Some("A failed recording was recovered after an interruption. You can try again.")
+        }
+        "Възстановен е запис след прекъсване. Не може да бъде изпратен повторно автоматично, за да се избегне повторно API таксуване." => {
+            Some("A recording was recovered after an interruption. It cannot be sent again automatically because that could create another API charge.")
+        }
         "Завършете или отменете избора на shortcut, преди да започнете диктовка." => {
             Some("Finish or cancel shortcut selection before starting dictation.")
         }
@@ -334,6 +340,10 @@ fn localized_native_error(error: &str, english: bool) -> String {
         (
             "Recovery аудиото не можа да бъде изтрито:",
             "The recovery audio could not be deleted:",
+        ),
+        (
+            "Recovery състоянието не можа да бъде запазено:",
+            "The recovery state could not be saved:",
         ),
         (
             "Неуспешният запис не можа да бъде запазен:",
@@ -1186,8 +1196,13 @@ fn retain_failed_recording(
         .extension()
         .and_then(|value| value.to_str())
         .unwrap_or("flac");
+    let retry_status = if retryable {
+        "retryable"
+    } else {
+        "nonretryable"
+    };
     let target = storage::recovery_dir().join(format!(
-        "failed-dictation-{}.{extension}",
+        "failed-dictation-{retry_status}-{}.{extension}",
         uuid::Uuid::new_v4()
     ));
     if std::fs::rename(path, &target).is_err() {
@@ -1198,6 +1213,10 @@ fn retain_failed_recording(
                 "temporary recording cleanup failed after recovery copy: {error}"
             ));
         }
+    }
+    #[cfg(unix)]
+    if let Err(error) = std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o600)) {
+        storage::append_diagnostic(&format!("recovery permission update failed: {error}"));
     }
     Ok(FailedRecording {
         path: target.to_string_lossy().to_string(),
@@ -1227,10 +1246,10 @@ fn store_failed_recording(
         .failed_recording
         .lock()
         .map_err(|_| "Recovery състоянието е заключено.")?;
-    storage::save_failed_recording(&failed)?;
     *current = Some(failed.clone());
     let _ = app.emit("failed-recording:changed", &failed);
-    Ok(())
+    storage::save_failed_recording(&failed)
+        .map_err(|error| format!("Recovery състоянието не можа да бъде запазено: {error}"))
 }
 
 fn clear_failed_recording_state(state: &AppState, remove_audio: bool) -> Result<(), String> {
@@ -1422,7 +1441,11 @@ fn update_failed_recording_error(state: &AppState, error: &str) {
     if let Ok(mut current) = state.failed_recording.lock() {
         if let Some(value) = current.as_mut() {
             value.error = error.into();
-            let _ = storage::save_failed_recording(value);
+            if let Err(error) = storage::save_failed_recording(value) {
+                storage::append_diagnostic(&format!(
+                    "recovery metadata error update failed: {error}"
+                ));
+            }
         }
     }
 }
@@ -1430,9 +1453,67 @@ fn update_failed_recording_error(state: &AppState, error: &str) {
 fn mark_failed_recording_non_retryable(state: &AppState, error: &str) {
     if let Ok(mut current) = state.failed_recording.lock() {
         if let Some(value) = current.as_mut() {
+            let source = PathBuf::from(&value.path);
+            let already_marked = source
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("failed-dictation-nonretryable-"));
+            if !already_marked
+                && source.parent() == Some(storage::recovery_dir().as_path())
+                && source
+                    .extension()
+                    .and_then(|extension| extension.to_str())
+                    .is_some_and(|extension| {
+                        extension.eq_ignore_ascii_case("flac")
+                            || extension.eq_ignore_ascii_case("wav")
+                    })
+            {
+                let extension = source
+                    .extension()
+                    .and_then(|extension| extension.to_str())
+                    .unwrap_or("flac");
+                let target = storage::recovery_dir().join(format!(
+                    "failed-dictation-nonretryable-{}.{extension}",
+                    uuid::Uuid::new_v4()
+                ));
+                let moved = match std::fs::rename(&source, &target) {
+                    Ok(()) => true,
+                    Err(rename_error) => match copy_output_atomic(&source, &target) {
+                        Ok(()) => {
+                            if let Err(error) = std::fs::remove_file(&source) {
+                                storage::append_diagnostic(&format!(
+                                    "old recovery cleanup failed after retry-safety copy: {error}"
+                                ));
+                            }
+                            true
+                        }
+                        Err(copy_error) => {
+                            storage::append_diagnostic(&format!(
+                                "recovery retry-safety move failed: rename={rename_error}; copy={copy_error}"
+                            ));
+                            false
+                        }
+                    },
+                };
+                if moved {
+                    #[cfg(unix)]
+                    if let Err(error) =
+                        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o600))
+                    {
+                        storage::append_diagnostic(&format!(
+                            "recovery retry-safety permission update failed: {error}"
+                        ));
+                    }
+                    value.path = target.to_string_lossy().to_string();
+                }
+            }
             value.error = error.into();
             value.retryable = false;
-            let _ = storage::save_failed_recording(value);
+            if let Err(error) = storage::save_failed_recording(value) {
+                storage::append_diagnostic(&format!(
+                    "recovery non-retryable metadata update failed: {error}"
+                ));
+            }
         }
     }
 }

@@ -32,4 +32,5 @@ Earlier interactive checks on this Mac covered onboarding, settings, shortcut ca
 - Build, sign, notarize, staple and audit a fresh candidate from the current source, then record its checksum here.
 - Complete every behavioral item in [ACCEPTANCE.md](ACCEPTANCE.md) on the signed build while a tester is present.
 - Complete the critical onboarding and dictation path on a second Mac or clean macOS account.
+- Inject a failed `failed-recording.json` write, restart the signed app, and confirm that the newest Recovery audio reappears with its encoded retry status; a legacy file must reappear without a Retry action.
 - Upload the exact audited DMG and matching checksum to the AIDOO website with the privacy, support, and release-notes pages.

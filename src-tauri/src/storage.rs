@@ -1,5 +1,5 @@
 use crate::models::{AppSettings, FailedRecording, TranscriptEntry};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::{de::DeserializeOwned, Serialize};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -88,27 +88,126 @@ pub fn save_history(history: &[TranscriptEntry]) -> Result<(), String> {
 }
 
 pub fn load_failed_recording() -> Option<FailedRecording> {
-    let recording: FailedRecording = read_json(&failed_recording_path())?;
+    let persisted =
+        read_json::<FailedRecording>(&failed_recording_path()).filter(valid_failed_recording);
+    if let Some(recording) = persisted {
+        if let Some(recovered) = newest_recovery_audio() {
+            let persisted_path = PathBuf::from(&recording.path);
+            let recovered_path = PathBuf::from(&recovered.path);
+            let recovered_is_newer = persisted_path != recovered_path
+                && file_modified(&recovered_path)
+                    .zip(file_modified(&persisted_path))
+                    .is_some_and(|(recovered, persisted)| recovered > persisted);
+            if recovered_is_newer {
+                let _ = save_failed_recording(&recovered);
+                return Some(recovered);
+            }
+        }
+        return Some(recording);
+    }
+
+    let recovered = newest_recovery_audio()?;
+    let _ = save_failed_recording(&recovered);
+    Some(recovered)
+}
+
+fn valid_failed_recording(recording: &FailedRecording) -> bool {
     let path = PathBuf::from(&recording.path);
-    let name = path.file_name()?.to_str()?;
-    let extension = path.extension()?.to_str()?;
-    let valid_name = name.starts_with("failed-dictation-")
-        || matches!(
-            name,
-            "last-failed-dictation.flac" | "last-failed-dictation.wav"
-        );
+    let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+        return false;
+    };
     let recovery = recovery_dir();
     let is_regular_file = fs::symlink_metadata(&path)
         .ok()
         .is_some_and(|metadata| metadata.file_type().is_file());
-    if path.parent() == Some(recovery.as_path())
-        && valid_name
-        && matches!(extension.to_ascii_lowercase().as_str(), "flac" | "wav")
+    path.parent() == Some(recovery.as_path())
+        && recovery_file_matches_metadata(name, recording.retryable)
         && is_regular_file
-    {
-        Some(recording)
+}
+
+fn file_modified(path: &Path) -> Option<std::time::SystemTime> {
+    fs::symlink_metadata(path)
+        .ok()
+        .filter(|metadata| metadata.file_type().is_file())?
+        .modified()
+        .ok()
+}
+
+fn newest_recovery_audio() -> Option<FailedRecording> {
+    let mut newest = None;
+    for entry in fs::read_dir(recovery_dir()).ok()?.flatten() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if !file_type.is_file() {
+            continue;
+        }
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            continue;
+        };
+        let Some(retryable) = recovery_file_retryability(name) else {
+            continue;
+        };
+        let Some(modified) = entry
+            .metadata()
+            .ok()
+            .and_then(|metadata| metadata.modified().ok())
+        else {
+            continue;
+        };
+        if newest
+            .as_ref()
+            .is_none_or(|(current, _, _)| modified > *current)
+        {
+            newest = Some((modified, entry.path(), retryable));
+        }
+    }
+
+    let (modified, path, retryable) = newest?;
+    let error = if retryable {
+        "Възстановен е неуспешен запис след прекъсване. Можете да опитате отново."
     } else {
-        None
+        "Възстановен е запис след прекъсване. Не може да бъде изпратен повторно автоматично, за да се избегне повторно API таксуване."
+    };
+    Some(FailedRecording {
+        path: path.to_string_lossy().to_string(),
+        created_at: DateTime::<Utc>::from(modified).to_rfc3339(),
+        duration_seconds: 0.0,
+        error: error.into(),
+        retryable,
+    })
+}
+
+fn recovery_file_retryability(name: &str) -> Option<bool> {
+    let path = Path::new(name);
+    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
+    if !matches!(extension.as_str(), "flac" | "wav") {
+        return None;
+    }
+    let stem = path.file_stem()?.to_str()?;
+    for (prefix, retryable) in [
+        ("failed-dictation-retryable-", true),
+        ("failed-dictation-nonretryable-", false),
+        ("failed-dictation-", false),
+    ] {
+        if let Some(identifier) = stem.strip_prefix(prefix) {
+            return uuid::Uuid::parse_str(identifier).ok().map(|_| retryable);
+        }
+    }
+    matches!(
+        name,
+        "last-failed-dictation.flac" | "last-failed-dictation.wav"
+    )
+    .then_some(false)
+}
+
+fn recovery_file_matches_metadata(name: &str, retryable: bool) -> bool {
+    match recovery_file_retryability(name) {
+        Some(true) => retryable,
+        Some(false) if name.starts_with("failed-dictation-nonretryable-") => !retryable,
+        Some(false) => true,
+        None => false,
     }
 }
 
@@ -303,7 +402,10 @@ fn write_json_atomic<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<()
 
 #[cfg(test)]
 mod tests {
-    use super::{read_json, sanitize_diagnostic, sanitize_support_text, write_json_atomic};
+    use super::{
+        read_json, recovery_file_matches_metadata, recovery_file_retryability, sanitize_diagnostic,
+        sanitize_support_text, write_json_atomic,
+    };
     use serde_json::json;
 
     #[test]
@@ -351,6 +453,40 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(files, vec![std::ffi::OsString::from("settings.json")]);
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn recovery_file_names_preserve_retry_safety() {
+        let identifier = uuid::Uuid::new_v4();
+        assert_eq!(
+            recovery_file_retryability(&format!("failed-dictation-retryable-{identifier}.flac")),
+            Some(true)
+        );
+        assert_eq!(
+            recovery_file_retryability(&format!("failed-dictation-nonretryable-{identifier}.wav")),
+            Some(false)
+        );
+        assert_eq!(
+            recovery_file_retryability(&format!("failed-dictation-{identifier}.flac")),
+            Some(false)
+        );
+        assert_eq!(
+            recovery_file_retryability("failed-dictation-junk.flac"),
+            None
+        );
+        assert_eq!(recovery_file_retryability("someone-else.flac"), None);
+        assert!(recovery_file_matches_metadata(
+            &format!("failed-dictation-retryable-{identifier}.flac"),
+            true
+        ));
+        assert!(!recovery_file_matches_metadata(
+            &format!("failed-dictation-retryable-{identifier}.flac"),
+            false
+        ));
+        assert!(!recovery_file_matches_metadata(
+            &format!("failed-dictation-nonretryable-{identifier}.flac"),
+            true
+        ));
     }
 
     #[cfg(unix)]
