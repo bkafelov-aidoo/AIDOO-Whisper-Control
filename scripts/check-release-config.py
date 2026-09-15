@@ -152,6 +152,52 @@ def main() -> int:
     if "AIDOO-Whisper-Lite/issues" in frontend_source:
         errors.append("The frontend must not link users to private source-repository Issues")
 
+    expected_transcription_models = {
+        "gpt-4o-mini-transcribe": "$0.003",
+        "gpt-transcribe": "$0.0045",
+    }
+    model_source = (ROOT / "src-tauri/src/models.rs").read_text()
+    type_source = (ROOT / "src/types.ts").read_text()
+    translation_source = (ROOT / "src/i18n.ts").read_text()
+    model_documentation = (ROOT / "docs/MODELS.md").read_text()
+    rust_models = set(
+        re.findall(
+            r'^pub const (?:ECONOMY|ACCURACY)_MODEL: &str = "([^"]+)";$',
+            model_source,
+            re.MULTILINE,
+        )
+    )
+    frontend_models = set(
+        re.findall(r'"(gpt-[a-z0-9.-]*transcribe[a-z0-9.-]*)"', frontend_source)
+    )
+    typed_models = set(
+        re.findall(r'"(gpt-[a-z0-9.-]*transcribe[a-z0-9.-]*)"', type_source)
+    )
+    expected_model_ids = set(expected_transcription_models)
+    for source_name, actual_models in (
+        ("native model constants", rust_models),
+        ("frontend model controls", frontend_models),
+        ("frontend model type", typed_models),
+    ):
+        if actual_models != expected_model_ids:
+            errors.append(
+                f"{source_name} differ from the audited model set: {sorted(actual_models)}"
+            )
+    for model, price in expected_transcription_models.items():
+        if model not in model_documentation or price not in model_documentation:
+            errors.append(f"Model documentation is missing {model} at {price}/minute")
+        if price not in translation_source or price not in frontend_source:
+            errors.append(f"Interface price copy is missing the audited {price}/minute value")
+    for official_model_page in (
+        "https://developers.openai.com/api/docs/models/gpt-4o-mini-transcribe",
+        "https://developers.openai.com/api/docs/models/gpt-transcribe",
+        "https://developers.openai.com/api/docs/pricing",
+    ):
+        if official_model_page not in model_documentation:
+            errors.append(
+                f"Model release evidence is missing the official source: {official_model_page}"
+            )
+
     runtime_sources = "\n".join(
         path.read_text() for path in (ROOT / "src-tauri/src").glob("*.rs")
     )

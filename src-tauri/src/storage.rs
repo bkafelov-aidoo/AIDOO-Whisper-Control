@@ -7,18 +7,47 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
+#[cfg(test)]
+thread_local! {
+    static TEST_DATA_DIR: std::cell::RefCell<Option<PathBuf>> = const {
+        std::cell::RefCell::new(None)
+    };
+}
+
 const MAX_DIAGNOSTIC_BYTES: usize = 1_000_000;
 const RETAINED_DIAGNOSTIC_BYTES: usize = 500_000;
 const MAX_SETTINGS_JSON_BYTES: u64 = 1_000_000;
 const MAX_HISTORY_JSON_BYTES: u64 = 10_000_000;
+const MAX_HISTORY_DELETION_JSON_BYTES: u64 = 1_000_000;
 // A bounded OpenAI response can contain up to 2 MB of JSON. Re-serializing its decoded text can
 // expand escaped characters, so Recovery metadata gets a separate still-bounded allowance.
 const MAX_FAILED_RECORDING_JSON_BYTES: u64 = 16_000_000;
 
 pub fn data_dir() -> PathBuf {
+    #[cfg(test)]
+    if let Some(path) = TEST_DATA_DIR.with(|value| value.borrow().clone()) {
+        return path;
+    }
     dirs::data_local_dir()
         .unwrap_or_else(std::env::temp_dir)
         .join("AIDOO Whisper Lite")
+}
+
+#[cfg(test)]
+pub(crate) fn with_test_data_dir<T>(path: PathBuf, test: impl FnOnce() -> T) -> T {
+    struct ResetTestDataDir(Option<PathBuf>);
+
+    impl Drop for ResetTestDataDir {
+        fn drop(&mut self) {
+            TEST_DATA_DIR.with(|value| {
+                value.replace(self.0.take());
+            });
+        }
+    }
+
+    let previous = TEST_DATA_DIR.with(|value| value.replace(Some(path)));
+    let _reset = ResetTestDataDir(previous);
+    test()
 }
 
 pub fn default_output_dir() -> PathBuf {
@@ -38,6 +67,10 @@ fn settings_path() -> PathBuf {
 
 fn history_path() -> PathBuf {
     data_dir().join("history.json")
+}
+
+fn pending_history_deletion_path() -> PathBuf {
+    data_dir().join("pending-history-deletion.json")
 }
 
 fn failed_recording_path() -> PathBuf {
@@ -92,6 +125,41 @@ pub fn load_history() -> Vec<TranscriptEntry> {
 pub fn save_history(history: &[TranscriptEntry]) -> Result<(), String> {
     let bounded = history.iter().take(10).cloned().collect::<Vec<_>>();
     write_json_atomic(&history_path(), &bounded)
+}
+
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingHistoryDeletionFile {
+    pub original: String,
+    pub staged: String,
+}
+
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingHistoryDeletion {
+    pub entry: TranscriptEntry,
+    #[serde(default)]
+    pub history_committed: bool,
+    pub files: Vec<PendingHistoryDeletionFile>,
+}
+
+pub fn load_pending_history_deletion() -> Option<PendingHistoryDeletion> {
+    read_json(
+        &pending_history_deletion_path(),
+        MAX_HISTORY_DELETION_JSON_BYTES,
+    )
+}
+
+pub fn save_pending_history_deletion(deletion: &PendingHistoryDeletion) -> Result<(), String> {
+    write_json_atomic(&pending_history_deletion_path(), deletion)
+}
+
+pub fn clear_pending_history_deletion() -> Result<(), String> {
+    match fs::remove_file(pending_history_deletion_path()) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.to_string()),
+    }
 }
 
 pub fn load_failed_recording() -> Option<FailedRecording> {
@@ -459,8 +527,9 @@ fn write_json_atomic<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::{
-        read_json, recovery_file_matches_metadata, recovery_file_retryability, sanitize_diagnostic,
-        sanitize_support_text, write_json_atomic,
+        ensure_directories, failed_recording_path, load_failed_recording, read_json, recovery_dir,
+        recovery_file_matches_metadata, recovery_file_retryability, sanitize_diagnostic,
+        sanitize_support_text, with_test_data_dir, write_json_atomic,
     };
     use crate::models::FailedRecording;
     use serde_json::json;
@@ -588,6 +657,66 @@ mod tests {
             &format!("failed-dictation-nonretryable-{identifier}.flac"),
             &failed(true, Some("already transcribed"))
         ));
+    }
+
+    #[test]
+    fn missing_recovery_metadata_is_rebuilt_from_the_audio_marker() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-missing-recovery-metadata-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        with_test_data_dir(root.clone(), || {
+            ensure_directories().unwrap();
+            let audio = recovery_dir().join(format!(
+                "failed-dictation-nonretryable-{}.flac",
+                uuid::Uuid::new_v4()
+            ));
+            std::fs::write(&audio, b"fLaC recovery").unwrap();
+
+            let recovered = load_failed_recording().expect("audio marker must be recovered");
+
+            assert_eq!(recovered.path, audio.to_string_lossy());
+            assert!(!recovered.retryable);
+            assert!(recovered.completed_text.is_none());
+            assert!(failed_recording_path().is_file());
+            let persisted: FailedRecording =
+                read_json(&failed_recording_path(), 16_000_000).unwrap();
+            assert_eq!(persisted.path, recovered.path);
+            assert!(!persisted.retryable);
+        });
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn corrupt_recovery_metadata_is_quarantined_before_fail_safe_recovery() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-corrupt-recovery-metadata-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        with_test_data_dir(root.clone(), || {
+            ensure_directories().unwrap();
+            let audio = recovery_dir().join(format!(
+                "failed-dictation-retryable-{}.flac",
+                uuid::Uuid::new_v4()
+            ));
+            std::fs::write(&audio, b"fLaC recovery").unwrap();
+            std::fs::write(failed_recording_path(), b"{invalid metadata").unwrap();
+
+            let recovered = load_failed_recording().expect("audio marker must survive metadata");
+
+            assert_eq!(recovered.path, audio.to_string_lossy());
+            assert!(recovered.retryable);
+            assert!(failed_recording_path().is_file());
+            let quarantined = std::fs::read_dir(&root)
+                .unwrap()
+                .filter_map(Result::ok)
+                .map(|entry| entry.file_name().to_string_lossy().to_string())
+                .any(|name| {
+                    name.starts_with(".failed-recording.corrupt-") && name.ends_with(".json")
+                });
+            assert!(quarantined);
+        });
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]

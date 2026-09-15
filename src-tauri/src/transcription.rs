@@ -312,7 +312,7 @@ fn compact_api_message(message: &str) -> String {
 mod tests {
     use super::{
         compact_api_message, encode_wav_to_flac, response_status_is_retry_safe,
-        TranscriptionFailure,
+        streamed_audio_part, TranscriptionFailure, MAX_TRANSCRIPTION_FILE_BYTES,
     };
 
     #[test]
@@ -349,6 +349,40 @@ mod tests {
         assert!(!response_status_is_retry_safe(
             reqwest::StatusCode::INTERNAL_SERVER_ERROR
         ));
+    }
+
+    #[tokio::test]
+    async fn oversized_audio_is_rejected_before_a_request_can_start() {
+        let path = std::env::temp_dir().join(format!(
+            "aidoo-lite-oversized-audio-test-{}.flac",
+            uuid::Uuid::new_v4()
+        ));
+        let file = std::fs::File::create(&path).unwrap();
+        file.set_len(MAX_TRANSCRIPTION_FILE_BYTES + 1).unwrap();
+        drop(file);
+
+        let result = streamed_audio_part(&path, None).await;
+
+        let error = match result {
+            Ok(_) => panic!("an oversized file must not become a request body"),
+            Err(error) => error,
+        };
+        assert!(error.starts_with(super::FILE_TOO_LARGE_PREFIX));
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[tokio::test]
+    async fn exact_upload_limit_is_accepted_by_the_preflight_guard() {
+        let path = std::env::temp_dir().join(format!(
+            "aidoo-lite-exact-limit-audio-test-{}.flac",
+            uuid::Uuid::new_v4()
+        ));
+        let file = std::fs::File::create(&path).unwrap();
+        file.set_len(MAX_TRANSCRIPTION_FILE_BYTES).unwrap();
+        drop(file);
+
+        assert!(streamed_audio_part(&path, None).await.is_ok());
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]

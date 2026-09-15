@@ -53,6 +53,8 @@ impl AppState {
     fn load() -> Self {
         let _ = storage::ensure_directories();
         audio::cleanup_stale_temporary_audio();
+        let mut history = storage::load_history();
+        recover_pending_history_deletion(&mut history);
         let api_key = keyring_entry()
             .ok()
             .and_then(|entry| entry.get_password().ok())
@@ -63,7 +65,7 @@ impl AppState {
             .map(|recording| recording.error.clone());
         Self {
             settings: Mutex::new(storage::load_settings()),
-            history: Mutex::new(storage::load_history()),
+            history: Mutex::new(history),
             failed_recording: Mutex::new(failed_recording),
             recorder: audio::RecorderService::new(),
             shortcut_capture: Mutex::new(None),
@@ -1128,6 +1130,7 @@ fn safe_file_stem() -> String {
     )
 }
 
+#[derive(Debug)]
 struct FinalizationError {
     message: String,
 }
@@ -1151,19 +1154,11 @@ impl FinalizationError {
     }
 }
 
-fn finalize_success(
-    app: &AppHandle,
+fn save_local_transcription_files(
     settings: &AppSettings,
     staged_audio: &Path,
-    duration_seconds: f64,
-    text: String,
-) -> Result<TranscriptionCompleted, FinalizationError> {
-    text_insertion::copy(&text).map_err(|error| {
-        FinalizationError::new(format!(
-            "Текстът е готов, но клипбордът не е достъпен: {error}"
-        ))
-    })?;
-
+    text: &str,
+) -> Result<(Option<PathBuf>, Option<PathBuf>), FinalizationError> {
     let output_dir = selected_output_dir(settings);
     if settings.save_audio || settings.save_text {
         std::fs::create_dir_all(&output_dir).map_err(|error| {
@@ -1198,6 +1193,23 @@ fn finalize_success(
     } else {
         None
     };
+    Ok((audio_path, text_path))
+}
+
+fn finalize_success(
+    app: &AppHandle,
+    settings: &AppSettings,
+    staged_audio: &Path,
+    duration_seconds: f64,
+    text: String,
+) -> Result<TranscriptionCompleted, FinalizationError> {
+    text_insertion::copy(&text).map_err(|error| {
+        FinalizationError::new(format!(
+            "Текстът е готов, но клипбордът не е достъпен: {error}"
+        ))
+    })?;
+
+    let (audio_path, text_path) = save_local_transcription_files(settings, staged_audio, &text)?;
 
     let entry = TranscriptEntry {
         id: uuid::Uuid::new_v4().to_string(),
@@ -2112,6 +2124,181 @@ fn copy_text(text: String) -> Result<(), String> {
     text_insertion::copy(&text)
 }
 
+fn valid_history_deletion_file(file: &storage::PendingHistoryDeletionFile) -> bool {
+    let original = Path::new(&file.original);
+    let staged = Path::new(&file.staged);
+    let Some(original_name) = original.file_name().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    let Some(staged_name) = staged.file_name().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    let valid_original =
+        is_managed_output_path(original, "flac") || is_managed_output_path(original, "txt");
+    let Some(identifier) = staged_name
+        .strip_prefix(&format!(".{original_name}.deleting-"))
+        .filter(|value| value.len() == 32)
+    else {
+        return false;
+    };
+    valid_original
+        && original.parent() == staged.parent()
+        && identifier
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn restore_staged_history_files(deletion: &storage::PendingHistoryDeletion) -> Vec<String> {
+    let mut failures = Vec::new();
+    for file in deletion.files.iter().rev() {
+        if !valid_history_deletion_file(file) {
+            failures.push(format!("{}: invalid deletion journal", file.original));
+            continue;
+        }
+        let original = Path::new(&file.original);
+        let staged = Path::new(&file.staged);
+        if original.exists() || !staged.exists() {
+            continue;
+        }
+        if let Err(error) = std::fs::rename(staged, original) {
+            failures.push(format!("{}: {error}", original.display()));
+        }
+    }
+    failures
+}
+
+fn prepare_history_files_for_deletion(
+    entry: &TranscriptEntry,
+) -> Result<storage::PendingHistoryDeletion, String> {
+    let mut files = Vec::new();
+    for (path, expected_extension) in [
+        (entry.audio_path.as_deref(), "flac"),
+        (entry.text_path.as_deref(), "txt"),
+    ]
+    .into_iter()
+    .filter_map(|(path, extension)| path.map(|path| (Path::new(path), extension)))
+    {
+        if !is_managed_output_path(path, expected_extension) {
+            return Err(format!("{}: invalid linked file", path.display()));
+        }
+        match std::fs::symlink_metadata(path) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(format!("{}: {error}", path.display())),
+            Ok(metadata) if !metadata.file_type().is_file() => {
+                return Err(format!("{}: invalid linked file", path.display()));
+            }
+            Ok(_) => {}
+        }
+        let name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("history-file");
+        let temporary = path.with_file_name(format!(
+            ".{name}.deleting-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        files.push(storage::PendingHistoryDeletionFile {
+            original: path.to_string_lossy().to_string(),
+            staged: temporary.to_string_lossy().to_string(),
+        });
+    }
+    Ok(storage::PendingHistoryDeletion {
+        entry: entry.clone(),
+        history_committed: false,
+        files,
+    })
+}
+
+fn stage_history_files_for_deletion(
+    deletion: &storage::PendingHistoryDeletion,
+) -> Result<(), String> {
+    for file in &deletion.files {
+        if !valid_history_deletion_file(file) {
+            let failures = restore_staged_history_files(deletion);
+            return Err(format!(
+                "{}: invalid deletion journal{}",
+                file.original,
+                if failures.is_empty() {
+                    String::new()
+                } else {
+                    format!(" · rollback failed: {}", failures.join(" · "))
+                }
+            ));
+        }
+        let original = Path::new(&file.original);
+        let staged = Path::new(&file.staged);
+        if staged.exists() && !original.exists() {
+            continue;
+        }
+        if let Err(error) = std::fs::rename(original, staged) {
+            let failures = restore_staged_history_files(deletion);
+            return Err(format!(
+                "{}: {error}{}",
+                original.display(),
+                if failures.is_empty() {
+                    String::new()
+                } else {
+                    format!(" · rollback failed: {}", failures.join(" · "))
+                }
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn commit_staged_history_deletion(deletion: &storage::PendingHistoryDeletion) -> Vec<String> {
+    let mut failures = Vec::new();
+    for file in &deletion.files {
+        if !valid_history_deletion_file(file) {
+            failures.push(format!("{}: invalid deletion journal", file.original));
+            continue;
+        }
+        for path in [&file.staged, &file.original] {
+            match std::fs::remove_file(path) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => failures.push(format!("{path}: {error}")),
+            }
+        }
+    }
+    failures
+}
+
+fn recover_pending_history_deletion(history: &mut Vec<TranscriptEntry>) {
+    let Some(deletion) = storage::load_pending_history_deletion() else {
+        return;
+    };
+    let mut failures = if deletion.history_committed {
+        commit_staged_history_deletion(&deletion)
+    } else {
+        restore_staged_history_files(&deletion)
+    };
+    if !deletion.history_committed
+        && failures.is_empty()
+        && !history.iter().any(|entry| entry.id == deletion.entry.id)
+    {
+        let mut restored_history = history.clone();
+        restored_history.insert(0, deletion.entry.clone());
+        restored_history.truncate(10);
+        match storage::save_history(&restored_history) {
+            Ok(()) => *history = restored_history,
+            Err(error) => failures.push(format!("history restore: {error}")),
+        }
+    }
+    if failures.is_empty() {
+        if let Err(error) = storage::clear_pending_history_deletion() {
+            storage::append_diagnostic(&format!(
+                "history deletion journal cleanup failed: {error}"
+            ));
+        }
+    } else {
+        storage::append_diagnostic(&format!(
+            "history deletion recovery failed: {}",
+            failures.join(" · ")
+        ));
+    }
+}
+
 #[tauri::command]
 fn delete_history_item(
     id: String,
@@ -2124,40 +2311,76 @@ fn delete_history_item(
     let removed = history.iter().find(|entry| entry.id == id).cloned();
     let mut next_history = history.clone();
     next_history.retain(|entry| entry.id != id);
-    storage::save_history(&next_history)?;
-    *history = next_history;
-    if delete_files {
-        if let Some(entry) = removed {
-            let mut failures = Vec::new();
-            for (path, expected_extension) in [(entry.audio_path, "flac"), (entry.text_path, "txt")]
-                .into_iter()
-                .filter_map(|(path, extension)| path.map(|path| (path, extension)))
-            {
-                let path_ref = Path::new(&path);
-                if !is_managed_output_path(path_ref, expected_extension) {
-                    failures.push(format!("{path}: invalid linked file"));
-                    continue;
-                }
-                match std::fs::symlink_metadata(path_ref) {
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                    Err(error) => failures.push(format!("{path}: {error}")),
-                    Ok(metadata) if !metadata.file_type().is_file() => {
-                        failures.push(format!("{path}: invalid linked file"));
-                    }
-                    Ok(_) => match std::fs::remove_file(path_ref) {
-                        Ok(()) => {}
-                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                        Err(error) => failures.push(format!("{path}: {error}")),
-                    },
-                }
-            }
-            if !failures.is_empty() {
-                return Err(format!(
-                    "Записът е изтрит от историята, но някои файлове не можаха да бъдат изтрити: {}",
-                    failures.join(" · ")
-                ));
-            }
+    let mut deletion = if delete_files {
+        removed
+            .as_ref()
+            .map(prepare_history_files_for_deletion)
+            .transpose()?
+            .filter(|deletion| !deletion.files.is_empty())
+    } else {
+        None
+    };
+    if let Some(deletion) = deletion.as_ref() {
+        storage::save_pending_history_deletion(deletion)?;
+        if let Err(error) = stage_history_files_for_deletion(deletion) {
+            let _ = storage::clear_pending_history_deletion();
+            return Err(error);
         }
+    }
+    if let Err(error) = storage::save_history(&next_history) {
+        let rollback_failures = deletion
+            .as_ref()
+            .map(restore_staged_history_files)
+            .unwrap_or_default();
+        if rollback_failures.is_empty() {
+            let _ = storage::clear_pending_history_deletion();
+        }
+        return Err(if rollback_failures.is_empty() {
+            error
+        } else {
+            format!(
+                "{error} · Файловете не можаха да бъдат възстановени: {}",
+                rollback_failures.join(" · ")
+            )
+        });
+    }
+    if let Some(deletion) = deletion.as_mut() {
+        deletion.history_committed = true;
+        if let Err(error) = storage::save_pending_history_deletion(deletion) {
+            let mut failures = restore_staged_history_files(deletion);
+            if let Err(history_error) = storage::save_history(&history) {
+                failures.push(format!("history restore: {history_error}"));
+            }
+            if failures.is_empty() {
+                let _ = storage::clear_pending_history_deletion();
+            }
+            return Err(format!(
+                "Изтриването не можа да бъде потвърдено: {error}{}",
+                if failures.is_empty() {
+                    String::new()
+                } else {
+                    format!(" · rollback failed: {}", failures.join(" · "))
+                }
+            ));
+        }
+    }
+    *history = next_history;
+    let failures = deletion
+        .as_ref()
+        .map(commit_staged_history_deletion)
+        .unwrap_or_default();
+    if !failures.is_empty() {
+        return Err(format!(
+            "Записът е изтрит от историята, но някои файлове ще бъдат изчистени при следващото стартиране: {}",
+            failures.join(" · ")
+        ));
+    }
+    if deletion.is_some() {
+        storage::clear_pending_history_deletion().map_err(|error| {
+            format!(
+                "Файловете са изтрити, но cleanup състоянието ще бъде проверено отново: {error}"
+            )
+        })?;
     }
     Ok(())
 }
@@ -2293,10 +2516,13 @@ fn diagnostic_settings(settings: &AppSettings) -> serde_json::Value {
 #[cfg(test)]
 mod local_path_tests {
     use super::{
-        diagnostic_settings, is_managed_output_path, localized_native_error,
-        path_is_authorized_for_open, resolved_tray_state, AppSettings, TranscriptEntry,
+        commit_staged_history_deletion, diagnostic_settings, is_managed_output_path,
+        localized_native_error, path_is_authorized_for_open, prepare_history_files_for_deletion,
+        recover_pending_history_deletion, resolved_tray_state, restore_staged_history_files,
+        save_local_transcription_files, stage_history_files_for_deletion, AppSettings,
+        TranscriptEntry,
     };
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     fn history_entry() -> TranscriptEntry {
         TranscriptEntry {
@@ -2410,6 +2636,242 @@ mod local_path_tests {
         assert!(!serialized.contains("Private Transcripts"));
         assert!(!serialized.contains("Owner's Studio Microphone"));
         assert!(!serialized.contains("/Users/example"));
+    }
+
+    #[test]
+    fn local_file_preferences_create_only_the_requested_private_artifacts() {
+        #[cfg(unix)]
+        use std::os::unix::fs::PermissionsExt;
+
+        for (save_audio, save_text) in [(false, false), (true, false), (false, true), (true, true)]
+        {
+            let root = std::env::temp_dir().join(format!(
+                "aidoo-lite-local-files-test-{}",
+                uuid::Uuid::new_v4()
+            ));
+            let output = root.join("custom-output");
+            std::fs::create_dir_all(&root).unwrap();
+            let source = root.join("source.flac");
+            std::fs::write(&source, b"fLaC private audio").unwrap();
+            let settings = AppSettings {
+                save_audio,
+                save_text,
+                output_directory: Some(output.to_string_lossy().to_string()),
+                ..AppSettings::default()
+            };
+
+            let (audio, text) =
+                save_local_transcription_files(&settings, &source, "Private text").unwrap();
+
+            assert_eq!(audio.is_some(), save_audio);
+            assert_eq!(text.is_some(), save_text);
+            assert_eq!(output.exists(), save_audio || save_text);
+            if let Some(path) = audio.as_ref() {
+                assert_eq!(path.parent(), Some(output.as_path()));
+                assert_eq!(std::fs::read(path).unwrap(), b"fLaC private audio");
+                #[cfg(unix)]
+                assert_eq!(
+                    std::fs::metadata(path).unwrap().permissions().mode() & 0o777,
+                    0o600
+                );
+            }
+            if let Some(path) = text.as_ref() {
+                assert_eq!(path.parent(), Some(output.as_path()));
+                assert_eq!(std::fs::read(path).unwrap(), b"Private text\n");
+                #[cfg(unix)]
+                assert_eq!(
+                    std::fs::metadata(path).unwrap().permissions().mode() & 0o777,
+                    0o600
+                );
+            }
+            if let (Some(audio), Some(text)) = (audio.as_ref(), text.as_ref()) {
+                assert_eq!(audio.file_stem(), text.file_stem());
+            }
+            std::fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    fn temporary_history_entry(root: &Path) -> TranscriptEntry {
+        let mut entry = history_entry();
+        entry.audio_path = Some(
+            root.join("AIDOO-Whisper-2026-09-15_12-00-00-abcdef123456.flac")
+                .to_string_lossy()
+                .to_string(),
+        );
+        entry.text_path = Some(
+            root.join("AIDOO-Whisper-2026-09-15_12-00-00-abcdef123456.txt")
+                .to_string_lossy()
+                .to_string(),
+        );
+        entry
+    }
+
+    #[test]
+    fn history_file_deletion_is_reversible_until_history_is_committed() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-history-delete-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let entry = temporary_history_entry(&root);
+        let originals = [
+            PathBuf::from(entry.audio_path.as_ref().unwrap()),
+            PathBuf::from(entry.text_path.as_ref().unwrap()),
+        ];
+        std::fs::write(&originals[0], b"fLaC").unwrap();
+        std::fs::write(&originals[1], b"text").unwrap();
+
+        let deletion = prepare_history_files_for_deletion(&entry).unwrap();
+        stage_history_files_for_deletion(&deletion).unwrap();
+
+        assert_eq!(deletion.files.len(), 2);
+        assert!(originals.iter().all(|path| !path.exists()));
+        assert!(deletion
+            .files
+            .iter()
+            .all(|file| Path::new(&file.staged).is_file()));
+        assert!(restore_staged_history_files(&deletion).is_empty());
+        assert!(originals.iter().all(|path| path.is_file()));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn committed_history_file_deletion_removes_both_linked_files() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-history-delete-commit-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let entry = temporary_history_entry(&root);
+        let originals = [
+            PathBuf::from(entry.audio_path.as_ref().unwrap()),
+            PathBuf::from(entry.text_path.as_ref().unwrap()),
+        ];
+        std::fs::write(&originals[0], b"fLaC").unwrap();
+        std::fs::write(&originals[1], b"text").unwrap();
+        let deletion = prepare_history_files_for_deletion(&entry).unwrap();
+        stage_history_files_for_deletion(&deletion).unwrap();
+
+        assert!(commit_staged_history_deletion(&deletion).is_empty());
+
+        assert!(originals.iter().all(|path| !path.exists()));
+        assert!(deletion
+            .files
+            .iter()
+            .all(|file| !Path::new(&file.staged).exists()));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn interrupted_history_deletion_rolls_back_when_history_still_contains_the_entry() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-history-delete-recovery-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let output = root.join("output");
+        let private = root.join("private");
+        std::fs::create_dir_all(&output).unwrap();
+        let entry = temporary_history_entry(&output);
+        let originals = [
+            PathBuf::from(entry.audio_path.as_ref().unwrap()),
+            PathBuf::from(entry.text_path.as_ref().unwrap()),
+        ];
+        std::fs::write(&originals[0], b"fLaC").unwrap();
+        std::fs::write(&originals[1], b"text").unwrap();
+        let deletion = prepare_history_files_for_deletion(&entry).unwrap();
+
+        crate::storage::with_test_data_dir(private, || {
+            crate::storage::ensure_directories().unwrap();
+            crate::storage::save_pending_history_deletion(&deletion).unwrap();
+            stage_history_files_for_deletion(&deletion).unwrap();
+            let mut history = vec![entry.clone()];
+            recover_pending_history_deletion(&mut history);
+            assert_eq!(history.len(), 1);
+            assert_eq!(history[0].id, entry.id);
+            assert!(crate::storage::load_pending_history_deletion().is_none());
+        });
+
+        assert!(originals.iter().all(|path| path.is_file()));
+        assert!(deletion
+            .files
+            .iter()
+            .all(|file| !Path::new(&file.staged).exists()));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn interrupted_history_deletion_finishes_when_history_commit_is_present() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-history-delete-finish-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let output = root.join("output");
+        let private = root.join("private");
+        std::fs::create_dir_all(&output).unwrap();
+        let entry = temporary_history_entry(&output);
+        let originals = [
+            PathBuf::from(entry.audio_path.as_ref().unwrap()),
+            PathBuf::from(entry.text_path.as_ref().unwrap()),
+        ];
+        std::fs::write(&originals[0], b"fLaC").unwrap();
+        std::fs::write(&originals[1], b"text").unwrap();
+        let mut deletion = prepare_history_files_for_deletion(&entry).unwrap();
+        deletion.history_committed = true;
+
+        crate::storage::with_test_data_dir(private, || {
+            crate::storage::ensure_directories().unwrap();
+            crate::storage::save_pending_history_deletion(&deletion).unwrap();
+            stage_history_files_for_deletion(&deletion).unwrap();
+            let mut history = Vec::new();
+            recover_pending_history_deletion(&mut history);
+            assert!(history.is_empty());
+            assert!(crate::storage::load_pending_history_deletion().is_none());
+        });
+
+        assert!(originals.iter().all(|path| !path.exists()));
+        assert!(deletion
+            .files
+            .iter()
+            .all(|file| !Path::new(&file.staged).exists()));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn prepared_deletion_restores_the_history_entry_if_commit_phase_was_not_saved() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-history-delete-phase-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let output = root.join("output");
+        let private = root.join("private");
+        std::fs::create_dir_all(&output).unwrap();
+        let entry = temporary_history_entry(&output);
+        let originals = [
+            PathBuf::from(entry.audio_path.as_ref().unwrap()),
+            PathBuf::from(entry.text_path.as_ref().unwrap()),
+        ];
+        std::fs::write(&originals[0], b"fLaC").unwrap();
+        std::fs::write(&originals[1], b"text").unwrap();
+        let deletion = prepare_history_files_for_deletion(&entry).unwrap();
+
+        crate::storage::with_test_data_dir(private, || {
+            crate::storage::ensure_directories().unwrap();
+            crate::storage::save_pending_history_deletion(&deletion).unwrap();
+            stage_history_files_for_deletion(&deletion).unwrap();
+            let mut history = Vec::new();
+            recover_pending_history_deletion(&mut history);
+            assert_eq!(history.len(), 1);
+            assert_eq!(history[0].id, entry.id);
+            assert_eq!(crate::storage::load_history()[0].id, entry.id);
+            assert!(crate::storage::load_pending_history_deletion().is_none());
+        });
+
+        assert!(originals.iter().all(|path| path.is_file()));
+        assert!(deletion
+            .files
+            .iter()
+            .all(|file| !Path::new(&file.staged).exists()));
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
