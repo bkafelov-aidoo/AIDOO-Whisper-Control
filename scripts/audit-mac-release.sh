@@ -48,7 +48,8 @@ sources = "\n".join(
         root / "package.json",
         root / "src-tauri/Cargo.toml",
         root / "src-tauri/tauri.conf.json",
-        root / "src-tauri/capabilities/default.json",
+        root / "src-tauri/capabilities/main.json",
+        root / "src-tauri/capabilities/overlay.json",
     ]
 )
 for forbidden in ("@tauri-apps/plugin-updater", "tauri-plugin-updater", "createUpdaterArtifacts\": true"):

@@ -74,16 +74,35 @@ def main() -> int:
         if entitlements.get(entitlement) is not True:
             errors.append(f"Required entitlement is missing: {entitlement}")
 
-    capabilities = json.loads(
-        (ROOT / "src-tauri/capabilities/default.json").read_text()
+    main_capabilities = json.loads(
+        (ROOT / "src-tauri/capabilities/main.json").read_text()
     )
-    serialized_permissions = json.dumps(capabilities.get("permissions", []))
+    overlay_capabilities = json.loads(
+        (ROOT / "src-tauri/capabilities/overlay.json").read_text()
+    )
+    if main_capabilities.get("windows") != ["main"]:
+        errors.append("Main capabilities must apply only to the main window")
+    if overlay_capabilities.get("windows") != ["overlay"]:
+        errors.append("Overlay capabilities must apply only to the overlay window")
+
+    serialized_permissions = json.dumps(main_capabilities.get("permissions", []))
     for required_url in (
         "https://platform.openai.com/api-keys",
         "https://github.com/bkafelov-aidoo/Aidoo-Whisper/issues",
     ):
         if required_url not in serialized_permissions:
             errors.append(f"Required external URL permission is missing: {required_url}")
+
+    expected_overlay_permissions = {
+        "core:event:allow-listen",
+        "core:event:allow-unlisten",
+        "core:window:allow-set-size",
+    }
+    overlay_permissions = set(overlay_capabilities.get("permissions", []))
+    if overlay_permissions != expected_overlay_permissions:
+        errors.append(
+            "Overlay permissions exceed the event-listen and set-size boundary"
+        )
 
     workflow = (ROOT.parent / ".github/workflows/release-lite-macos.yml").read_text()
     action_references = re.findall(

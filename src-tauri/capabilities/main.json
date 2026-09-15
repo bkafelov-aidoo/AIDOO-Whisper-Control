@@ -1,11 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "AIDOO Whisper Lite desktop permissions",
-  "windows": ["main", "overlay"],
+  "identifier": "main",
+  "description": "AIDOO Whisper Lite main window permissions",
+  "windows": ["main"],
   "permissions": [
-    "core:default",
-    "core:window:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
     "dialog:allow-open",
     {
       "identifier": "opener:allow-open-url",
