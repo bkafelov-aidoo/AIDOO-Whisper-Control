@@ -33,6 +33,8 @@ jobs:
           toolchain: 1.93.1
           targets: aarch64-apple-darwin
           components: clippy
+      - name: Install locked Rust audit tool
+        run: cargo install cargo-audit --version 0.22.2 --locked
       - name: Audit locked Rust dependencies
         uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:

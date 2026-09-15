@@ -349,6 +349,12 @@ def main() -> int:
             )
         if source.count("toolchain: 1.93.1") != 1:
             errors.append(f"{path.name} must use the pinned Rust release toolchain")
+        if source.count(
+            "cargo install cargo-audit --version 0.22.2 --locked"
+        ) != 1:
+            errors.append(
+                f"{path.name} must install the locked Rust audit tool exactly once"
+            )
     for required_workflow_guard in (
         "runs-on: macos-15",
         "group: aidoo-whisper-lite-macos-${{ github.ref }}",
