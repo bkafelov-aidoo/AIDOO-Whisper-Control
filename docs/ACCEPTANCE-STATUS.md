@@ -4,7 +4,7 @@ Status date: 15 September 2026
 
 ## Current audited release candidate
 
-- Source: parent commit `be02bde6bbb445888b5c2dfd09507ce2ecc63b0e` (`Show model accuracy levels`), exported to the dedicated repository as `9e5dfd154e2d5c4d6cbc3711e3528ec4e146dcd8`.
+- Source: parent commit `be02bdec48f33078c44709ab473860add57474df` (`Show model accuracy levels`), exported to the dedicated repository as `9e5dfd154e2d5c4d6cbc3711e3528ec4e146dcd8`.
 - Package: `release/1.0.5/AIDOO Whisper Lite_1.0.5_aarch64.dmg`.
 - SHA-256: `6d022df0acaec4dd5f8d56aa969334a483ecb1e1c6e31bb7d1b34a90fa96ef34`.
 - Architecture: Apple Silicon (`arm64`); minimum macOS version: 13; bundle ID: `app.aidoo.whisper-lite`.
