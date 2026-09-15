@@ -729,16 +729,16 @@ fn ensure_output_directory_writable(directory: &Path) -> Result<(), String> {
 fn api_key_from_state(state: &AppState) -> Result<Zeroizing<String>, String> {
     if let Ok(cache) = state.api_key.lock() {
         if let Some(value) = cache.as_ref() {
-            return Ok(Zeroizing::new(value.to_string()));
+            return Ok(value.clone());
         }
     }
-    let password = keyring_entry()?.get_password().map_err(|_| {
+    let password = Zeroizing::new(keyring_entry()?.get_password().map_err(|_| {
         "Няма достъпен OpenAI API ключ. Отворете настройките и го добавете.".to_string()
-    })?;
+    })?);
     if let Ok(mut cache) = state.api_key.lock() {
-        *cache = Some(Zeroizing::new(password.clone()));
+        *cache = Some(password.clone());
     }
-    Ok(Zeroizing::new(password))
+    Ok(password)
 }
 
 fn ready_dictation_settings(state: &AppState) -> Result<AppSettings, String> {
