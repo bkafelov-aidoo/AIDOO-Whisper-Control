@@ -117,7 +117,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .failed-card > div { display: flex; flex-direction: column; gap: 3px; }
 .failed-card strong { color: #713345; font-size: 13px; }
 .failed-card span { color: #845263; font-size: 11px; line-height: 1.4; }
-.failed-card small { max-width: 620px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #985e70; font-size: 10px; }
+.failed-card small { max-width: 620px; color: #985e70; font-size: 11px; line-height: 1.45; white-space: normal; overflow-wrap: anywhere; }
 
 .primary-button, .secondary-button, .danger-button { min-height: 34px; padding: 7px 12px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-size: 12px; font-weight: 650; }
 .primary-button { background: linear-gradient(145deg,#2d84ee,#1265cc); color: #fff; box-shadow: 0 5px 14px rgba(23,100,206,.2); }
