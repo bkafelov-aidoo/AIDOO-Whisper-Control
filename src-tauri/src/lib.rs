@@ -31,6 +31,24 @@ const KEYRING_USER: &str = "openai-api-key";
 const TRAY_ID: &str = "aidoo-whisper-lite";
 const MAX_RECORDING_DURATION: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 const IN_FLIGHT_RECOVERY_ERROR: &str = "Възстановен е запис след прекъсване. Не може да бъде изпратен повторно автоматично, за да се избегне повторно API таксуване.";
+const CHARGED_RECOVERY_ERROR: &str =
+    "Този recovery запис вече е транскрибиран. Изберете „Изтрий“, за да не бъде таксуван повторно.";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum RecoveryPlan {
+    FinishLocally(String),
+    Transcribe,
+}
+
+fn recovery_plan(failed: &FailedRecording) -> Result<RecoveryPlan, String> {
+    if let Some(text) = failed.completed_text.as_ref() {
+        return Ok(RecoveryPlan::FinishLocally(text.clone()));
+    }
+    if failed.retryable {
+        return Ok(RecoveryPlan::Transcribe);
+    }
+    Err(CHARGED_RECOVERY_ERROR.into())
+}
 
 struct AppState {
     settings: Mutex<AppSettings>,
@@ -579,26 +597,34 @@ fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<Menu<tauri::
 fn update_tray_menu(app: &AppHandle, current: &str) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let english = uses_english_ui(app);
-        let tooltip = match (english, current) {
-            (true, "recording") => "AIDOO Whisper Lite — recording",
-            (true, "transcribing") => "AIDOO Whisper Lite — transcribing",
-            (true, "error") => "AIDOO Whisper Lite — error",
-            (true, "recovery") => "AIDOO Whisper Lite — action required",
-            (true, "setup") => "AIDOO Whisper Lite — finish setup",
-            (true, "permission") => "AIDOO Whisper Lite — permission required",
-            (true, _) => "AIDOO Whisper Lite — ready",
-            (false, "recording") => "AIDOO Whisper Lite — записвам",
-            (false, "transcribing") => "AIDOO Whisper Lite — транскрибирам",
-            (false, "error") => "AIDOO Whisper Lite — грешка",
-            (false, "recovery") => "AIDOO Whisper Lite — нужно е действие",
-            (false, "setup") => "AIDOO Whisper Lite — довършете настройката",
-            (false, "permission") => "AIDOO Whisper Lite — нужно е разрешение",
-            (false, _) => "AIDOO Whisper Lite — готов",
-        };
+        let tooltip = tray_tooltip(current, english);
         let _ = tray.set_tooltip(Some(tooltip));
         if let Ok(menu) = build_tray_menu(app, current) {
             let _ = tray.set_menu(Some(menu));
         }
+    }
+}
+
+fn tray_tooltip(current: &str, english: bool) -> &'static str {
+    match (english, current) {
+        (true, "starting") => "AIDOO Whisper Lite — starting microphone",
+        (true, "recording") => "AIDOO Whisper Lite — recording",
+        (true, "transcribing") => "AIDOO Whisper Lite — transcribing",
+        (true, "done") => "AIDOO Whisper Lite — transcription ready",
+        (true, "error") => "AIDOO Whisper Lite — error",
+        (true, "recovery") => "AIDOO Whisper Lite — action required",
+        (true, "setup") => "AIDOO Whisper Lite — finish setup",
+        (true, "permission") => "AIDOO Whisper Lite — permission required",
+        (true, _) => "AIDOO Whisper Lite — ready",
+        (false, "starting") => "AIDOO Whisper Lite — стартирам микрофона",
+        (false, "recording") => "AIDOO Whisper Lite — записвам",
+        (false, "transcribing") => "AIDOO Whisper Lite — транскрибирам",
+        (false, "done") => "AIDOO Whisper Lite — транскрипцията е готова",
+        (false, "error") => "AIDOO Whisper Lite — грешка",
+        (false, "recovery") => "AIDOO Whisper Lite — нужно е действие",
+        (false, "setup") => "AIDOO Whisper Lite — довършете настройката",
+        (false, "permission") => "AIDOO Whisper Lite — нужно е разрешение",
+        (false, _) => "AIDOO Whisper Lite — готов",
     }
 }
 
@@ -934,10 +960,11 @@ fn start_recording_inner(app: &AppHandle) -> Result<audio::AudioStartInfo, Strin
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(MAX_RECORDING_DURATION).await;
                     let timeout_state = timeout_app.state::<AppState>();
-                    if timeout_state.recording_active.load(Ordering::Acquire)
-                        && timeout_state.status_generation.load(Ordering::Acquire)
-                            == recording_generation
-                    {
+                    if recording_watchdog_should_stop(
+                        timeout_state.recording_active.load(Ordering::Acquire),
+                        timeout_state.status_generation.load(Ordering::Acquire),
+                        recording_generation,
+                    ) {
                         let _ = timeout_app.emit(
                             "toast",
                             "Достигнат е максималният запис от 5 минути. Спирам и транскрибирам.",
@@ -954,6 +981,14 @@ fn start_recording_inner(app: &AppHandle) -> Result<audio::AudioStartInfo, Strin
             Err(error)
         }
     }
+}
+
+fn recording_watchdog_should_stop(
+    recording_active: bool,
+    current_generation: u64,
+    scheduled_generation: u64,
+) -> bool {
+    recording_active && current_generation == scheduled_generation
 }
 
 pub(crate) fn request_dictation_start(app: &AppHandle) -> bool {
@@ -1481,8 +1516,16 @@ fn clear_failed_recording_state(state: &AppState, remove_audio: bool) -> Result<
 }
 
 fn resolve_failed_recording_after_success(state: &AppState) -> Result<(), String> {
-    let mut current = state
-        .failed_recording
+    resolve_failed_recording_after_success_with(&state.failed_recording, |path| {
+        std::fs::remove_file(path)
+    })
+}
+
+fn resolve_failed_recording_after_success_with(
+    failed_recording: &Mutex<Option<FailedRecording>>,
+    remove_file: impl Fn(&Path) -> std::io::Result<()>,
+) -> Result<(), String> {
+    let mut current = failed_recording
         .lock()
         .map_err(|_| "Recovery състоянието е заключено.")?;
     let Some(mut recording) = current.clone() else {
@@ -1499,7 +1542,7 @@ fn resolve_failed_recording_after_success(state: &AppState) -> Result<(), String
     storage::save_failed_recording(&recording)?;
 
     let path = PathBuf::from(&recording.path);
-    match std::fs::remove_file(&path) {
+    match remove_file(&path) {
         Ok(()) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => {
@@ -1521,11 +1564,6 @@ fn resolve_failed_recording_after_success(state: &AppState) -> Result<(), String
 
 #[tauri::command]
 async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompleted, String> {
-    enum RecoveryAction {
-        FinishLocally(String),
-        Transcribe(Zeroizing<String>),
-    }
-
     let state = app.state::<AppState>();
     let _operation = acquire_operation(&app, &state)?;
     let failed = state
@@ -1534,18 +1572,12 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
         .map_err(|_| "Recovery състоянието е заключено.")?
         .clone()
         .ok_or_else(|| "Няма неуспешен запис за повторен опит.".to_string())?;
-    if !failed.retryable && failed.completed_text.is_none() {
-        return Err("Този recovery запис вече е транскрибиран. Изберете „Изтрий“, за да не бъде таксуван повторно.".into());
-    }
+    let plan = recovery_plan(&failed)?;
     let settings = state
         .settings
         .lock()
         .map_err(|_| "Настройките са заключени.")?
         .clone();
-    let action = match failed.completed_text.clone() {
-        Some(text) => RecoveryAction::FinishLocally(text),
-        None => RecoveryAction::Transcribe(api_key_from_state(&state)?),
-    };
     let source = PathBuf::from(&failed.path);
     if !is_regular_file_with_extension(&source, "flac")
         && !is_regular_file_with_extension(&source, "wav")
@@ -1574,8 +1606,8 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
     } else {
         source.clone()
     };
-    let key = match action {
-        RecoveryAction::FinishLocally(text) => {
+    let key = match plan {
+        RecoveryPlan::FinishLocally(text) => {
             set_progress(&app, 100, "finishing_locally", true);
             return match finalize_success(&app, &settings, &staged, failed.duration_seconds, text) {
                 Ok(completed) => Ok(publish_recovery_completion(
@@ -1596,7 +1628,7 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
                 }
             };
         }
-        RecoveryAction::Transcribe(key) => key,
+        RecoveryPlan::Transcribe => api_key_from_state(&state)?,
     };
     let request_source =
         match set_failed_recording_retryability(&app, &state, false, IN_FLIGHT_RECOVERY_ERROR) {
@@ -1753,11 +1785,19 @@ fn set_failed_recording_retryability(
 }
 
 fn preserve_completed_recovery(state: &AppState, error: &str, completed_text: String) {
-    if let Ok(mut current) = state.failed_recording.lock() {
+    preserve_completed_recovery_with(&state.failed_recording, error, completed_text);
+}
+
+fn preserve_completed_recovery_with(
+    failed_recording: &Mutex<Option<FailedRecording>>,
+    error: &str,
+    completed_text: String,
+) {
+    if let Ok(mut current) = failed_recording.lock() {
         if let Some(value) = current.as_mut() {
             mark_recovery_file_non_retryable(value);
             value.error = error.into();
-            value.retryable = true;
+            value.retryable = false;
             value.completed_text = Some(completed_text);
             if let Err(error) = storage::save_failed_recording(value) {
                 storage::append_diagnostic(&format!(
@@ -2518,11 +2558,15 @@ mod local_path_tests {
     use super::{
         commit_staged_history_deletion, diagnostic_settings, is_managed_output_path,
         localized_native_error, path_is_authorized_for_open, prepare_history_files_for_deletion,
-        recover_pending_history_deletion, resolved_tray_state, restore_staged_history_files,
-        save_local_transcription_files, stage_history_files_for_deletion, AppSettings,
-        TranscriptEntry,
+        preserve_completed_recovery_with, recording_watchdog_should_stop,
+        recover_pending_history_deletion, recovery_plan,
+        resolve_failed_recording_after_success_with, resolved_tray_state,
+        restore_staged_history_files, save_local_transcription_files,
+        stage_history_files_for_deletion, tray_tooltip, AppSettings, FailedRecording, RecoveryPlan,
+        TranscriptEntry, CHARGED_RECOVERY_ERROR,
     };
     use std::path::{Path, PathBuf};
+    use std::sync::Mutex;
 
     fn history_entry() -> TranscriptEntry {
         TranscriptEntry {
@@ -2539,6 +2583,120 @@ mod local_path_tests {
                 "/Volumes/External/AIDOO/AIDOO-Whisper-2026-09-14_00-00-00-abcdef.txt".into(),
             ),
         }
+    }
+
+    fn recovery_recording(path: &Path, retryable: bool) -> FailedRecording {
+        FailedRecording {
+            path: path.to_string_lossy().to_string(),
+            created_at: "2026-09-15T00:00:00Z".into(),
+            duration_seconds: 2.0,
+            error: "network".into(),
+            retryable,
+            completed_text: None,
+        }
+    }
+
+    #[test]
+    fn recovery_policy_has_exactly_one_safe_next_action() {
+        let retryable = recovery_recording(Path::new("/tmp/retryable.flac"), true);
+        assert_eq!(recovery_plan(&retryable).unwrap(), RecoveryPlan::Transcribe);
+
+        let mut completed = retryable.clone();
+        completed.retryable = false;
+        completed.completed_text = Some("already paid text".into());
+        assert_eq!(
+            recovery_plan(&completed).unwrap(),
+            RecoveryPlan::FinishLocally("already paid text".into())
+        );
+
+        let charged = recovery_recording(Path::new("/tmp/charged.flac"), false);
+        assert_eq!(recovery_plan(&charged).unwrap_err(), CHARGED_RECOVERY_ERROR);
+    }
+
+    #[test]
+    fn failed_cleanup_after_success_can_only_be_deleted() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-recovery-cleanup-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let private = root.join("private");
+
+        crate::storage::with_test_data_dir(private, || {
+            crate::storage::ensure_directories().unwrap();
+            let source = crate::storage::recovery_dir().join(format!(
+                "failed-dictation-retryable-{}.flac",
+                uuid::Uuid::new_v4()
+            ));
+            std::fs::write(&source, b"fLaC charged audio").unwrap();
+            let failed_recording = Mutex::new(Some(recovery_recording(&source, true)));
+
+            let error = resolve_failed_recording_after_success_with(&failed_recording, |_| {
+                Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+            })
+            .unwrap_err();
+
+            assert!(error.contains("не можа да бъде изтрито"));
+            let current = failed_recording.lock().unwrap().clone().unwrap();
+            assert!(!current.retryable);
+            assert!(current.completed_text.is_none());
+            assert!(Path::new(&current.path).is_file());
+            assert!(Path::new(&current.path)
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("failed-dictation-nonretryable-"));
+            assert_eq!(recovery_plan(&current).unwrap_err(), CHARGED_RECOVERY_ERROR);
+
+            let persisted = crate::storage::load_failed_recording().unwrap();
+            assert_eq!(persisted.path, current.path);
+            assert!(!persisted.retryable);
+            assert_eq!(
+                recovery_plan(&persisted).unwrap_err(),
+                CHARGED_RECOVERY_ERROR
+            );
+        });
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn completed_openai_text_is_finished_locally_without_another_request() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-completed-recovery-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let private = root.join("private");
+
+        crate::storage::with_test_data_dir(private, || {
+            crate::storage::ensure_directories().unwrap();
+            let source = crate::storage::recovery_dir().join(format!(
+                "failed-dictation-nonretryable-{}.flac",
+                uuid::Uuid::new_v4()
+            ));
+            std::fs::write(&source, b"fLaC charged audio").unwrap();
+            let failed_recording = Mutex::new(Some(recovery_recording(&source, false)));
+
+            preserve_completed_recovery_with(
+                &failed_recording,
+                "local save failed",
+                "already paid text".into(),
+            );
+
+            let current = failed_recording.lock().unwrap().clone().unwrap();
+            assert!(!current.retryable);
+            assert_eq!(
+                recovery_plan(&current).unwrap(),
+                RecoveryPlan::FinishLocally("already paid text".into())
+            );
+            let persisted = crate::storage::load_failed_recording().unwrap();
+            assert_eq!(
+                persisted.completed_text.as_deref(),
+                Some("already paid text")
+            );
+            assert!(!persisted.retryable);
+        });
+
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -2888,6 +3046,29 @@ mod local_path_tests {
             "permission"
         );
         assert_eq!(resolved_tray_state("idle", true, false, false), "setup");
+    }
+
+    #[test]
+    fn tray_tooltip_covers_starting_processing_and_completion() {
+        assert_eq!(
+            tray_tooltip("starting", true),
+            "AIDOO Whisper Lite — starting microphone"
+        );
+        assert_eq!(
+            tray_tooltip("transcribing", false),
+            "AIDOO Whisper Lite — транскрибирам"
+        );
+        assert_eq!(
+            tray_tooltip("done", false),
+            "AIDOO Whisper Lite — транскрипцията е готова"
+        );
+    }
+
+    #[test]
+    fn stale_recording_watchdog_cannot_stop_a_new_recording() {
+        assert!(recording_watchdog_should_stop(true, 7, 7));
+        assert!(!recording_watchdog_should_stop(false, 7, 7));
+        assert!(!recording_watchdog_should_stop(true, 8, 7));
     }
 
     #[test]
