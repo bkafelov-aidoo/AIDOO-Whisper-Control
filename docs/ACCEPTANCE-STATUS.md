@@ -1,12 +1,12 @@
-# macOS 1.0.4 acceptance status
+# macOS 1.0.5 acceptance status
 
 Status date: 15 September 2026
 
 ## Current audited release candidate
 
-- Source: parent commit `2f4bed15bd3f83921e873036a2a28d98eb237f31` (`Replace setup AI icon`), exported to the dedicated repository as `c1b8d54fcc439daf90ba331175744c9920aac9f4`.
-- Package: `release/1.0.4/AIDOO Whisper Lite_1.0.4_aarch64.dmg`.
-- SHA-256: `cfe408f3368e4b7b78838005a4e0b5e22a5363132640cb3761e73f8c9e5b3761`.
+- Source: parent commit `be02bde6bbb445888b5c2dfd09507ce2ecc63b0e` (`Show model accuracy levels`), exported to the dedicated repository as `9e5dfd154e2d5c4d6cbc3711e3528ec4e146dcd8`.
+- Package: `release/1.0.5/AIDOO Whisper Lite_1.0.5_aarch64.dmg`.
+- SHA-256: `6d022df0acaec4dd5f8d56aa969334a483ecb1e1c6e31bb7d1b34a90fa96ef34`.
 - Architecture: Apple Silicon (`arm64`); minimum macOS version: 13; bundle ID: `app.aidoo.whisper-lite`.
 - Signing identity: `Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)`.
 - Apple notarization tickets are stapled to the application and DMG. Gatekeeper accepts both as `Notarized Developer ID`.
@@ -14,7 +14,7 @@ Status date: 15 September 2026
 
 ## Automated evidence
 
-- `npm run release:mac` completed successfully from a clean tree at the exact local `lite-v1.0.4` source tag.
+- `npm run release:mac` completed successfully from a clean tree at the exact local `lite-v1.0.5` source tag.
 - TypeScript checking, all 89 representative English error-localization cases, release configuration, Apple Silicon dependency boundary and all three website-page checks pass.
 - The production frontend build passes.
 - All 51 native unit tests pass and Rust Clippy passes for all Apple Silicon release targets with warnings denied.
@@ -33,6 +33,7 @@ Status date: 15 September 2026
 
 - Existing settings and the Keychain API key survive replacement of an older build and installation from the final DMG. The API key is displayed only as saved and is absent from persisted settings and diagnostics.
 - The exact notarized 1.0.4 app was installed from the audited DMG. Its Settings header displays version 1.0.4 and a circled right-arrow on “Продължи настройката”, with the previous AI star removed and the existing alignment preserved.
+- The exact notarized 1.0.5 app was installed from the audited DMG. Its model cards use the same four-position level scale: Economy has one active bar and Maximum accuracy has four active bars.
 - Onboarding was completed in English, including the explicit microphone test, Accessibility state, default Right Option shortcut, model descriptions/prices and independent FLAC/TXT/history storage explanations.
 - A real Bulgarian microphone dictation completed through the Economy model. The result reached history and the clipboard, and its FLAC/TXT files were saved with a twelve-character identifier and `0600` permissions.
 - The overlay appears while listening, shows waveform and elapsed recording time and remains above the active interface without an opaque window background. The exact notarized app kept it visible for more than one minute while the main window was hidden.
@@ -59,4 +60,4 @@ Status date: 15 September 2026
 - Run the remaining forced-termination cases around each OpenAI request path on the signed build. The over-25-MB boundary, ambiguous timeout/5xx/unreadable-2xx outcomes, local finalization, recovery metadata corruption and diagnostic ZIP cleanup have automated coverage.
 - Verify representative Bulgarian and English microphone/OpenAI errors, Accessibility-denied clipboard fallback and VoiceOver announcements.
 - Configure the six Apple signing/notarization secrets in the private GitHub repository before relying on its release workflow. Local Keychain notarization is already validated.
-- Upload the exact audited 1.0.4 DMG and matching checksum to the AIDOO website together with the privacy, support and release-notes pages.
+- Upload the exact audited 1.0.5 DMG and matching checksum to the AIDOO website together with the privacy, support and release-notes pages.
