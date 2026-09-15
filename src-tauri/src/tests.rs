@@ -611,6 +611,14 @@ fn tray_tooltip_covers_starting_processing_and_completion() {
         tray_tooltip("done", false),
         "AIDOO Whisper Lite — транскрипцията е готова"
     );
+    assert_eq!(
+        tray_tooltip("wake-listening", true),
+        "AIDOO Whisper Lite — listening for Hey, AIDOO"
+    );
+    assert_eq!(
+        tray_tooltip("wake-error", false),
+        "AIDOO Whisper Lite — проблем с гласовото активиране"
+    );
 }
 
 #[test]
@@ -683,5 +691,12 @@ fn tray_errors_follow_the_selected_interface_language() {
     assert_eq!(
         localized_native_error("Не беше разпозната реч.", false),
         "Не беше разпозната реч."
+    );
+    assert_eq!(
+        localized_native_error(
+            "Моделът за „Hey, AIDOO“ не е намерен: /missing/model.onnx",
+            true
+        ),
+        "The “Hey, AIDOO” model was not found: /missing/model.onnx"
     );
 }
