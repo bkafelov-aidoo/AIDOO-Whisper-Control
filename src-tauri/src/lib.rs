@@ -48,6 +48,7 @@ struct AppState {
 impl AppState {
     fn load() -> Self {
         let _ = storage::ensure_directories();
+        audio::cleanup_stale_temporary_audio();
         let api_key = keyring_entry()
             .ok()
             .and_then(|entry| entry.get_password().ok())
@@ -969,9 +970,16 @@ async fn prepare_flac(wav: &Path) -> Result<PathBuf, String> {
     let wav = wav.to_path_buf();
     let target = std::env::temp_dir().join(format!("aidoo-lite-{}.flac", uuid::Uuid::new_v4()));
     let target_for_task = target.clone();
-    tokio::task::spawn_blocking(move || transcription::encode_wav_to_flac(&wav, &target_for_task))
-        .await
-        .map_err(|error| format!("FLAC процесът беше прекъснат: {error}"))??;
+    let result = tokio::task::spawn_blocking(move || {
+        transcription::encode_wav_to_flac(&wav, &target_for_task)
+    })
+    .await
+    .map_err(|error| format!("FLAC процесът беше прекъснат: {error}"))
+    .and_then(|result| result);
+    if let Err(error) = result {
+        let _ = std::fs::remove_file(&target);
+        return Err(error);
+    }
     Ok(target)
 }
 

@@ -2,6 +2,8 @@ use crate::models::AppSettings;
 use futures_util::TryStreamExt;
 use reqwest::multipart::{Form, Part};
 use serde::Deserialize;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -30,6 +32,14 @@ pub fn encode_wav_to_flac(input: &Path, output: &Path) -> Result<(), String> {
     }
     let mut writer = flexaudio_encode::FlacWriter::create(output, spec.sample_rate, spec.channels)
         .map_err(|error| error.to_string())?;
+    #[cfg(unix)]
+    if let Err(error) = std::fs::set_permissions(output, std::fs::Permissions::from_mode(0o600)) {
+        drop(writer);
+        let _ = std::fs::remove_file(output);
+        return Err(format!(
+            "Временният аудио файл не може да бъде защитен: {error}"
+        ));
+    }
     let chunk_samples = 8_192 * usize::from(spec.channels);
     let mut chunk = Vec::with_capacity(chunk_samples);
 

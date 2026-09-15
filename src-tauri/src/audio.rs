@@ -3,10 +3,15 @@ use cpal::{SampleFormat, Stream, StreamConfig};
 use serde::Serialize;
 use std::fs::File;
 use std::io::BufWriter;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime};
+
+const STALE_TEMPORARY_AUDIO_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
 #[derive(Debug, Clone)]
 pub struct MicrophoneRoutingConfig {
@@ -171,6 +176,48 @@ pub fn microphone_names() -> Vec<String> {
     names
 }
 
+pub fn cleanup_stale_temporary_audio() {
+    let temporary_directory = std::env::temp_dir();
+    let Ok(entries) = std::fs::read_dir(&temporary_directory) else {
+        return;
+    };
+    let now = SystemTime::now();
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            continue;
+        };
+        if !is_aidoo_temporary_audio_name(name)
+            || !entry
+                .file_type()
+                .ok()
+                .is_some_and(|file_type| file_type.is_file())
+        {
+            continue;
+        }
+        let is_stale = entry
+            .metadata()
+            .ok()
+            .and_then(|metadata| metadata.modified().ok())
+            .and_then(|modified| now.duration_since(modified).ok())
+            .is_some_and(|age| age >= STALE_TEMPORARY_AUDIO_AGE);
+        if is_stale {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}
+
+fn is_aidoo_temporary_audio_name(name: &str) -> bool {
+    let identifier = name
+        .strip_prefix("aidoo-")
+        .and_then(|value| value.strip_suffix(".wav"))
+        .or_else(|| {
+            name.strip_prefix("aidoo-lite-")
+                .and_then(|value| value.strip_suffix(".flac"))
+        });
+    identifier.is_some_and(|value| uuid::Uuid::parse_str(value).is_ok())
+}
+
 fn device_named(name: &str) -> Result<cpal::Device, String> {
     let host = cpal::default_host();
     if let Ok(devices) = host.input_devices() {
@@ -240,9 +287,16 @@ fn start_on_device(device: cpal::Device) -> Result<ActiveRecording, String> {
         bits_per_sample: 16,
         sample_format: hound::SampleFormat::Int,
     };
-    let writer = Arc::new(Mutex::new(Some(
-        hound::WavWriter::create(&path, spec).map_err(|error| error.to_string())?,
-    )));
+    let writer = hound::WavWriter::create(&path, spec).map_err(|error| error.to_string())?;
+    #[cfg(unix)]
+    if let Err(error) = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)) {
+        drop(writer);
+        let _ = std::fs::remove_file(&path);
+        return Err(format!(
+            "Временният аудио файл не може да бъде защитен: {error}"
+        ));
+    }
+    let writer = Arc::new(Mutex::new(Some(writer)));
     let captured_frames = Arc::new(AtomicU64::new(0));
     let peak_level_bits = Arc::new(AtomicU32::new(0.0_f32.to_bits()));
     let write_error = Arc::new(Mutex::new(None));
