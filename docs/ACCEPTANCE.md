@@ -19,6 +19,7 @@ The remaining checks below are behavioral and must be completed on the signed bu
 - Open the OpenAI key page from the app, verify an invalid key shows a clear error, then save a valid key. Confirm a valid endpoint-restricted key is not rejected only because it cannot list models.
 - Confirm the key exists in Keychain and is absent from settings, diagnostics and application files.
 - Test the selected microphone and grant Accessibility.
+- After a successful microphone test, change the selected device or automatic-fallback policy and confirm onboarding requires a new test before completion.
 - Capture Right Option and one modified shortcut; confirm mouse buttons are ignored and never become the shortcut.
 - Start shortcut capture without pressing a key and confirm it cancels after one minute without leaving settings locked.
 
