@@ -47,7 +47,12 @@ def main() -> int:
 
     github_ref_type = os.environ.get("GITHUB_REF_TYPE")
     github_ref_name = os.environ.get("GITHUB_REF_NAME")
-    if os.environ.get("GITHUB_ACTIONS") == "true" and github_ref_type != "tag":
+    is_github_release = (
+        os.environ.get("GITHUB_ACTIONS") == "true"
+        and os.environ.get("GITHUB_WORKFLOW")
+        == "Release AIDOO Whisper Lite for macOS"
+    )
+    if is_github_release and github_ref_type != "tag":
         errors.append("The macOS release workflow must run from an exact release tag")
     if github_ref_type == "tag":
         expected_tag = f"lite-v{versions['package.json']}"
