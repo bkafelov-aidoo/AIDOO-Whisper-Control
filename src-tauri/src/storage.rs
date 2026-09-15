@@ -9,6 +9,9 @@ use std::path::{Path, PathBuf};
 
 const MAX_DIAGNOSTIC_BYTES: usize = 1_000_000;
 const RETAINED_DIAGNOSTIC_BYTES: usize = 500_000;
+const MAX_SETTINGS_JSON_BYTES: u64 = 1_000_000;
+const MAX_HISTORY_JSON_BYTES: u64 = 10_000_000;
+const MAX_FAILED_RECORDING_JSON_BYTES: u64 = 1_000_000;
 
 pub fn data_dir() -> PathBuf {
     dirs::data_local_dir()
@@ -67,7 +70,8 @@ fn ensure_private_directory(path: &Path) -> Result<(), String> {
 }
 
 pub fn load_settings() -> AppSettings {
-    let mut settings: AppSettings = read_json(&settings_path()).unwrap_or_default();
+    let mut settings: AppSettings =
+        read_json(&settings_path(), MAX_SETTINGS_JSON_BYTES).unwrap_or_default();
     settings.normalize();
     settings
 }
@@ -77,7 +81,8 @@ pub fn save_settings(settings: &AppSettings) -> Result<(), String> {
 }
 
 pub fn load_history() -> Vec<TranscriptEntry> {
-    let mut history: Vec<TranscriptEntry> = read_json(&history_path()).unwrap_or_default();
+    let mut history: Vec<TranscriptEntry> =
+        read_json(&history_path(), MAX_HISTORY_JSON_BYTES).unwrap_or_default();
     history.truncate(10);
     history
 }
@@ -89,7 +94,8 @@ pub fn save_history(history: &[TranscriptEntry]) -> Result<(), String> {
 
 pub fn load_failed_recording() -> Option<FailedRecording> {
     let persisted =
-        read_json::<FailedRecording>(&failed_recording_path()).filter(valid_failed_recording);
+        read_json::<FailedRecording>(&failed_recording_path(), MAX_FAILED_RECORDING_JSON_BYTES)
+            .filter(valid_failed_recording);
     if let Some(recording) = persisted {
         if let Some(recovered) = newest_recovery_audio() {
             let persisted_path = PathBuf::from(&recording.path);
@@ -375,7 +381,7 @@ fn write_private_bytes_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
     result.map_err(|error| error.to_string())
 }
 
-fn read_json<T: DeserializeOwned>(path: &Path) -> Option<T> {
+fn read_json<T: DeserializeOwned>(path: &Path, maximum_bytes: u64) -> Option<T> {
     if !path.parent().is_some_and(|parent| {
         fs::symlink_metadata(parent)
             .ok()
@@ -391,8 +397,53 @@ fn read_json<T: DeserializeOwned>(path: &Path) -> Option<T> {
     }
     #[cfg(unix)]
     fs::set_permissions(path, fs::Permissions::from_mode(0o600)).ok()?;
+    let metadata = fs::metadata(path).ok()?;
+    if metadata.len() > maximum_bytes {
+        quarantine_invalid_json(path, "size limit exceeded");
+        return None;
+    }
     let bytes = fs::read(path).ok()?;
-    serde_json::from_slice(&bytes).ok()
+    match serde_json::from_slice(&bytes) {
+        Ok(value) => Some(value),
+        Err(_) => {
+            quarantine_invalid_json(path, "invalid JSON");
+            None
+        }
+    }
+}
+
+fn quarantine_invalid_json(path: &Path, reason: &str) {
+    let Some(parent) = path.parent() else {
+        return;
+    };
+    let should_log = parent == data_dir();
+    let name = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("private-data");
+    let target = parent.join(format!(
+        ".{name}.corrupt-{}-{}.json",
+        Utc::now().format("%Y%m%dT%H%M%S"),
+        &uuid::Uuid::new_v4().simple().to_string()[..12]
+    ));
+    match fs::rename(path, &target) {
+        Ok(()) => {
+            #[cfg(unix)]
+            let _ = fs::set_permissions(&target, fs::Permissions::from_mode(0o600));
+            #[cfg(unix)]
+            let _ = File::open(parent).and_then(|directory| directory.sync_all());
+            if should_log {
+                append_diagnostic(&format!("quarantined {name}.json: {reason}"));
+            }
+        }
+        Err(error) => {
+            if should_log {
+                append_diagnostic(&format!(
+                    "failed to quarantine {name}.json ({reason}): {error}"
+                ));
+            }
+        }
+    }
 }
 
 fn write_json_atomic<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<(), String> {
@@ -446,12 +497,36 @@ mod tests {
 
         write_json_atomic(&path, &expected).unwrap();
 
-        assert_eq!(read_json::<serde_json::Value>(&path), Some(expected));
+        assert_eq!(
+            read_json::<serde_json::Value>(&path, 1_000_000),
+            Some(expected)
+        );
         let files = std::fs::read_dir(&root)
             .unwrap()
             .map(|entry| entry.unwrap().file_name())
             .collect::<Vec<_>>();
         assert_eq!(files, vec![std::ffi::OsString::from("settings.json")]);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn invalid_private_json_is_preserved_before_defaults_are_used() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-invalid-json-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("history.json");
+        std::fs::write(&path, b"{not valid json").unwrap();
+
+        assert!(read_json::<serde_json::Value>(&path, 1_000_000).is_none());
+        assert!(!path.exists());
+        let preserved = std::fs::read_dir(&root)
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().to_string())
+            .any(|name| name.starts_with(".history.corrupt-") && name.ends_with(".json"));
+        assert!(preserved);
         std::fs::remove_dir_all(root).unwrap();
     }
 
@@ -506,7 +581,7 @@ mod tests {
         let real_path = real.join("history.json");
         std::fs::write(&real_path, b"[]").unwrap();
 
-        assert!(read_json::<serde_json::Value>(&linked_path).is_none());
+        assert!(read_json::<serde_json::Value>(&linked_path, 1_000_000).is_none());
         assert!(write_json_atomic(&linked_path, &json!([])).is_err());
         assert_eq!(std::fs::read(&real_path).unwrap(), b"[]");
         std::fs::remove_dir_all(root).unwrap();
