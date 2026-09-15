@@ -440,7 +440,11 @@ fn localized_native_error(error: &str, english: bool) -> String {
 
 fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<Menu<tauri::Wry>> {
     let english = uses_english_ui(app);
-    let operation_active = matches!(current, "starting" | "recording" | "transcribing");
+    let operation_active = app
+        .state::<AppState>()
+        .operation_active
+        .load(Ordering::Acquire)
+        || matches!(current, "starting" | "recording" | "transcribing");
     let status = MenuItem::with_id(
         app,
         "status",
@@ -803,31 +807,63 @@ fn ready_dictation_settings(state: &AppState) -> Result<AppSettings, String> {
     Ok(settings)
 }
 
-struct OperationGuard<'a>(&'a AtomicBool);
+struct OperationGuard<'a> {
+    active: &'a AtomicBool,
+    app: AppHandle,
+    release_on_drop: bool,
+}
 
-impl Drop for OperationGuard<'_> {
-    fn drop(&mut self) {
-        self.0.store(false, Ordering::Release);
+impl OperationGuard<'_> {
+    fn disarm(mut self) {
+        self.release_on_drop = false;
     }
 }
 
-fn acquire_operation(state: &AppState) -> Result<OperationGuard<'_>, String> {
+impl Drop for OperationGuard<'_> {
+    fn drop(&mut self) {
+        if self.release_on_drop {
+            self.active.store(false, Ordering::Release);
+            refresh_tray_menu(&self.app);
+        }
+    }
+}
+
+fn acquire_operation<'a>(
+    app: &AppHandle,
+    state: &'a AppState,
+) -> Result<OperationGuard<'a>, String> {
     state
         .operation_active
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-        .map(|_| OperationGuard(&state.operation_active))
+        .map(|_| {
+            refresh_tray_menu(app);
+            OperationGuard {
+                active: &state.operation_active,
+                app: app.clone(),
+                release_on_drop: true,
+            }
+        })
         .map_err(|_| "Изчакайте текущата операция да приключи.".into())
+}
+
+fn release_active_operation<'a>(app: &AppHandle, state: &'a AppState) -> OperationGuard<'a> {
+    OperationGuard {
+        active: &state.operation_active,
+        app: app.clone(),
+        release_on_drop: true,
+    }
 }
 
 pub(crate) fn release_shortcut_capture_operation(app: &AppHandle) {
     app.state::<AppState>()
         .operation_active
         .store(false, Ordering::Release);
+    refresh_tray_menu(app);
 }
 
 fn start_recording_inner(app: &AppHandle) -> Result<audio::AudioStartInfo, String> {
     let state = app.state::<AppState>();
-    let operation = acquire_operation(&state)?;
+    let operation = acquire_operation(app, &state)?;
     let settings = ready_dictation_settings(&state)?;
     if state.recording_active.swap(true, Ordering::AcqRel) {
         return Err("Вече има активен запис.".into());
@@ -870,7 +906,7 @@ fn start_recording_inner(app: &AppHandle) -> Result<audio::AudioStartInfo, Strin
                     }
                 });
             }
-            std::mem::forget(operation);
+            operation.disarm();
             Ok(info)
         }
         Err(error) => {
@@ -936,7 +972,7 @@ async fn stop_and_transcribe(app: AppHandle) -> Result<TranscriptionCompleted, S
 
 async fn stop_and_transcribe_inner(app: &AppHandle) -> Result<TranscriptionCompleted, String> {
     let state = app.state::<AppState>();
-    let _operation = OperationGuard(&state.operation_active);
+    let _operation = release_active_operation(app, &state);
     let captured = state.recorder.finish();
     state.recording_active.store(false, Ordering::Release);
     let captured = captured?;
@@ -1434,7 +1470,7 @@ fn resolve_failed_recording_after_success(state: &AppState) -> Result<(), String
 #[tauri::command]
 async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompleted, String> {
     let state = app.state::<AppState>();
-    let _operation = acquire_operation(&state)?;
+    let _operation = acquire_operation(&app, &state)?;
     let failed = state
         .failed_recording
         .lock()
@@ -1759,7 +1795,7 @@ async fn retranscribe_history_item(
     app: AppHandle,
 ) -> Result<TranscriptionCompleted, String> {
     let state = app.state::<AppState>();
-    let _operation = acquire_operation(&state)?;
+    let _operation = acquire_operation(&app, &state)?;
     if state
         .failed_recording
         .lock()
@@ -1863,7 +1899,7 @@ async fn retranscribe_history_item(
 #[tauri::command]
 fn delete_failed_recording(app: AppHandle) -> Result<(), String> {
     let state = app.state::<AppState>();
-    let _operation = acquire_operation(&state)?;
+    let _operation = acquire_operation(&app, &state)?;
     clear_failed_recording_state(&state, true)?;
     if let Ok(mut error) = state.last_recording_error.lock() {
         *error = None;
@@ -1927,7 +1963,7 @@ fn update_settings(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<AppSettings, String> {
-    let _operation = acquire_operation(&state)?;
+    let _operation = acquire_operation(&app, &state)?;
     let mut settings = settings;
     settings.normalize();
     shortcuts::validate_settings(&settings)?;
@@ -1951,7 +1987,7 @@ async fn save_api_key(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let _operation = acquire_operation(&state)?;
+    let _operation = acquire_operation(&app, &state)?;
     let api_key = Zeroizing::new(api_key);
     let key = Zeroizing::new(api_key.trim().to_string());
     transcription::validate_api_key(&key).await?;
@@ -1968,7 +2004,7 @@ async fn save_api_key(
 
 #[tauri::command]
 fn delete_api_key(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    let _operation = acquire_operation(&state)?;
+    let _operation = acquire_operation(&app, &state)?;
     match keyring_entry()?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => {}
         Err(error) => return Err(format!("Ключът не можа да бъде изтрит: {error}")),
@@ -1984,9 +2020,9 @@ fn delete_api_key(app: AppHandle, state: State<'_, AppState>) -> Result<(), Stri
 #[tauri::command]
 fn begin_shortcut_capture(app: AppHandle) -> Result<(), String> {
     let state = app.state::<AppState>();
-    let operation = acquire_operation(&state)?;
+    let operation = acquire_operation(&app, &state)?;
     shortcuts::begin_capture("dictation".into(), &state)?;
-    std::mem::forget(operation);
+    operation.disarm();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         let state = app.state::<AppState>();
@@ -1999,9 +2035,9 @@ fn begin_shortcut_capture(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn cancel_shortcut_capture(state: State<'_, AppState>) -> Result<(), String> {
+fn cancel_shortcut_capture(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     if shortcuts::cancel_capture(&state)? {
-        state.operation_active.store(false, Ordering::Release);
+        release_shortcut_capture_operation(&app);
     }
     Ok(())
 }
@@ -2010,9 +2046,10 @@ fn cancel_shortcut_capture(state: State<'_, AppState>) -> Result<(), String> {
 async fn test_microphone(
     microphone_name: Option<String>,
     automatic_fallback: bool,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<audio::MicrophoneProbe, String> {
-    let _operation = acquire_operation(&state)?;
+    let _operation = acquire_operation(&app, &state)?;
     let recorder = state.recorder.clone();
     tokio::task::spawn_blocking(move || {
         recorder.probe(audio::MicrophoneRoutingConfig {
@@ -2038,9 +2075,10 @@ fn copy_text(text: String) -> Result<(), String> {
 fn delete_history_item(
     id: String,
     delete_files: bool,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let _operation = acquire_operation(&state)?;
+    let _operation = acquire_operation(&app, &state)?;
     let mut history = state.history.lock().map_err(|_| "Историята е заключена.")?;
     let removed = history.iter().find(|entry| entry.id == id).cloned();
     let mut next_history = history.clone();
@@ -2406,7 +2444,7 @@ impl Drop for PendingDiagnosticFile {
 #[tauri::command]
 fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
     let state = app.state::<AppState>();
-    let _operation = acquire_operation(&state)?;
+    let _operation = acquire_operation(&app, &state)?;
     storage::ensure_directories()?;
     let transcript_texts = state
         .history
