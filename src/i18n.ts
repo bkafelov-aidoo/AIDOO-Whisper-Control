@@ -361,6 +361,7 @@ export function errorMessage(reason: unknown, language: AppLanguage) {
     ["Recovery състоянието не можа да бъде запазено:", "The recovery state could not be saved:"],
     ["Неуспешният запис не можа да бъде запазен:", "The failed recording could not be retained:"],
     ["Завършеният запис не можа да бъде запазен:", "The completed recording could not be retained:"],
+    ["Recovery копието не можа да бъде запазено:", "The recovery copy could not be retained:"],
     ["Ключът не можа да бъде запазен в Keychain:", "The key could not be saved in Keychain:"],
     ["Ключът не можа да бъде изтрит:", "The key could not be deleted:"],
     ["Текстът е готов, но клипбордът не е достъпен:", "The text is ready, but the clipboard is unavailable:"],

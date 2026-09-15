@@ -360,6 +360,10 @@ fn localized_native_error(error: &str, english: bool) -> String {
             "The completed recording could not be retained:",
         ),
         (
+            "Recovery копието не можа да бъде запазено:",
+            "The recovery copy could not be retained:",
+        ),
+        (
             "Текстът е готов, но клипбордът не е достъпен:",
             "The text is ready, but the clipboard is unavailable:",
         ),
@@ -983,17 +987,17 @@ async fn stop_and_transcribe_inner(app: &AppHandle) -> Result<TranscriptionCompl
             let _ = app.emit("transcription:completed", &completed);
             Ok(completed)
         }
-        Err(error) => {
+        Err(failure) => {
             let failed = retain_failed_recording(
                 &staged,
                 captured.duration_seconds,
-                &error,
-                transcription::failure_is_retryable(&error),
+                &failure.message,
+                failure.retryable,
                 None,
             )?;
             let _ = std::fs::remove_file(&captured.path);
             store_failed_recording(app, &state, failed)?;
-            Err(error)
+            Err(failure.message)
         }
     }
 }
@@ -1253,27 +1257,33 @@ fn retain_failed_recording(
     })
 }
 
-fn retain_completed_recording_copy(
+fn retain_history_recording_copy(
     source: &Path,
     duration_seconds: f64,
     error: &str,
-    completed_text: String,
+    retryable: bool,
+    completed_text: Option<String>,
 ) -> Result<FailedRecording, String> {
     storage::ensure_directories()?;
     let extension = source
         .extension()
         .and_then(|value| value.to_str())
         .unwrap_or("flac");
+    let retry_status = if completed_text.is_some() || !retryable {
+        "nonretryable"
+    } else {
+        "retryable"
+    };
     let target = storage::recovery_dir().join(format!(
-        "failed-dictation-nonretryable-{}.{extension}",
+        "failed-dictation-{retry_status}-{}.{extension}",
         uuid::Uuid::new_v4()
     ));
     copy_output_atomic(source, &target)
-        .map_err(|error| format!("Завършеният запис не можа да бъде запазен: {error}"))?;
+        .map_err(|error| format!("Recovery копието не можа да бъде запазено: {error}"))?;
     #[cfg(unix)]
     if let Err(error) = std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o600)) {
         storage::append_diagnostic(&format!(
-            "completed recovery permission update failed: {error}"
+            "history recovery permission update failed: {error}"
         ));
     }
     Ok(FailedRecording {
@@ -1281,8 +1291,8 @@ fn retain_completed_recording_copy(
         created_at: Utc::now().to_rfc3339(),
         duration_seconds,
         error: error.into(),
-        retryable: true,
-        completed_text: Some(completed_text),
+        retryable,
+        completed_text,
     })
 }
 
@@ -1501,22 +1511,22 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
                 completed,
             ))
         }
-        Err(error) => {
+        Err(failure) => {
             if temporary_flac {
                 let _ = std::fs::remove_file(&staged);
             }
-            if transcription::failure_is_retryable(&error) {
-                update_failed_recording_error(&state, &error);
+            if failure.retryable {
+                update_failed_recording_error(&state, &failure.message);
             } else {
-                mark_failed_recording_non_retryable(&state, &error);
+                mark_failed_recording_non_retryable(&state, &failure.message);
                 if let Ok(current) = state.failed_recording.lock() {
                     if let Some(failed) = current.as_ref() {
                         let _ = app.emit("failed-recording:changed", failed);
                     }
                 }
             }
-            set_error(&app, &error);
-            Err(error)
+            set_error(&app, &failure.message);
+            Err(failure.message)
         }
     }
 }
@@ -1729,11 +1739,12 @@ async fn retranscribe_history_item(
             ) {
                 Ok(completed) => completed,
                 Err(error) => {
-                    let failed = match retain_completed_recording_copy(
+                    let failed = match retain_history_recording_copy(
                         Path::new(&audio_path),
                         entry.duration_seconds,
                         &error.message,
-                        completed_text,
+                        true,
+                        Some(completed_text),
                     ) {
                         Ok(failed) => failed,
                         Err(retention_error) => {
@@ -1753,9 +1764,28 @@ async fn retranscribe_history_item(
             let _ = app.emit("transcription:completed", &completed);
             Ok(completed)
         }
-        Err(error) => {
-            set_error(&app, &error);
-            Err(error)
+        Err(failure) => {
+            if !failure.retryable {
+                let failed = match retain_history_recording_copy(
+                    Path::new(&audio_path),
+                    entry.duration_seconds,
+                    &failure.message,
+                    false,
+                    None,
+                ) {
+                    Ok(failed) => failed,
+                    Err(retention_error) => {
+                        set_error(&app, &retention_error);
+                        return Err(retention_error);
+                    }
+                };
+                if let Err(storage_error) = store_failed_recording(&app, &state, failed) {
+                    set_error(&app, &storage_error);
+                    return Err(storage_error);
+                }
+            }
+            set_error(&app, &failure.message);
+            Err(failure.message)
         }
     }
 }

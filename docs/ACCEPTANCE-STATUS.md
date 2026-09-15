@@ -37,12 +37,13 @@ The current source contains additional safeguards that are not present in the ar
 - settings, history and recovery metadata have read limits; malformed private JSON is preserved in a private quarantine file before safe recovery;
 - failed audio is recoverable even when its metadata is missing, and its filename records whether retry is safe without risking another API charge;
 - completed OpenAI text survives a local finalization failure, and its recovery action retries only local work while the audio filename remains fail-safe;
+- ambiguous API outcomes are fail-safe and non-retryable, including timeouts after request start, HTTP 5xx and unreadable HTTP 2xx responses; history retranscription preserves the original FLAC and creates a blocking non-retryable Recovery copy;
 - history-linked files are accepted for opening, retranscription or deletion only when their names match the exact generated timestamp and six-character identifier format;
 - diagnostic ZIPs use an exact generated filename allowlist, and at most one megabyte is read from each included Apple crash report;
 - temporary recording files and native audio-worker waits are bounded, including cleanup of results abandoned after a timeout;
 - long recovery errors wrap in the main window, and a failed automatic paste remains available in the menu bar after the toast disappears.
 
-The current source was inspected without launching the application or using the microphone. On 15 September 2026, the production frontend build, all 81 representative English error-localization cases, release configuration validation, all three website page checks and Rust Clippy for the Apple Silicon release target with warnings denied passed. The native release target and all test targets also compile. The unit tests were compiled but not executed because recording tests remain paused at the user's request. Every behavioral item below remains required on a fresh signed candidate.
+The current source was inspected without launching the application or using the microphone. On 15 September 2026, the production frontend build, all 82 representative English error-localization cases, release configuration validation, all three website page checks and Rust Clippy for the Apple Silicon release target with warnings denied passed. The native release target and all test targets also compile. The unit tests were compiled but not executed because recording tests remain paused at the user's request. Every behavioral item below remains required on a fresh signed candidate.
 
 ## Required before public launch
 

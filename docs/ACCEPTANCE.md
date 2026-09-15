@@ -49,6 +49,7 @@ The remaining checks below are behavioral and must be completed on the signed bu
 - After a successful retry, make recovery-audio cleanup fail and confirm the completed text remains available, the old item is not silently presented as cleared, the Retry button disappears, and direct retry is rejected to prevent another API charge.
 - Make clipboard, TXT or history persistence fail after a successful OpenAI response; confirm the completed text is retained privately, every file already created remains in the output folder, and the card offers “Finish locally”. Complete it after fixing the local failure and confirm no second OpenAI request occurs.
 - Restart with a pending “Finish locally” item and confirm it still finishes without an API key or network access. Remove or corrupt its metadata and confirm the fail-safe audio filename reappears without a Retry action.
+- Inject a timeout after the OpenAI request starts, an HTTP 5xx response and an unreadable HTTP 2xx response. Confirm each retained recording is Delete-only. Repeat from a history FLAC and confirm a non-retryable Recovery copy blocks another transcription while the original history file remains intact.
 - After restart with retained audio, confirm the main window and menu bar report that action is required; after retry or deletion, confirm they return to ready.
 
 ## App lifecycle and startup
