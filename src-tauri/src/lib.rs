@@ -1469,6 +1469,11 @@ fn resolve_failed_recording_after_success(state: &AppState) -> Result<(), String
 
 #[tauri::command]
 async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompleted, String> {
+    enum RecoveryAction {
+        FinishLocally(String),
+        Transcribe(Zeroizing<String>),
+    }
+
     let state = app.state::<AppState>();
     let _operation = acquire_operation(&app, &state)?;
     let failed = state
@@ -1485,10 +1490,9 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
         .lock()
         .map_err(|_| "Настройките са заключени.")?
         .clone();
-    let key = if failed.completed_text.is_none() {
-        Some(api_key_from_state(&state)?)
-    } else {
-        None
+    let action = match failed.completed_text.clone() {
+        Some(text) => RecoveryAction::FinishLocally(text),
+        None => RecoveryAction::Transcribe(api_key_from_state(&state)?),
     };
     let source = PathBuf::from(&failed.path);
     if !is_regular_file_with_extension(&source, "flac")
@@ -1517,27 +1521,30 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
     } else {
         source.clone()
     };
-    if let Some(text) = failed.completed_text.clone() {
-        set_progress(&app, 100, "finishing_locally", true);
-        return match finalize_success(&app, &settings, &staged, failed.duration_seconds, text) {
-            Ok(completed) => Ok(publish_recovery_completion(
-                &app,
-                &state,
-                &staged,
-                temporary_flac,
-                completed,
-            )),
-            Err(error) => {
-                if temporary_flac {
-                    let _ = std::fs::remove_file(&staged);
+    let key = match action {
+        RecoveryAction::FinishLocally(text) => {
+            set_progress(&app, 100, "finishing_locally", true);
+            return match finalize_success(&app, &settings, &staged, failed.duration_seconds, text) {
+                Ok(completed) => Ok(publish_recovery_completion(
+                    &app,
+                    &state,
+                    &staged,
+                    temporary_flac,
+                    completed,
+                )),
+                Err(error) => {
+                    if temporary_flac {
+                        let _ = std::fs::remove_file(&staged);
+                    }
+                    update_failed_recording_error(&state, &error.message);
+                    emit_current_failed_recording(&app, &state);
+                    set_error(&app, &error.message);
+                    Err(error.message)
                 }
-                update_failed_recording_error(&state, &error.message);
-                emit_current_failed_recording(&app, &state);
-                set_error(&app, &error.message);
-                Err(error.message)
-            }
-        };
-    }
+            };
+        }
+        RecoveryAction::Transcribe(key) => key,
+    };
     let request_source =
         match set_failed_recording_retryability(&app, &state, false, IN_FLIGHT_RECOVERY_ERROR) {
             Ok(path) => path,
@@ -1558,15 +1565,7 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
     let callback: transcription::ProgressCallback = Arc::new(move |percent, stage, determinate| {
         set_progress(&app_for_progress, percent, stage, determinate)
     });
-    match transcription::transcribe(
-        &staged,
-        key.as_deref()
-            .expect("API key is present for transcription"),
-        &settings,
-        Some(callback),
-    )
-    .await
-    {
+    match transcription::transcribe(&staged, &key, &settings, Some(callback)).await {
         Ok(text) => {
             let completed_text = text.clone();
             let completed =

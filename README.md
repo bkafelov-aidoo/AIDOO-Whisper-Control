@@ -58,4 +58,8 @@ The wizard verifies the exact Developer ID Application identity before writing e
 - `website/` — ready-to-publish privacy, support and release pages.
 - `docs/` — architecture, model source, release and manual acceptance checklist.
 
+## Support
+
+Use Settings → Diagnostics to create a local ZIP that excludes the API key, transcript content and audio. Review it before sharing, then email `support@aidoo.bg` and attach the ZIP only if you choose to. The app never uploads diagnostics automatically.
+
 The Windows implementation will be created as a separate sibling project after the Mac behavior is accepted, so its native shortcut, paste, storage, signing and installer code can follow Windows conventions.
