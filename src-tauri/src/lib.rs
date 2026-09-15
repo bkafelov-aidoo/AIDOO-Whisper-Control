@@ -2036,15 +2036,28 @@ fn is_regular_file_with_extension(path: &Path, expected_extension: &str) -> bool
 }
 
 fn is_managed_output_path(path: &Path, expected_extension: &str) -> bool {
-    path.is_absolute()
-        && path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .is_some_and(|name| name.starts_with("AIDOO-Whisper-"))
-        && path
+    if !path.is_absolute()
+        || !path
             .extension()
             .and_then(|value| value.to_str())
             .is_some_and(|extension| extension.eq_ignore_ascii_case(expected_extension))
+    {
+        return false;
+    }
+
+    let Some(stem) = path.file_stem().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    let Some(suffix) = stem.strip_prefix("AIDOO-Whisper-") else {
+        return false;
+    };
+    let Some((timestamp, identifier)) = suffix.rsplit_once('-') else {
+        return false;
+    };
+
+    chrono::NaiveDateTime::parse_from_str(timestamp, "%Y-%m-%d_%H-%M-%S").is_ok()
+        && identifier.len() == 6
+        && identifier.bytes().all(|value| value.is_ascii_hexdigit())
 }
 
 fn is_regular_local_file(path: &Path) -> bool {
@@ -2131,6 +2144,22 @@ mod local_path_tests {
         ));
         assert!(!is_managed_output_path(
             Path::new("AIDOO-Whisper-relative.flac"),
+            "flac"
+        ));
+        assert!(!is_managed_output_path(
+            Path::new("/Users/example/AIDOO-Whisper-secret.flac"),
+            "flac"
+        ));
+        assert!(!is_managed_output_path(
+            Path::new("/Users/example/AIDOO-Whisper-2026-99-99_00-00-00-abcdef.flac"),
+            "flac"
+        ));
+        assert!(!is_managed_output_path(
+            Path::new("/Users/example/AIDOO-Whisper-2026-09-14_00-00-00-abcdeg.flac"),
+            "flac"
+        ));
+        assert!(!is_managed_output_path(
+            Path::new("/Users/example/AIDOO-Whisper-2026-09-14_00-00-00-abcdef0.flac"),
             "flac"
         ));
     }
