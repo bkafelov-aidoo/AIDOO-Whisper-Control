@@ -13,6 +13,7 @@ A focused macOS voice typing app. Hold a keyboard shortcut, speak, and release i
 - Automatic paste with a clear clipboard fallback message.
 - A static AIDOO menu bar icon and a bottom-center recording/status overlay.
 - Failed audio survives restarts until the user retries or deletes it.
+- If OpenAI has already returned text, recovery finishes clipboard and local files without sending or charging the audio again.
 - New versions are distributed as notarized DMG downloads from the AIDOO website.
 - No analytics. Diagnostics are created locally only when the user requests them.
 

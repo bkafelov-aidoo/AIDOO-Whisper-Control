@@ -41,6 +41,7 @@ The remaining checks below are behavioral and must be completed on the signed bu
 - Test all combinations of FLAC, TXT and history toggles.
 - Change the output folder and confirm new files use it.
 - Open FLAC/TXT from history, copy text and retranscribe saved audio.
+- During retranscription from history, inject a local finalization failure after the OpenAI response. Confirm the original FLAC remains in place, “Finish locally” appears, no second OpenAI request occurs, and another history retranscription is refused until the Recovery item is resolved.
 - Delete a history entry while keeping files, then delete another entry with its linked files.
 - Trigger an API/balance/network failure, restart the app, retry the retained audio, then test explicit deletion.
 - Confirm an audio file over 25 MB is rejected before upload, retained locally and shown without Retry.
