@@ -32,7 +32,7 @@ Earlier interactive checks on this Mac covered onboarding, settings, shortcut ca
 The current source contains additional safeguards that are not present in the artifact above:
 
 - application commands and Tauri capabilities are separated by window, and the overlay receives only recording state;
-- release workflows are pinned, secrets are limited to the steps that need them, temporary certificate files are private, duplicate per-tag jobs are serialized, and releases require clean source at the exact version tag;
+- release and pull-request workflows use an active Apple Silicon macOS runner and pinned actions; release secrets are limited to the steps that need them, temporary certificate files are private, duplicate per-tag jobs are serialized, and releases require clean source at the exact version tag;
 - OpenAI uploads and response bodies have explicit size limits, API messages are bounded, and all network operations have timeouts;
 - settings, history and recovery metadata have read limits; malformed private JSON is preserved in a private quarantine file before safe recovery;
 - failed audio is recoverable even when its metadata is missing, and its filename records whether retry is safe without risking another API charge;

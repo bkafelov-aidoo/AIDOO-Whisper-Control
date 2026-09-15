@@ -177,13 +177,23 @@ def main() -> int:
     if manifest_commands != allowed_commands:
         errors.append("Application command permissions do not cover the exact manifest")
 
-    workflow = (ROOT / ".github/workflows/release-lite-macos.yml").read_text()
-    action_references = re.findall(
-        r"^\s*-?\s*uses:\s*[^@\s]+@([^\s#]+)", workflow, re.MULTILINE
-    )
+    workflow_path = ROOT / ".github/workflows/release-lite-macos.yml"
+    workflow = workflow_path.read_text()
+    workflow_sources = {
+        path: path.read_text()
+        for pattern in ("*.yml", "*.yaml")
+        for path in (ROOT / ".github/workflows").glob(pattern)
+    }
+    action_references = [
+        (path, reference)
+        for path, source in workflow_sources.items()
+        for reference in re.findall(
+            r"^\s*-?\s*uses:\s*[^@\s]+@([^\s#]+)", source, re.MULTILINE
+        )
+    ]
     unpinned_actions = [
-        reference
-        for reference in action_references
+        f"{path.name}:{reference}"
+        for path, reference in action_references
         if not re.fullmatch(r"[0-9a-f]{40}", reference)
     ]
     if unpinned_actions:
@@ -192,6 +202,7 @@ def main() -> int:
             + ", ".join(unpinned_actions)
         )
     for required_workflow_guard in (
+        "runs-on: macos-15",
         "group: aidoo-whisper-lite-macos-${{ github.ref }}",
         "cancel-in-progress: false",
         "timeout-minutes: 75",
@@ -202,6 +213,16 @@ def main() -> int:
             errors.append(
                 f"Release workflow guard is missing: {required_workflow_guard}"
             )
+    ci_workflow = workflow_sources.get(ROOT / ".github/workflows/ci.yml", "")
+    for required_ci_guard in (
+        "pull_request:",
+        "runs-on: macos-15",
+        "timeout-minutes: 30",
+        "cargo test --release --target aarch64-apple-darwin",
+        "cargo clippy --release --target aarch64-apple-darwin",
+    ):
+        if required_ci_guard not in ci_workflow:
+            errors.append(f"Pull-request CI guard is missing: {required_ci_guard}")
 
     if errors:
         raise SystemExit("\n".join(errors))
