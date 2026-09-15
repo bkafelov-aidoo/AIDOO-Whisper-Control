@@ -10,10 +10,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 MACOS_TARGET = "aarch64-apple-darwin"
 
+# Keep current release-blocking advisories enforceable without a network lookup.
 # RUSTSEC-2024-0429 affects glib >=0.15,<0.20. The locked 0.18.5 package is
 # pulled in only by Linux desktop support and must never enter the macOS build.
+# RUSTSEC-2026-0285 affects rustls 0.23.44 in the actual OpenAI HTTPS path.
 FORBIDDEN_MACOS_PACKAGES = {
     "glib v0.18.5": "RUSTSEC-2024-0429",
+    "rustls v0.23.44": "RUSTSEC-2026-0285",
 }
 
 
