@@ -75,6 +75,8 @@ def main() -> int:
         errors.append("Wake-word training repository differs")
     if training.get("commit") != EXPECTED_TRAINING_COMMIT:
         errors.append("Wake-word training commit differs")
+    if training.get("pythonVersion") != "3.11.16":
+        errors.append("Wake-word training Python version differs")
     if training.get("configPath") != "docs/wakeword/hey_aidoo.yaml":
         errors.append("Wake-word training config path differs")
     if training.get("configSha256") != sha256(CONFIG):

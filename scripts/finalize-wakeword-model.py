@@ -33,6 +33,15 @@ def clip_count(directory: Path) -> int:
 
 
 def training_commit(repository: Path) -> str:
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if status:
+        raise RuntimeError("Training repository has uncommitted source changes")
     result = subprocess.run(
         ["git", "rev-parse", "HEAD"],
         cwd=repository,
@@ -44,6 +53,20 @@ def training_commit(repository: Path) -> str:
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise RuntimeError(f"Unexpected training repository commit: {commit!r}")
     return commit
+
+
+def training_python_version(repository: Path) -> str:
+    executable = repository / ".venv" / "bin" / "python"
+    result = subprocess.run(
+        [str(executable), "--version"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    match = re.fullmatch(r"Python ([0-9]+\.[0-9]+\.[0-9]+)", result.stdout.strip())
+    if not match:
+        raise RuntimeError(f"Unexpected training Python version: {result.stdout!r}")
+    return match.group(1)
 
 
 def operating_threshold() -> float:
@@ -120,6 +143,7 @@ def main() -> int:
         "training": {
             "repository": TRAINING_REPOSITORY,
             "commit": training_commit(arguments.training_repository),
+            "pythonVersion": training_python_version(arguments.training_repository),
             "configPath": "docs/wakeword/hey_aidoo.yaml",
             "configSha256": sha256(CONFIG),
             "sampleCounts": samples,
