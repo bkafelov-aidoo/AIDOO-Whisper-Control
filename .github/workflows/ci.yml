@@ -28,6 +28,10 @@ jobs:
           toolchain: stable
           targets: aarch64-apple-darwin
           components: clippy
+      - name: Audit locked Rust dependencies
+        uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
+        with:
+          working-directory: src-tauri
       - run: npm ci
       - run: npm audit --omit=dev
       - run: npm run check

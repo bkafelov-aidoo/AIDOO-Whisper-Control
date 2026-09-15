@@ -2,7 +2,7 @@
 
 Status date: 15 September 2026
 
-> The artifact recorded below is the last fully audited candidate. It is superseded by newer source changes and must not be published. Produce and audit a fresh signed build before launch, then replace this note and checksum with the final artifact evidence.
+> The artifact recorded below is the last fully audited candidate. It is superseded by newer source changes, contains `rustls 0.23.44` affected by `RUSTSEC-2026-0285`, and must not be published. Produce and audit a fresh signed build before launch, then replace this note and checksum with the final artifact evidence.
 
 ## Last audited candidate on the development Apple Silicon Mac
 
@@ -18,7 +18,7 @@ Status date: 15 September 2026
 - The signed bundle includes verified English and Bulgarian macOS Microphone permission explanations, plus the third-party notices at the application resource root.
 - Product and website icons match; no updater is configured.
 - `npm audit --omit=dev` reports no production dependency vulnerabilities.
-- RustSec reports no status-failing vulnerabilities in the locked dependency graph. It reports the informational Linux-only `glib` advisory `RUSTSEC-2024-0429`; an independent release check proves that the affected package is absent from the Apple Silicon macOS graph.
+- At the time this candidate was audited, RustSec reported no status-failing vulnerabilities and only the informational Linux-only `glib` advisory `RUSTSEC-2024-0429`. The later `RUSTSEC-2026-0285` advisory now disqualifies this candidate because it contains `rustls 0.23.44`.
 - The GitHub macOS release workflow repeats both dependency audits and runs the same app-first stapling, DMG rebuild, notarization and signed-DMG audit used locally before storing a website artifact.
 - The release audit passes against `release/1.0.0/AIDOO Whisper Lite_1.0.0_aarch64.dmg`.
 - The website release package contains the audited DMG, matching checksum, exact privacy/support/release pages and a verified SHA-256 manifest for every staged file.
@@ -48,8 +48,9 @@ The current source contains additional safeguards that are not present in the ar
 - the native operation guard now rebuilds the menu bar at both acquisition and release, so Quit is disabled during API-key validation, microphone testing, shortcut capture, diagnostics, settings writes and every transcription path, then re-enabled automatically.
 - support now opens a new email to the public `support@aidoo.bg` address instead of inaccessible Issues in the private source repository; the diagnostic ZIP remains local and is never attached or uploaded automatically.
 - recovery actions model local finalization and API transcription as distinct native variants, so the transcription path cannot panic while assuming an optional API key is present.
+- the OpenAI HTTPS dependency now uses `rustls 0.23.45`, which fixes `RUSTSEC-2026-0285`; a fresh RustSec scan reports no vulnerabilities, and every pull request now runs the same pinned RustSec audit action as the release workflow.
 
-The current source was inspected without launching the application or using the microphone. On 15 September 2026, the production frontend build, all 85 representative English error-localization cases, release configuration validation, all three website page checks and Rust Clippy for the Apple Silicon release target with warnings denied passed. The native release target and all test targets also compile. The unit tests were compiled but not executed because recording tests remain paused at the user's request. Every behavioral item below remains required on a fresh signed candidate.
+The current source was inspected without launching the application or using the microphone. On 15 September 2026, the production frontend build, all 85 representative English error-localization cases, release configuration validation, all three website page checks and Rust Clippy for the Apple Silicon release target with warnings denied passed. The native release target and all test targets also compile. A current RustSec database scan reports no vulnerabilities. It reports five unmaintained `unic-*` dependencies inherited from Tauri 2.11.5 through its locked `urlpattern 0.3` dependency; `proc-macro-error` and the advisory-affected `glib` package are absent from the Apple Silicon graph. These are tracked warnings rather than known exploitable findings, and Tauri currently offers no compatible `urlpattern` update. The unit tests were compiled but not executed because recording tests remain paused at the user's request. Every behavioral item below remains required on a fresh signed candidate.
 
 ## Required before public launch
 

@@ -251,6 +251,7 @@ def main() -> int:
         "pull_request:",
         "runs-on: macos-15",
         "timeout-minutes: 30",
+        "rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998",
         "cargo test --release --target aarch64-apple-darwin",
         "cargo clippy --release --target aarch64-apple-darwin",
     ):
