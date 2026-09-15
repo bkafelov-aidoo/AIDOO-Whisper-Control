@@ -88,7 +88,7 @@ def main() -> int:
     serialized_permissions = json.dumps(main_capabilities.get("permissions", []))
     for required_url in (
         "https://platform.openai.com/api-keys",
-        "https://github.com/bkafelov-aidoo/Aidoo-Whisper/issues",
+        "https://github.com/bkafelov-aidoo/AIDOO-Whisper-Lite/issues",
     ):
         if required_url not in serialized_permissions:
             errors.append(f"Required external URL permission is missing: {required_url}")
