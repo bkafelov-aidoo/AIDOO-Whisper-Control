@@ -139,6 +139,44 @@ def main() -> int:
             "Overlay permissions exceed the event-listen and set-size boundary"
         )
 
+    build_source = (ROOT / "src-tauri/build.rs").read_text()
+    manifest_match = re.search(
+        r"const COMMANDS:\s*&\[&str\]\s*=\s*&\[(.*?)\];",
+        build_source,
+        re.DOTALL,
+    )
+    manifest_commands = (
+        set(re.findall(r'"([a-z][a-z0-9_]*)"', manifest_match.group(1)))
+        if manifest_match
+        else set()
+    )
+    rust_source = (ROOT / "src-tauri/src/lib.rs").read_text()
+    handler_match = re.search(
+        r"\.invoke_handler\(tauri::generate_handler!\[(.*?)\]\)",
+        rust_source,
+        re.DOTALL,
+    )
+    handler_commands = (
+        set(
+            re.findall(
+                r"^\s*([a-z][a-z0-9_]*)\s*,?\s*$",
+                handler_match.group(1),
+                re.MULTILINE,
+            )
+        )
+        if handler_match
+        else set()
+    )
+    allowed_commands = {
+        permission.removeprefix("allow-").replace("-", "_")
+        for permission in main_string_permissions | overlay_permissions
+        if permission.startswith("allow-")
+    }
+    if not manifest_commands or manifest_commands != handler_commands:
+        errors.append("Tauri AppManifest commands differ from the invoke handler")
+    if manifest_commands != allowed_commands:
+        errors.append("Application command permissions do not cover the exact manifest")
+
     workflow = (ROOT.parent / ".github/workflows/release-lite-macos.yml").read_text()
     action_references = re.findall(
         r"^\s*-?\s*uses:\s*[^@\s]+@([^\s#]+)", workflow, re.MULTILINE
