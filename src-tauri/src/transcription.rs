@@ -8,7 +8,9 @@ use std::time::Duration;
 use tokio::io::AsyncReadExt;
 
 pub type ProgressCallback = Arc<dyn Fn(u8, &str, bool) + Send + Sync>;
-const MAX_TRANSCRIPTION_FILE_BYTES: u64 = 25 * 1024 * 1024;
+// OpenAI documents this limit as 25 MB. Use the decimal boundary so a file that
+// passes the local guard is never larger than the documented upload maximum.
+const MAX_TRANSCRIPTION_FILE_BYTES: u64 = 25_000_000;
 const FILE_TOO_LARGE_PREFIX: &str = "Аудио файлът е по-голям от лимита на OpenAI от 25 MB.";
 
 #[derive(Deserialize)]
@@ -139,7 +141,7 @@ pub async fn validate_api_key(api_key: &str) -> Result<(), String> {
         .send()
         .await
         .map_err(|error| format!("Няма връзка с OpenAI: {error}"))?;
-    if response.status().is_success() {
+    if response.status().is_success() || response.status() == reqwest::StatusCode::FORBIDDEN {
         return Ok(());
     }
     Err(api_error(response, "API ключът не беше приет").await)

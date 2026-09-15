@@ -13,4 +13,4 @@ The app sends ISO-639-1 `language` only when the user selects an explicit langua
 
 The app uploads the completed recording as FLAC with an extension-bearing filename and `audio/flac` content type. The official [Create transcription API reference](https://developers.openai.com/api/reference/python/resources/audio/subresources/transcriptions/methods/create) lists FLAC as a supported input for both selected models and documents the singular ISO-639-1 `language` parameter. Keeping FLAC reduces transfer size while preserving lossless local audio.
 
-OpenAI's [File transcription guide](https://developers.openai.com/api/docs/guides/speech-to-text) limits files to 25 MB. The app checks the FLAC size before upload, keeps an oversized recording locally and disables Retry because sending the unchanged file again cannot succeed.
+OpenAI's [File transcription guide](https://developers.openai.com/api/docs/guides/speech-to-text) limits files to 25 MB. The app applies the conservative decimal boundary of 25,000,000 bytes before upload, keeps an oversized recording locally and disables Retry because sending the unchanged file again cannot succeed.
