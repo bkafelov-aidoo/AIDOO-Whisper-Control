@@ -8,6 +8,7 @@ import json
 import os
 import plistlib
 import re
+import tomllib
 from pathlib import Path
 
 
@@ -32,6 +33,18 @@ def main() -> int:
     if None in versions.values() or len(set(versions.values())) != 1:
         errors.append(f"Release versions differ: {versions}")
 
+    toolchain = tomllib.loads((ROOT / "rust-toolchain.toml").read_text()).get(
+        "toolchain", {}
+    )
+    expected_toolchain = {
+        "channel": "1.93.1",
+        "profile": "minimal",
+        "targets": ["aarch64-apple-darwin"],
+        "components": ["clippy", "rustfmt"],
+    }
+    if toolchain != expected_toolchain:
+        errors.append(f"Rust release toolchain differs: {toolchain}")
+
     github_ref_type = os.environ.get("GITHUB_REF_TYPE")
     github_ref_name = os.environ.get("GITHUB_REF_NAME")
     if os.environ.get("GITHUB_ACTIONS") == "true" and github_ref_type != "tag":
@@ -54,6 +67,14 @@ def main() -> int:
     for name, (actual, expected) in expected_values.items():
         if actual != expected:
             errors.append(f"Unexpected {name}: {actual!r}; expected {expected!r}")
+
+    expected_csp = (
+        "default-src 'self'; script-src 'self'; connect-src 'self' ipc: "
+        "http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+        "object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    )
+    if tauri.get("app", {}).get("security", {}).get("csp") != expected_csp:
+        errors.append("The WebView content security policy differs from the audited boundary")
 
     if set(bundle.get("targets", [])) != {"app", "dmg"}:
         errors.append("The macOS release must produce exactly app and dmg bundles")
@@ -126,6 +147,52 @@ def main() -> int:
     if "AIDOO-Whisper-Lite/issues" in frontend_source:
         errors.append("The frontend must not link users to private source-repository Issues")
 
+    runtime_sources = "\n".join(
+        path.read_text() for path in (ROOT / "src-tauri/src").glob("*.rs")
+    )
+    runtime_https_urls = set(re.findall(r'"(https://[^"\s]+)"', runtime_sources))
+    expected_runtime_https_urls = {
+        "https://api.openai.com/v1/models",
+        "https://api.openai.com/v1/audio/transcriptions",
+    }
+    if runtime_https_urls != expected_runtime_https_urls:
+        errors.append(
+            f"Native runtime HTTPS destinations differ: {sorted(runtime_https_urls)}"
+        )
+    if runtime_sources.count(".https_only(true)") != 2:
+        errors.append("Both OpenAI clients must reject non-HTTPS requests")
+    if runtime_sources.count(".redirect(reqwest::redirect::Policy::none())") != 2:
+        errors.append("Both OpenAI clients must reject HTTP redirects")
+    javascript_dependencies = {
+        **package.get("dependencies", {}),
+        **package.get("devDependencies", {}),
+    }
+    if any("updater" in name.lower() for name in javascript_dependencies):
+        errors.append("The no-updater product must not include an updater dependency")
+    if "tauri-plugin-updater" in cargo_source:
+        errors.append("The native application must not include the Tauri updater plugin")
+
+    interface_styles = (ROOT / "src/styles.css").read_text()
+    if 'font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text"' not in interface_styles:
+        errors.append("The interface must use the macOS system font stack")
+    if not re.search(r"body\s*\{[^}]*font-size:\s*13px", interface_styles):
+        errors.append("The macOS body text must keep the HIG 13-point default size")
+    undersized_text = [
+        value
+        for value in re.findall(r"font-size:\s*([0-9]+(?:\.[0-9]+)?)px", interface_styles)
+        if float(value) < 10
+    ]
+    if undersized_text:
+        errors.append(f"Interface text falls below the macOS 10-point minimum: {undersized_text}")
+    for accessibility_style in (
+        ":focus-visible",
+        "prefers-reduced-motion: reduce",
+        "prefers-reduced-transparency: reduce",
+        "prefers-contrast: more",
+    ):
+        if accessibility_style not in interface_styles:
+            errors.append(f"Interface accessibility style is missing: {accessibility_style}")
+
     expected_main_string_permissions = {
         "core:event:allow-listen",
         "core:event:allow-unlisten",
@@ -184,6 +251,12 @@ def main() -> int:
         else set()
     )
     rust_source = (ROOT / "src-tauri/src/lib.rs").read_text()
+    for rust_safety_guard in (
+        "#![deny(unsafe_op_in_unsafe_fn)]",
+        "#![deny(clippy::undocumented_unsafe_blocks)]",
+    ):
+        if rust_safety_guard not in rust_source:
+            errors.append(f"Native safety lint is missing: {rust_safety_guard}")
     handler_match = re.search(
         r"\.invoke_handler\(tauri::generate_handler!\[(.*?)\]\)",
         rust_source,
@@ -218,15 +291,15 @@ def main() -> int:
         for path in (ROOT / ".github/workflows").glob(pattern)
     }
     action_references = [
-        (path, reference)
+        (path, repository, reference)
         for path, source in workflow_sources.items()
-        for reference in re.findall(
-            r"^\s*-?\s*uses:\s*[^@\s]+@([^\s#]+)", source, re.MULTILINE
+        for repository, reference in re.findall(
+            r"^\s*-?\s*uses:\s*([^@\s]+)@([^\s#]+)", source, re.MULTILINE
         )
     ]
     unpinned_actions = [
-        f"{path.name}:{reference}"
-        for path, reference in action_references
+        f"{path.name}:{repository}@{reference}"
+        for path, repository, reference in action_references
         if not re.fullmatch(r"[0-9a-f]{40}", reference)
     ]
     if unpinned_actions:
@@ -234,6 +307,48 @@ def main() -> int:
             "Release workflow actions must use immutable commit SHAs: "
             + ", ".join(unpinned_actions)
         )
+    expected_action_references = {
+        "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+        "dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87",
+        "rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998",
+    }
+    actual_action_references = {
+        f"{repository}@{reference}"
+        for _, repository, reference in action_references
+    }
+    if actual_action_references != expected_action_references:
+        errors.append(
+            "GitHub Action allowlist differs: "
+            + ", ".join(sorted(actual_action_references))
+        )
+    expected_workflow_permissions = {"contents": "read", "checks": "write"}
+    for path, source in workflow_sources.items():
+        permissions_match = re.search(
+            r"(?m)^permissions:\n((?:  [a-z-]+: (?:read|write|none)\n)+)", source
+        )
+        workflow_permissions = (
+            dict(
+                re.findall(
+                    r"^  ([a-z-]+): (read|write|none)$",
+                    permissions_match.group(1),
+                    re.MULTILINE,
+                )
+            )
+            if permissions_match
+            else {}
+        )
+        if workflow_permissions != expected_workflow_permissions:
+            errors.append(
+                f"{path.name} workflow permissions differ: {workflow_permissions}"
+            )
+        if source.count("persist-credentials: false") != 1:
+            errors.append(
+                f"{path.name} must disable persisted checkout credentials exactly once"
+            )
+        if source.count("toolchain: 1.93.1") != 1:
+            errors.append(f"{path.name} must use the pinned Rust release toolchain")
     for required_workflow_guard in (
         "runs-on: macos-15",
         "group: aidoo-whisper-lite-macos-${{ github.ref }}",
@@ -247,16 +362,27 @@ def main() -> int:
                 f"Release workflow guard is missing: {required_workflow_guard}"
             )
     ci_workflow = workflow_sources.get(ROOT / ".github/workflows/ci.yml", "")
+    if not re.search(r"(?m)^  push:\n    branches: \[main\]$", ci_workflow):
+        errors.append("CI must run after every push to the dedicated main branch")
     for required_ci_guard in (
         "pull_request:",
         "runs-on: macos-15",
         "timeout-minutes: 30",
         "rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998",
-        "cargo test --release --target aarch64-apple-darwin",
-        "cargo clippy --release --target aarch64-apple-darwin",
+        "token: ${{ secrets.GITHUB_TOKEN }}",
+        "cargo test --locked --release --target aarch64-apple-darwin",
+        "cargo clippy --locked --release --target aarch64-apple-darwin",
     ):
         if required_ci_guard not in ci_workflow:
-            errors.append(f"Pull-request CI guard is missing: {required_ci_guard}")
+            errors.append(f"Source CI guard is missing: {required_ci_guard}")
+    release_script = (ROOT / "scripts/release-mac.sh").read_text()
+    for required_release_command in (
+        "cargo test --locked --release --target aarch64-apple-darwin",
+        "cargo clippy --locked --release --target aarch64-apple-darwin",
+        "npx tauri build --target aarch64-apple-darwin --bundles app,dmg --ci -- --locked",
+    ):
+        if required_release_command not in release_script:
+            errors.append(f"Local release command is missing: {required_release_command}")
 
     expected_release_secrets = {
         "APPLE_CERTIFICATE",
@@ -273,6 +399,19 @@ def main() -> int:
         errors.append(
             f"Release workflow secrets differ: {sorted(workflow_secrets)}"
         )
+    for secret in expected_release_secrets:
+        required_preflight = ': "${' + secret + f':?Missing {secret}}}"'
+        if required_preflight not in workflow:
+            errors.append(f"Release workflow does not fail fast for {secret}")
+    for release_identity_guard in (
+        "security find-identity -v -p codesigning build.keychain",
+        "Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)",
+        '[[ "$APPLE_TEAM_ID" != "4KKVT2TUUA" ]]',
+    ):
+        if release_identity_guard not in workflow:
+            errors.append(
+                f"Release credential identity guard is missing: {release_identity_guard}"
+            )
     wizard_path = ROOT / "scripts/configure-github-release-secrets.sh"
     if not wizard_path.is_file():
         errors.append("GitHub release-secret wizard is missing")
@@ -293,6 +432,10 @@ def main() -> int:
                     "Release-secret wizard must not publish or start releases: "
                     + forbidden_release_action
                 )
+        if "Refusing to accept pre-existing secret names" not in wizard:
+            errors.append(
+                "Release-secret wizard must reject any failed secret write"
+            )
     gitignore = (ROOT / ".gitignore").read_text().splitlines()
     for private_key_pattern in ("*.p12", "*.p8"):
         if private_key_pattern not in gitignore:

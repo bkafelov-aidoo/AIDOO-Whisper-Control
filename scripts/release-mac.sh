@@ -55,12 +55,12 @@ fi
 python3 scripts/generate-third-party-notices.py
 git diff --exit-code -- resources/THIRD_PARTY_NOTICES.txt
 npm run check
-cargo test --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml
-cargo clippy --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml
+cargo clippy --locked --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 # The release scripts notarize the stapled app first, then rebuild and notarize
 # the DMG. Keep Tauri's automatic notarization disabled so CI and local releases
 # use this exact sequence once.
-npx tauri build --target aarch64-apple-darwin --bundles app,dmg
+npx tauri build --target aarch64-apple-darwin --bundles app,dmg --ci -- --locked
 
 dmg="$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/dmg/AIDOO Whisper Lite_${version}_aarch64.dmg"
 app="$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/macos/AIDOO Whisper Lite.app"

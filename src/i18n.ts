@@ -290,6 +290,7 @@ export function errorMessage(reason: unknown, language: AppLanguage) {
     "Този локален файл не е разрешен за отваряне.": "This local file is not allowed to be opened.",
     "Локалният файл вече не съществува.": "The local file no longer exists.",
     "Файлът не можа да бъде отворен.": "The file could not be opened.",
+    "Accessibility настройките не можаха да бъдат отворени.": "Accessibility settings could not be opened.",
     "Не беше разпозната реч.": "No speech was detected.",
     "Няма неуспешен запис за повторен опит.": "There is no failed recording to retry.",
     "Изчакайте текущата диктовка да приключи.": "Wait for the current dictation to finish.",

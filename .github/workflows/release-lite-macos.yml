@@ -18,15 +18,17 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 75
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
-          toolchain: stable
+          toolchain: 1.93.1
           targets: aarch64-apple-darwin
           components: clippy
       - name: Audit locked Rust dependencies
@@ -45,6 +47,9 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
+          : "${APPLE_CERTIFICATE:?Missing APPLE_CERTIFICATE}"
+          : "${APPLE_CERTIFICATE_PASSWORD:?Missing APPLE_CERTIFICATE_PASSWORD}"
+          : "${KEYCHAIN_PASSWORD:?Missing KEYCHAIN_PASSWORD}"
           umask 077
           trap 'rm -f certificate.p12' EXIT
           printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
@@ -54,6 +59,7 @@ jobs:
           security set-keychain-settings -t 3600 -u build.keychain
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security find-identity -v -p codesigning build.keychain | grep -Fq 'Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)'
       - run: npm ci
       - name: Audit production JavaScript dependencies
         run: npm audit --omit=dev
@@ -66,12 +72,21 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: bash scripts/release-mac.sh
+        run: |
+          set -euo pipefail
+          : "${APPLE_ID:?Missing APPLE_ID}"
+          : "${APPLE_PASSWORD:?Missing APPLE_PASSWORD}"
+          : "${APPLE_TEAM_ID:?Missing APPLE_TEAM_ID}"
+          if [[ "$APPLE_TEAM_ID" != "4KKVT2TUUA" ]]; then
+            echo "APPLE_TEAM_ID does not match the AIDOO signing team." >&2
+            exit 1
+          fi
+          bash scripts/release-mac.sh
       - name: Remove signing keychain
         if: always()
         run: security delete-keychain build.keychain || true
       - name: Store website release files
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: aidoo-whisper-lite-macos-${{ github.ref_name }}
           path: release/

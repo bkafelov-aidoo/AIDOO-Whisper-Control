@@ -639,6 +639,9 @@ fn key_code(key: rdev::Key) -> Option<&'static str> {
 
 #[cfg(target_os = "macos")]
 fn install_macos_input_listener(sender: Sender<InputEvent>) {
+    // SAFETY: The callback context is heap-allocated before CGEventTapCreate, remains owned for
+    // the complete CFRunLoopRun lifetime, and is freed only after the source and tap are released.
+    // All Core Graphics event pointers are used synchronously during Apple's callback.
     std::thread::spawn(move || unsafe {
         use core_graphics::event::{CGEventTapLocation, CGEventType};
         use std::ffi::c_void;
@@ -701,7 +704,9 @@ fn install_macos_input_listener(sender: Sender<InputEvent>) {
             event: CGEventRef,
             user_info: *mut c_void,
         ) -> CGEventRef {
-            let context = &*(user_info as *const ListenerContext);
+            // SAFETY: CGEventTapCreate receives this exact non-null Box pointer below, and the
+            // listener frees it only after CFRunLoopRun returns and the tap is released.
+            let context = unsafe { &*(user_info as *const ListenerContext) };
             if matches!(
                 event_type,
                 CGEventType::TapDisabledByTimeout | CGEventType::TapDisabledByUserInput
@@ -710,17 +715,22 @@ fn install_macos_input_listener(sender: Sender<InputEvent>) {
                 let _ = context.sender.send(InputEvent::Reset);
                 let tap = context.tap.load(Ordering::Relaxed);
                 if !tap.is_null() {
-                    CGEventTapEnable(tap.cast_const(), true);
+                    // SAFETY: callbacks run while the owning event tap is alive; the atomic is
+                    // populated from that tap before the run loop starts.
+                    unsafe { CGEventTapEnable(tap.cast_const(), true) };
                 }
                 return event;
             }
+            // SAFETY: Core Graphics owns this event and guarantees that it remains valid for the
+            // duration of the callback.
+            let event_flags = unsafe { CGEventGetFlags(event) };
             // macOS occasionally reports a Right Option release with a different keycode after
             // an input-source transition. The aggregate flags on the same event are still
             // authoritative: once Option disappears, release the dedicated Right Option trigger
             // exactly once before processing the event-specific keycode.
             if macos_right_option_missing_from_flags(
                 context.right_option_pressed.load(Ordering::Acquire),
-                CGEventGetFlags(event),
+                event_flags,
             ) && context.right_option_pressed.swap(false, Ordering::AcqRel)
             {
                 let _ = context.sender.send(InputEvent::Key {
@@ -731,14 +741,16 @@ fn install_macos_input_listener(sender: Sender<InputEvent>) {
             match event_type {
                 CGEventType::KeyDown | CGEventType::KeyUp | CGEventType::FlagsChanged => {
                     // kCGKeyboardEventKeycode is field 9 in the stable CoreGraphics ABI.
-                    let raw_code = CGEventGetIntegerValueField(event, 9);
+                    // SAFETY: Core Graphics owns the callback event for this invocation and field
+                    // 9 is kCGKeyboardEventKeycode for keyboard/flags events.
+                    let raw_code = unsafe { CGEventGetIntegerValueField(event, 9) };
                     if let Some(code) = macos_key_code(raw_code) {
                         let pressed = match event_type {
                             CGEventType::KeyDown => true,
                             CGEventType::KeyUp => false,
                             CGEventType::FlagsChanged => macos_modifier_transition_is_pressed(
                                 raw_code,
-                                CGEventGetFlags(event),
+                                event_flags,
                                 raw_code == 61
                                     && context.right_option_pressed.load(Ordering::Acquire),
                             ),

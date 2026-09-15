@@ -159,6 +159,8 @@ pub async fn validate_api_key(api_key: &str) -> Result<(), String> {
         return Err("Ключът трябва да започва с sk-.".into());
     }
     let client = reqwest::Client::builder()
+        .https_only(true)
+        .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(Duration::from_secs(15))
         .timeout(Duration::from_secs(30))
         .build()
@@ -192,6 +194,8 @@ pub async fn transcribe(
         form = form.text("language", settings.language.clone());
     }
     let client = reqwest::Client::builder()
+        .https_only(true)
+        .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(Duration::from_secs(20))
         .timeout(Duration::from_secs(600))
         .build()

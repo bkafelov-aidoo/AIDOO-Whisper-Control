@@ -21,7 +21,7 @@ A focused macOS voice typing app. Hold a keyboard shortcut, speak, and release i
 
 - Apple Silicon Mac
 - macOS 13 or newer
-- Node.js 22, Python 3.9+, Rust stable and Xcode Command Line Tools
+- Node.js 22, Python 3.11+, the pinned Rust 1.93.1 toolchain and Xcode Command Line Tools
 - An OpenAI Platform account with API billing enabled
 
 ## Development
@@ -30,8 +30,12 @@ A focused macOS voice typing app. Hold a keyboard shortcut, speak, and release i
 npm ci
 python3 scripts/generate-third-party-notices.py
 npm run check
+cargo check --locked --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml
+cargo clippy --locked --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml -- -D warnings
 CARGO_TARGET_DIR=/tmp/aidoo-whisper-lite-target npm run tauri dev
 ```
+
+`rustup` reads the exact compiler, target, Clippy and rustfmt versions from `rust-toolchain.toml`. Native unit tests are run separately with the same release target in CI.
 
 The app bundle identifier is `app.aidoo.whisper-lite`. User-facing recordings default to `~/Documents/AIDOO Whisper Lite/Transcriptions`. Private settings, history and recovery data live under `~/Library/Application Support/AIDOO Whisper Lite`.
 

@@ -268,6 +268,10 @@ required_secrets=(
   APPLE_PASSWORD
   APPLE_TEAM_ID
 )
+if (( ${#SKIPPED[@]} )); then
+  warn "One or more GitHub secret writes failed. Refusing to accept pre-existing secret names as proof of this setup."
+  exit 1
+fi
 secret_names="$(gh secret list --repo "$GH_REPO" --json name --jq '.[].name')"
 missing_secrets=()
 for secret in "${required_secrets[@]}"; do

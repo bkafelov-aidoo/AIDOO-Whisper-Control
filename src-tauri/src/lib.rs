@@ -1,3 +1,6 @@
+#![deny(unsafe_op_in_unsafe_fn)]
+#![deny(clippy::undocumented_unsafe_blocks)]
+
 mod audio;
 mod models;
 mod shortcuts;
@@ -93,6 +96,8 @@ extern "C" {
 
 pub(crate) fn accessibility_granted() -> bool {
     #[cfg(target_os = "macos")]
+    // SAFETY: AXIsProcessTrusted takes no pointers or caller-owned buffers and only returns the
+    // current process trust state from the macOS ApplicationServices framework.
     unsafe {
         AXIsProcessTrusted()
     }
@@ -2124,10 +2129,13 @@ fn delete_history_item(
 fn open_accessibility_settings() -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
+        let status = std::process::Command::new("open")
             .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
             .status()
             .map_err(|error| error.to_string())?;
+        if !status.success() {
+            return Err("Accessibility настройките не можаха да бъдат отворени.".into());
+        }
     }
     Ok(())
 }
