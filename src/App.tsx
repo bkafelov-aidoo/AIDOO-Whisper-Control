@@ -219,9 +219,9 @@ export default function App() {
             language={language}
             isBusy={isBusy}
             onSave={async (settings) => {
-              const previousLaunchAtLogin = data.settings.launchAtLogin;
-              const launchAtLoginChanged = previousLaunchAtLogin !== settings.launchAtLogin;
               try {
+                const previousLaunchAtLogin = await isEnabled();
+                const launchAtLoginChanged = previousLaunchAtLogin !== settings.launchAtLogin;
                 if (launchAtLoginChanged) {
                   if (settings.launchAtLogin) await enable(); else await disable();
                 }
@@ -236,7 +236,10 @@ export default function App() {
                   throw reason;
                 }
                 showToast(t("saved"));
-              } catch (reason) { showToast(errorMessage(reason, language), "error"); }
+              } catch (reason) {
+                showToast(errorMessage(reason, language), "error");
+                throw reason;
+              }
             }}
             onRefresh={refresh}
             onToast={showToast}
@@ -365,20 +368,29 @@ function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToast, onOp
   const [microphoneBusy, setMicrophoneBusy] = useState(false);
   const [accessibilityBusy, setAccessibilityBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
+  const launchAtLoginDirty = useRef(false);
   const controlsDisabled = isBusy || keyBusy || shortcutBusy || diagnosticBusy || microphoneBusy || accessibilityBusy || saveBusy;
   const shortcutButtonDisabled = isBusy || keyBusy || diagnosticBusy || microphoneBusy || accessibilityBusy || saveBusy;
   useShortcutCapture(shortcutBusy, setShortcutBusy, (binding) => setDraft((current) => ({ ...current, dictationShortcut: binding })), (message) => onToast(errorMessage(message, language), "error"));
 
-  useEffect(() => setDraft(data.settings), [data.settings]);
+  useEffect(() => {
+    launchAtLoginDirty.current = false;
+    setDraft(data.settings);
+  }, [data.settings]);
   useEffect(() => {
     let disposed = false;
-    void isEnabled()
-      .then((enabled) => {
-        if (disposed) return;
-        setDraft((current) => current.launchAtLogin === data.settings.launchAtLogin ? { ...current, launchAtLogin: enabled } : current);
-      })
-      .catch(() => undefined);
-    return () => { disposed = true; };
+    const refreshLaunchAtLogin = () => {
+      void isEnabled().then((enabled) => {
+        if (disposed || launchAtLoginDirty.current) return;
+        setDraft((current) => ({ ...current, launchAtLogin: enabled }));
+      }).catch(() => undefined);
+    };
+    refreshLaunchAtLogin();
+    window.addEventListener("focus", refreshLaunchAtLogin);
+    return () => {
+      disposed = true;
+      window.removeEventListener("focus", refreshLaunchAtLogin);
+    };
   }, [data.settings.launchAtLogin]);
 
   const chooseFolder = async () => {
@@ -412,12 +424,12 @@ function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToast, onOp
       <StorageControls settings={draft} language={language} outputPath={draft.outputDirectory ?? data.defaultOutputDirectory} disabled={controlsDisabled} onChange={setDraft} onChooseFolder={chooseFolder} />
     </SettingsSection>
     <SettingsSection icon={<Power />} title={t("startup")}>
-      <SettingRow title={t("launchAtLogin")}><Toggle label={t("launchAtLogin")} checked={draft.launchAtLogin} disabled={controlsDisabled} onChange={(launchAtLogin) => setDraft({ ...draft, launchAtLogin })} /></SettingRow>
+      <SettingRow title={t("launchAtLogin")}><Toggle label={t("launchAtLogin")} checked={draft.launchAtLogin} disabled={controlsDisabled} onChange={(launchAtLogin) => { launchAtLoginDirty.current = true; setDraft({ ...draft, launchAtLogin }); }} /></SettingRow>
     </SettingsSection>
     <SettingsSection icon={<ShieldCheck />} title={t("diagnostics")}>
       <p className="section-help">{t("diagnosticsHelp")}</p><div className="inline-actions"><button className="secondary-button" disabled={controlsDisabled} onClick={async () => { setDiagnosticBusy(true); try { const path = await invoke<string>("create_diagnostic_bundle"); await invoke("open_local_path", { path, reveal: true }); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setDiagnosticBusy(false); } }}>{diagnosticBusy ? <LoaderCircle className="spin" /> : <FileText />}{t("createDiagnostics")}</button><button className="secondary-button" disabled={controlsDisabled} onClick={async () => { try { await openUrl("https://github.com/bkafelov-aidoo/AIDOO-Whisper-Lite/issues"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("openSupport")}</button></div>
     </SettingsSection>
-    <footer className="settings-footer"><button className="primary-button large" disabled={controlsDisabled} title={isBusy ? t("finishDictationFirst") : undefined} onClick={async () => { setSaveBusy(true); try { await onSave(draft); } finally { setSaveBusy(false); } }}>{saveBusy ? <LoaderCircle className="spin" /> : <Check />}{t("save")}</button></footer>
+    <footer className="settings-footer"><button className="primary-button large" disabled={controlsDisabled} title={isBusy ? t("finishDictationFirst") : undefined} onClick={async () => { setSaveBusy(true); try { await onSave(draft); launchAtLoginDirty.current = false; } catch { /* The parent already showed the localized error. */ } finally { setSaveBusy(false); } }}>{saveBusy ? <LoaderCircle className="spin" /> : <Check />}{t("save")}</button></footer>
   </div>;
 }
 

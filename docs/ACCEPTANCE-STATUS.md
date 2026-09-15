@@ -44,6 +44,7 @@ The current source contains additional safeguards that are not present in the ar
 - diagnostic ZIPs use an exact generated filename allowlist, and at most one megabyte is read from each included Apple crash report;
 - temporary recording files and native audio-worker waits are bounded, including cleanup of results abandoned after a timeout;
 - long recovery errors wrap in the main window, and a failed automatic paste remains available in the menu bar after the toast disappears.
+- the Settings view re-reads the real macOS Login Item state when the app regains focus while preserving an unsaved local toggle, and Save reconciles the requested state against macOS even when persisted settings had drifted.
 
 The current source was inspected without launching the application or using the microphone. On 15 September 2026, the production frontend build, all 85 representative English error-localization cases, release configuration validation, all three website page checks and Rust Clippy for the Apple Silicon release target with warnings denied passed. The native release target and all test targets also compile. The unit tests were compiled but not executed because recording tests remain paused at the user's request. Every behavioral item below remains required on a fresh signed candidate.
 
