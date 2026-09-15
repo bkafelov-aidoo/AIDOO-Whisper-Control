@@ -1127,6 +1127,9 @@ fn finalize_success(
             Err(error) => {
                 let message =
                     "Текстът не можа да бъде поставен. Копиран е в клипборда.".to_string();
+                if let Ok(mut current) = app.state::<AppState>().last_recording_error.lock() {
+                    *current = Some(message.clone());
+                }
                 let _ = app.emit("toast", &message);
                 storage::append_diagnostic(&format!("paste failed: {error}"));
                 (false, Some(message))
@@ -1343,6 +1346,9 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
     {
         return Err("Запазеният неуспешен аудио файл не е намерен.".into());
     }
+    if let Ok(mut error) = state.last_recording_error.lock() {
+        *error = None;
+    }
     set_recording_state(&app, "transcribing");
     let temporary_flac = source
         .extension()
@@ -1409,7 +1415,7 @@ async fn retry_failed_transcription(app: AppHandle) -> Result<TranscriptionCompl
             if temporary_flac {
                 let _ = std::fs::remove_file(&staged);
             }
-            if recovery_cleared {
+            if recovery_cleared && completed.paste_error.is_none() {
                 if let Ok(mut error) = state.last_recording_error.lock() {
                     *error = None;
                 }
@@ -1551,6 +1557,9 @@ async fn retranscribe_history_item(
         .map_err(|_| "Настройките са заключени.")?
         .clone();
     let key = api_key_from_state(&state)?;
+    if let Ok(mut error) = state.last_recording_error.lock() {
+        *error = None;
+    }
     set_recording_state(&app, "transcribing");
     let app_for_progress = app.clone();
     let callback: transcription::ProgressCallback = Arc::new(move |percent, stage, determinate| {
