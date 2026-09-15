@@ -1,0 +1,26 @@
+AIDOO Whisper Lite — Hey, AIDOO model notices
+================================================
+
+The custom hey_aidoo.onnx classifier was trained by Aidoo Ltd. OOD with the
+Apache-2.0 licensed LiveKit wake-word training tools:
+https://github.com/livekit-examples/wake-word-models
+
+Synthetic training speech was produced with the MIT-licensed
+rhasspy/piper-voices en_US-libritts_r-medium model:
+https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/libritts_r/medium
+
+That voice model's model card identifies LibriTTS-R (SLR141) as its dataset
+and the dataset license as Creative Commons Attribution 4.0 International:
+https://www.openslr.org/141/
+https://creativecommons.org/licenses/by/4.0/
+
+The generated speech was transformed with room impulse responses and
+background audio, converted into frozen audio embeddings, and used to train a
+separate wake-word classifier. AIDOO Whisper Lite does not distribute the
+Piper voice model or the LibriTTS-R recordings.
+
+Dataset citation requested by the LibriTTS-R authors:
+
+Yuma Koizumi, Heiga Zen, Shigeki Karita, Yifan Ding, Kohei Yatabe,
+Nobuyuki Morioka, Michiel Bacchiani, Yu Zhang, Wei Han, and Ankur Bapna,
+“LibriTTS-R: A Restored Multi-Speaker Text-to-Speech Corpus,” arXiv, 2023.

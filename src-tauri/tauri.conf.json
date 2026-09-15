@@ -52,6 +52,8 @@
     "createUpdaterArtifacts": false,
     "resources": {
       "../resources/THIRD_PARTY_NOTICES.txt": "THIRD_PARTY_NOTICES.txt",
+      "resources/wakeword/LIVEKIT-WAKEWORD-LICENSE.txt": "wakeword/LIVEKIT-WAKEWORD-LICENSE.txt",
+      "resources/wakeword/MODEL-NOTICES.txt": "wakeword/MODEL-NOTICES.txt",
       "infoplist/en.lproj/InfoPlist.strings": "en.lproj/InfoPlist.strings",
       "infoplist/bg.lproj/InfoPlist.strings": "bg.lproj/InfoPlist.strings"
     },

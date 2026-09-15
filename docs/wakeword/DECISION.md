@@ -35,3 +35,5 @@ Synthetic metrics are a model-development gate. A short real-speaker and real-ro
 ## Training provenance
 
 The checked-in classifier is trained with the adjacent `hey_aidoo.yaml` configuration and the LiveKit wake-word training repository at commit `95448a7559c453fcd87645bd67b247ffb45f85b0` (2 August 2026). The training environment uses Python 3.11 and the project's locked dependencies. Release metadata records the configuration hash, classifier hash, chosen threshold and held-out evaluation metrics so the shipped binary can be traced back to the evaluated model.
+
+Synthetic speech comes from the `en_US-libritts_r-medium` Piper voice. Its model card lists the voice repository as MIT licensed and LibriTTS-R as the CC BY 4.0 training dataset. The bundled `MODEL-NOTICES.txt` records the source, license link, transformation and requested dataset citation. The application does not distribute the Piper model or source recordings.
