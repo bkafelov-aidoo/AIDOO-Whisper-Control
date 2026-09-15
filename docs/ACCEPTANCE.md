@@ -4,6 +4,8 @@
 
 Run `npm run check` before building and `npm run audit:mac` against the website DMG before publication. The first command also proves that known advisory-affected Linux packages have not entered the Apple Silicon macOS dependency graph. The artifact audit verifies the published checksum, Apple Silicon architecture, macOS 13 minimum, bundle ID, entitlements, the exact AIDOO Developer ID and Team ID on both the application and DMG, notarization tickets, Gatekeeper acceptance, removal of updater configuration, required website documents and matching product/website icons. Neither check launches the application or accesses the microphone.
 
+The final `npm run release:mac` path additionally requires a clean Lite working tree, current generated third-party notices and the exact `lite-vX.Y.Z` tag on HEAD. GitHub Actions accepts the same exact tag and rejects manual branch releases.
+
 The remaining checks below are behavioral and must be completed on the signed build. Microphone checks require a person at the Mac; the final clean-install path requires a second or clean macOS account.
 
 ## First run

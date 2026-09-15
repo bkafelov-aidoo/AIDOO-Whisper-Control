@@ -4,6 +4,13 @@ set -euo pipefail
 project_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$project_root"
 
+working_tree_state="$(git status --porcelain=v1 --untracked-files=normal -- .)"
+if [[ -n "$working_tree_state" ]]; then
+  printf 'Refusing to release from a working tree with uncommitted Lite changes:\n%s\n' \
+    "$working_tree_state" >&2
+  exit 1
+fi
+
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/aidoo-whisper-lite-release-target}"
 expected_signing_identity="Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)"
 signing_identity="${APPLE_SIGNING_IDENTITY:-$expected_signing_identity}"
@@ -18,8 +25,14 @@ import json, sys
 print(json.loads(Path(sys.argv[1]).read_text())["version"])
 PY
 )"
+expected_tag="lite-v${version}"
+if ! git tag --points-at HEAD --list "$expected_tag" | grep -Fxq "$expected_tag"; then
+  printf 'Refusing to release untagged source. HEAD must have tag %s.\n' "$expected_tag" >&2
+  exit 1
+fi
 
 python3 scripts/generate-third-party-notices.py
+git diff --exit-code -- resources/THIRD_PARTY_NOTICES.txt
 npm run check
 cargo test --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml
 cargo clippy --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
