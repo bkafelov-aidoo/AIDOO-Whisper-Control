@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { createEventScope } from "./lib/event-scope";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { Check, CircleAlert, LoaderCircle, Mic, Square } from "lucide-react";
 import type { AppSettings, OverlayBootstrapState, RecordingProgress, RecordingSnapshot } from "./types";
@@ -51,25 +52,27 @@ export default function Overlay() {
 
   useEffect(() => {
     let disposed = false;
-    const unlisten: Array<() => void> = [];
+    const events = createEventScope(listen, (reason) => setNotice(String(reason)));
     void invoke<OverlayBootstrapState>("overlay_bootstrap").then((state) => {
       if (!disposed) {
         setSnapshot(state.recording);
         setLanguage(resolveLanguage(state.uiLanguage));
       }
+    }).catch((reason: unknown) => {
+      if (!disposed) setNotice(String(reason));
     });
-    void listen<RecordingSnapshot>("recording:snapshot", ({ payload }) => setSnapshot(payload)).then((fn) => unlisten.push(fn));
-    void listen<string>("recording:state", ({ payload }) => {
+    events.listen<RecordingSnapshot>("recording:snapshot", ({ payload }) => setSnapshot(payload));
+    events.listen<string>("recording:state", ({ payload }) => {
       if (payload === "starting" || payload === "idle") setNotice(null);
       setSnapshot((current) => ({ ...current, state: payload as RecordingSnapshot["state"] }));
-    }).then((fn) => unlisten.push(fn));
-    void listen<RecordingProgress>("recording:progress", ({ payload }) => setSnapshot((current) => ({ ...current, progress: payload }))).then((fn) => unlisten.push(fn));
-    void listen<string>("recording:error", ({ payload }) => setSnapshot((current) => ({ ...current, state: "error", error: payload }))).then((fn) => unlisten.push(fn));
-    void listen<AppSettings>("settings:changed", ({ payload }) => setLanguage(resolveLanguage(payload.uiLanguage))).then((fn) => unlisten.push(fn));
-    void listen<string>("toast", ({ payload }) => setNotice(payload)).then((fn) => unlisten.push(fn));
+    });
+    events.listen<RecordingProgress>("recording:progress", ({ payload }) => setSnapshot((current) => ({ ...current, progress: payload })));
+    events.listen<string>("recording:error", ({ payload }) => setSnapshot((current) => ({ ...current, state: "error", error: payload })));
+    events.listen<AppSettings>("settings:changed", ({ payload }) => setLanguage(resolveLanguage(payload.uiLanguage)));
+    events.listen<string>("toast", ({ payload }) => setNotice(payload));
     return () => {
       disposed = true;
-      unlisten.forEach((fn) => fn());
+      events.dispose();
     };
   }, []);
 
@@ -109,7 +112,9 @@ export default function Overlay() {
 
   useEffect(() => {
     const height = Math.max(132, Math.min(260, (card.current?.scrollHeight ?? 84) + 48));
-    void getCurrentWindow().setSize(new LogicalSize(552, height)).then(() => invoke("reposition_overlay"));
+    void getCurrentWindow().setSize(new LogicalSize(552, height)).then(() => invoke("reposition_overlay")).catch(() => {
+      // Keep the previous size if the native window is closing or temporarily unavailable.
+    });
   }, [snapshot.state, snapshot.error, snapshot.progress.stage, notice]);
 
   const label = stateText[language];

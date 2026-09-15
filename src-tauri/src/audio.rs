@@ -60,6 +60,15 @@ pub struct RecordingActivity {
 
 type RecordingWriter = hound::WavWriter<BufWriter<File>>;
 
+struct MonoFrameTargets<'a> {
+    writer: &'a Arc<Mutex<Option<RecordingWriter>>>,
+    captured_frames: &'a Arc<AtomicU64>,
+    peak_level_bits: &'a Arc<AtomicU32>,
+    last_voice_frame: &'a Arc<AtomicU64>,
+    speech_detected: &'a Arc<AtomicBool>,
+    write_error: &'a Arc<Mutex<Option<String>>>,
+}
+
 impl Drop for ActiveRecording {
     fn drop(&mut self) {
         self.stream.take();
@@ -370,12 +379,14 @@ fn start_on_device(device: cpal::Device) -> Result<ActiveRecording, String> {
                 &config,
                 move |data: &[f32], _| {
                     write_mono_frames(
-                        &writer,
-                        &frames,
-                        &peak,
-                        &last_voice,
-                        &speech,
-                        &write_error,
+                        MonoFrameTargets {
+                            writer: &writer,
+                            captured_frames: &frames,
+                            peak_level_bits: &peak,
+                            last_voice_frame: &last_voice,
+                            speech_detected: &speech,
+                            write_error: &write_error,
+                        },
                         data,
                         channel_count,
                     );
@@ -399,12 +410,14 @@ fn start_on_device(device: cpal::Device) -> Result<ActiveRecording, String> {
                         .map(|value| *value as f32 / i16::MAX as f32)
                         .collect::<Vec<_>>();
                     write_mono_frames(
-                        &writer,
-                        &frames,
-                        &peak,
-                        &last_voice,
-                        &speech,
-                        &write_error,
+                        MonoFrameTargets {
+                            writer: &writer,
+                            captured_frames: &frames,
+                            peak_level_bits: &peak,
+                            last_voice_frame: &last_voice,
+                            speech_detected: &speech,
+                            write_error: &write_error,
+                        },
                         &converted,
                         channel_count,
                     );
@@ -428,12 +441,14 @@ fn start_on_device(device: cpal::Device) -> Result<ActiveRecording, String> {
                         .map(|value| (*value as f32 / u16::MAX as f32) * 2.0 - 1.0)
                         .collect::<Vec<_>>();
                     write_mono_frames(
-                        &writer,
-                        &frames,
-                        &peak,
-                        &last_voice,
-                        &speech,
-                        &write_error,
+                        MonoFrameTargets {
+                            writer: &writer,
+                            captured_frames: &frames,
+                            peak_level_bits: &peak,
+                            last_voice_frame: &last_voice,
+                            speech_detected: &speech,
+                            write_error: &write_error,
+                        },
                         &converted,
                         channel_count,
                     );
@@ -489,16 +504,15 @@ fn probe(routing: &MicrophoneRoutingConfig) -> Result<MicrophoneProbe, String> {
     })
 }
 
-fn write_mono_frames(
-    writer: &Arc<Mutex<Option<RecordingWriter>>>,
-    captured_frames: &Arc<AtomicU64>,
-    peak_level_bits: &Arc<AtomicU32>,
-    last_voice_frame: &Arc<AtomicU64>,
-    speech_detected: &Arc<AtomicBool>,
-    write_error: &Arc<Mutex<Option<String>>>,
-    interleaved: &[f32],
-    channels: u16,
-) {
+fn write_mono_frames(targets: MonoFrameTargets<'_>, interleaved: &[f32], channels: u16) {
+    let MonoFrameTargets {
+        writer,
+        captured_frames,
+        peak_level_bits,
+        last_voice_frame,
+        speech_detected,
+        write_error,
+    } = targets;
     let channels = usize::from(channels.max(1));
     let Ok(mut writer_guard) = writer.lock() else {
         remember_write_error(write_error, "Аудио файлът е заключен.");
@@ -726,12 +740,14 @@ mod tests {
         let error = Arc::new(Mutex::new(None));
 
         write_mono_frames(
-            &writer,
-            &captured_frames,
-            &peak,
-            &last_voice_frame,
-            &speech_detected,
-            &error,
+            MonoFrameTargets {
+                writer: &writer,
+                captured_frames: &captured_frames,
+                peak_level_bits: &peak,
+                last_voice_frame: &last_voice_frame,
+                speech_detected: &speech_detected,
+                write_error: &error,
+            },
             &[0.5, 0.5, -0.25, -0.25],
             2,
         );
