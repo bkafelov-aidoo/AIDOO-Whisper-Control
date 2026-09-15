@@ -11,7 +11,7 @@ use models::{
     RecordingSnapshot, TranscriptEntry, TranscriptionCompleted,
 };
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 #[cfg(unix)]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
@@ -2016,14 +2016,32 @@ fn path_is_authorized_for_open(
             saved == requested && is_managed_output_path(saved, "txt")
         })
     });
-    let is_diagnostic_bundle = requested.parent() == Some(data_directory)
-        && requested
-            .file_name()
-            .and_then(|value| value.to_str())
-            .is_some_and(|name| {
-                name.starts_with("AIDOO-Whisper-Lite-Diagnostics-") && name.ends_with(".zip")
-            });
+    let is_diagnostic_bundle = is_managed_diagnostic_path(requested, data_directory);
     is_history_file || is_diagnostic_bundle
+}
+
+fn is_managed_diagnostic_path(path: &Path, data_directory: &Path) -> bool {
+    if path.parent() != Some(data_directory)
+        || !path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("zip"))
+    {
+        return false;
+    }
+
+    let Some(stem) = path.file_stem().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    let Some(suffix) = stem.strip_prefix("AIDOO-Whisper-Lite-Diagnostics-") else {
+        return false;
+    };
+    let Some((timestamp, identifier)) = suffix.rsplit_once('-') else {
+        return false;
+    };
+
+    chrono::NaiveDateTime::parse_from_str(timestamp, "%Y%m%d-%H%M%S").is_ok()
+        && is_lower_hex_identifier(identifier, 12)
 }
 
 fn is_regular_file_with_extension(path: &Path, expected_extension: &str) -> bool {
@@ -2056,8 +2074,14 @@ fn is_managed_output_path(path: &Path, expected_extension: &str) -> bool {
     };
 
     chrono::NaiveDateTime::parse_from_str(timestamp, "%Y-%m-%d_%H-%M-%S").is_ok()
-        && identifier.len() == 6
-        && identifier.bytes().all(|value| value.is_ascii_hexdigit())
+        && is_lower_hex_identifier(identifier, 6)
+}
+
+fn is_lower_hex_identifier(value: &str, expected_length: usize) -> bool {
+    value.len() == expected_length
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn is_regular_local_file(path: &Path) -> bool {
@@ -2120,7 +2144,7 @@ mod local_path_tests {
             data
         ));
         assert!(path_is_authorized_for_open(
-            &data.join("AIDOO-Whisper-Lite-Diagnostics-20260914-000000.zip"),
+            &data.join("AIDOO-Whisper-Lite-Diagnostics-20260914-000000-abcdef123456.zip"),
             &history,
             data
         ));
@@ -2161,6 +2185,25 @@ mod local_path_tests {
         assert!(!is_managed_output_path(
             Path::new("/Users/example/AIDOO-Whisper-2026-09-14_00-00-00-abcdef0.flac"),
             "flac"
+        ));
+        assert!(!is_managed_output_path(
+            Path::new("/Users/example/AIDOO-Whisper-2026-09-14_00-00-00-ABCDEF.flac"),
+            "flac"
+        ));
+        assert!(!path_is_authorized_for_open(
+            &data.join("AIDOO-Whisper-Lite-Diagnostics-20260914-000000.zip"),
+            &history,
+            data
+        ));
+        assert!(!path_is_authorized_for_open(
+            &data.join("AIDOO-Whisper-Lite-Diagnostics-20261314-000000-abcdef123456.zip"),
+            &history,
+            data
+        ));
+        assert!(!path_is_authorized_for_open(
+            &data.join("AIDOO-Whisper-Lite-Diagnostics-20260914-000000-abcdef12345g.zip"),
+            &history,
+            data
         ));
     }
 
@@ -2323,10 +2366,13 @@ fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String> {
             let Some(name) = report.file_name().and_then(|value| value.to_str()) else {
                 continue;
             };
-            if let Ok(contents) = std::fs::read(&report) {
-                let bounded = &contents[..contents.len().min(1_000_000)];
+            let mut bounded = Vec::with_capacity(1_000_000);
+            if File::open(&report)
+                .and_then(|file| file.take(1_000_000).read_to_end(&mut bounded))
+                .is_ok()
+            {
                 let sanitized = storage::sanitize_support_text(
-                    &String::from_utf8_lossy(bounded),
+                    &String::from_utf8_lossy(&bounded),
                     &transcript_texts,
                 );
                 zip.start_file(format!("crash-reports/{name}"), options)
