@@ -183,16 +183,6 @@ pub async fn transcribe(
     settings: &AppSettings,
     progress: Option<ProgressCallback>,
 ) -> Result<String, TranscriptionFailure> {
-    let audio = streamed_audio_part(path, progress.clone())
-        .await
-        .map_err(TranscriptionFailure::before_request)?;
-    let mut form = Form::new()
-        .part("file", audio)
-        .text("model", settings.model.clone())
-        .text("response_format", "json");
-    if settings.language != "auto" {
-        form = form.text("language", settings.language.clone());
-    }
     let client = reqwest::Client::builder()
         .https_only(true)
         .redirect(reqwest::redirect::Policy::none())
@@ -204,8 +194,37 @@ pub async fn transcribe(
                 "OpenAI връзката не можа да бъде подготвена: {error}"
             ))
         })?;
+    transcribe_with_client(
+        path,
+        api_key,
+        settings,
+        progress,
+        &client,
+        "https://api.openai.com/v1/audio/transcriptions",
+    )
+    .await
+}
+
+async fn transcribe_with_client(
+    path: &Path,
+    api_key: &str,
+    settings: &AppSettings,
+    progress: Option<ProgressCallback>,
+    client: &reqwest::Client,
+    endpoint: &str,
+) -> Result<String, TranscriptionFailure> {
+    let audio = streamed_audio_part(path, progress.clone())
+        .await
+        .map_err(TranscriptionFailure::before_request)?;
+    let mut form = Form::new()
+        .part("file", audio)
+        .text("model", settings.model.clone())
+        .text("response_format", "json");
+    if settings.language != "auto" {
+        form = form.text("language", settings.language.clone());
+    }
     let response = client
-        .post("https://api.openai.com/v1/audio/transcriptions")
+        .post(endpoint)
         .bearer_auth(api_key)
         .multipart(form)
         .send()
@@ -312,8 +331,82 @@ fn compact_api_message(message: &str) -> String {
 mod tests {
     use super::{
         compact_api_message, encode_wav_to_flac, response_status_is_retry_safe,
-        streamed_audio_part, TranscriptionFailure, MAX_TRANSCRIPTION_FILE_BYTES,
+        streamed_audio_part, transcribe_with_client, TranscriptionFailure,
+        MAX_TRANSCRIPTION_FILE_BYTES,
     };
+    use crate::models::AppSettings;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::path::PathBuf;
+    use std::thread::JoinHandle;
+    use std::time::Duration;
+
+    fn temporary_audio() -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "aidoo-lite-http-transcription-test-{}.flac",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::write(&path, b"fLaC-test-audio").unwrap();
+        path
+    }
+
+    fn spawn_http_response(status: &str, body: &str, delay: Duration) -> (String, JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let status = status.to_string();
+        let body = body.as_bytes().to_vec();
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0_u8; 4096];
+            let header_end = loop {
+                let read = stream.read(&mut buffer).unwrap();
+                if read == 0 {
+                    return;
+                }
+                request.extend_from_slice(&buffer[..read]);
+                if let Some(offset) = request.windows(4).position(|part| part == b"\r\n\r\n") {
+                    break offset + 4;
+                }
+            };
+            let headers = String::from_utf8_lossy(&request[..header_end]);
+            let content_length = headers
+                .lines()
+                .find_map(|line| {
+                    let (name, value) = line.split_once(':')?;
+                    name.eq_ignore_ascii_case("content-length")
+                        .then(|| value.trim().parse::<usize>().ok())
+                        .flatten()
+                })
+                .unwrap();
+            while request.len() - header_end < content_length {
+                let read = stream.read(&mut buffer).unwrap();
+                if read == 0 {
+                    return;
+                }
+                request.extend_from_slice(&buffer[..read]);
+            }
+            std::thread::sleep(delay);
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            let _ = stream.write_all(response.as_bytes());
+            let _ = stream.write_all(&body);
+        });
+        (format!("http://{address}/v1/audio/transcriptions"), handle)
+    }
+
+    fn local_client(timeout: Duration) -> reqwest::Client {
+        reqwest::Client::builder()
+            .connect_timeout(timeout)
+            .timeout(timeout)
+            .build()
+            .unwrap()
+    }
 
     #[test]
     fn api_error_messages_are_single_line_and_bounded() {
@@ -382,6 +475,67 @@ mod tests {
         drop(file);
 
         assert!(streamed_audio_part(&path, None).await.is_ok());
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[tokio::test]
+    async fn ambiguous_http_outcomes_are_never_marked_retryable() {
+        let path = temporary_audio();
+        let settings = AppSettings::default();
+
+        let (endpoint, server) = spawn_http_response(
+            "500 Internal Server Error",
+            r#"{"error":{"message":"temporary upstream failure"}}"#,
+            Duration::ZERO,
+        );
+        let server_error = transcribe_with_client(
+            &path,
+            "sk-test-only",
+            &settings,
+            None,
+            &local_client(Duration::from_secs(2)),
+            &endpoint,
+        )
+        .await
+        .unwrap_err();
+        server.join().unwrap();
+        assert!(!server_error.retryable);
+        assert!(server_error.message.contains("temporary upstream failure"));
+
+        let (endpoint, server) = spawn_http_response("200 OK", "{invalid-json", Duration::ZERO);
+        let invalid_success = transcribe_with_client(
+            &path,
+            "sk-test-only",
+            &settings,
+            None,
+            &local_client(Duration::from_secs(2)),
+            &endpoint,
+        )
+        .await
+        .unwrap_err();
+        server.join().unwrap();
+        assert!(!invalid_success.retryable);
+        assert!(invalid_success.message.contains("невалиден отговор"));
+
+        let (endpoint, server) = spawn_http_response(
+            "200 OK",
+            r#"{"text":"too late"}"#,
+            Duration::from_millis(300),
+        );
+        let timeout = transcribe_with_client(
+            &path,
+            "sk-test-only",
+            &settings,
+            None,
+            &local_client(Duration::from_millis(50)),
+            &endpoint,
+        )
+        .await
+        .unwrap_err();
+        server.join().unwrap();
+        assert!(!timeout.retryable);
+        assert!(timeout.message.contains("Няма връзка с OpenAI"));
+
         std::fs::remove_file(path).unwrap();
     }
 

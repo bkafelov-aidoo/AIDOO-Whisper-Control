@@ -138,12 +138,16 @@ export default function Overlay() {
           {snapshot.state === "done" && <span>{label.complete}</span>}
           {notice && snapshot.state !== "error" && <span className="notice-text">{errorMessage(notice, language)}</span>}
         </div>
-        {snapshot.state === "recording" && (
+        {(snapshot.state === "starting" || snapshot.state === "recording") && (
           <div className="overlay-live">
-            <div className="overlay-wave" aria-hidden="true">
-              {Array.from({ length: 9 }, (_, index) => <i key={index} style={{ animationDelay: `${index * -0.09}s` }} />)}
-            </div>
-            <time className="overlay-time">{formatDuration(snapshot.elapsedSeconds)}</time>
+            {snapshot.state === "recording" && (
+              <>
+                <div className="overlay-wave" aria-hidden="true">
+                  {Array.from({ length: 9 }, (_, index) => <i key={index} style={{ animationDelay: `${index * -0.09}s` }} />)}
+                </div>
+                <time className="overlay-time">{formatDuration(snapshot.elapsedSeconds)}</time>
+              </>
+            )}
             <button className="overlay-stop" type="button" title={label.stopTitle} aria-label={label.stopTitle} onClick={() => void stopRecording()}>
               <Square aria-hidden="true" />
               <span>{label.stop}</span>

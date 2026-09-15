@@ -1,6 +1,6 @@
 [package]
 name = "aidoo-whisper-lite"
-version = "1.0.2"
+version = "1.0.3"
 description = "Cost-efficient voice dictation for macOS"
 authors = ["Aidoo Ltd. OOD"]
 edition = "2021"

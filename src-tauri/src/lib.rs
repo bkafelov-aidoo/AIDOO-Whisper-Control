@@ -854,7 +854,7 @@ fn overlay_visible_for_state(state: &str) -> bool {
 }
 
 fn overlay_accepts_pointer_input(state: &str) -> bool {
-    state == "recording"
+    matches!(state, "starting" | "recording")
 }
 
 fn set_recording_state(app: &AppHandle, next: &str) {
@@ -3347,8 +3347,9 @@ mod local_path_tests {
 
     #[test]
     fn overlay_accepts_clicks_only_while_its_stop_button_is_actionable() {
+        assert!(overlay_accepts_pointer_input("starting"));
         assert!(overlay_accepts_pointer_input("recording"));
-        for state in ["idle", "starting", "transcribing", "done", "error"] {
+        for state in ["idle", "transcribing", "done", "error"] {
             assert!(!overlay_accepts_pointer_input(state), "{state}");
         }
     }
