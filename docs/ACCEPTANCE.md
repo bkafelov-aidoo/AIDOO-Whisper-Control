@@ -39,6 +39,7 @@ The remaining checks below are behavioral and must be completed on the signed bu
 ## Local data
 
 - Test all combinations of FLAC, TXT and history toggles.
+- Confirm newly saved FLAC and TXT files have current-user-only permissions and use the current twelve-character filename identifier; confirm a legacy six-character history filename can still be opened.
 - Change the output folder and confirm new files use it.
 - Open FLAC/TXT from history, copy text and retranscribe saved audio.
 - During retranscription from history, inject a local finalization failure after the OpenAI response. Confirm the original FLAC remains in place, “Finish locally” appears, no second OpenAI request occurs, and another history retranscription is refused until the Recovery item is resolved.

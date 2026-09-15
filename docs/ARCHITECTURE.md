@@ -2,7 +2,7 @@
 
 The interface and product flow live in React/TypeScript. Rust is a thin local native layer inside the Tauri process; there is no AIDOO server and no separate backend to operate.
 
-`AppSettings` is the persisted product contract. It is normalized whenever it is loaded or saved. The API key is deliberately excluded and lives in macOS Keychain under service `app.aidoo.whisper-lite`. `storage.rs` owns atomic JSON writes, a bounded 10-item history, diagnostics redaction and failed-recording recovery. Private JSON reads are size-bounded; malformed or oversized settings, history and recovery metadata are atomically preserved as permission-restricted `.corrupt-…` files before safe defaults or audio-based recovery are used.
+`AppSettings` is the persisted product contract. It is normalized whenever it is loaded or saved. The API key is deliberately excluded and lives in macOS Keychain under service `app.aidoo.whisper-lite`. `storage.rs` owns atomic JSON writes, a bounded 10-item history, diagnostics redaction and failed-recording recovery. Private JSON reads are size-bounded; malformed or oversized settings, history and recovery metadata are atomically preserved as permission-restricted `.corrupt-…` files before safe defaults or audio-based recovery are used. Newly saved FLAC/TXT files and their temporary publication files use current-user-only permissions. Current output filenames use a twelve-character random identifier; legacy six-character filenames remain readable.
 
 The recording state machine is:
 

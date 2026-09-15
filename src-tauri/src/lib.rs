@@ -714,9 +714,11 @@ fn ensure_output_directory_writable(directory: &Path) -> Result<(), String> {
         ".aidoo-whisper-write-test-{}",
         uuid::Uuid::new_v4()
     ));
-    let file = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let file = options
         .open(&probe)
         .map_err(|error| format!("Папката не може да бъде използвана: {error}"))?;
     drop(file);
@@ -1023,7 +1025,7 @@ fn safe_file_stem() -> String {
     format!(
         "AIDOO-Whisper-{}-{}",
         Local::now().format("%Y-%m-%d_%H-%M-%S"),
-        &uuid::Uuid::new_v4().simple().to_string()[..6]
+        &uuid::Uuid::new_v4().simple().to_string()[..12]
     )
 }
 
@@ -1176,10 +1178,11 @@ fn copy_output_atomic(source: &Path, target: &Path) -> std::io::Result<()> {
     let temporary = temporary_output_path(target);
     let result = (|| {
         let mut source = std::fs::File::open(source)?;
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)?;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        options.mode(0o600);
+        let mut file = options.open(&temporary)?;
         std::io::copy(&mut source, &mut file)?;
         file.sync_all()?;
         drop(file);
@@ -1194,10 +1197,11 @@ fn copy_output_atomic(source: &Path, target: &Path) -> std::io::Result<()> {
 fn write_output_atomic(target: &Path, contents: &[u8]) -> std::io::Result<()> {
     let temporary = temporary_output_path(target);
     let result = (|| {
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)?;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        options.mode(0o600);
+        let mut file = options.open(&temporary)?;
         file.write_all(contents)?;
         file.sync_all()?;
         drop(file);
@@ -2104,7 +2108,7 @@ fn is_managed_output_path(path: &Path, expected_extension: &str) -> bool {
     };
 
     chrono::NaiveDateTime::parse_from_str(timestamp, "%Y-%m-%d_%H-%M-%S").is_ok()
-        && is_lower_hex_identifier(identifier, 6)
+        && (is_lower_hex_identifier(identifier, 6) || is_lower_hex_identifier(identifier, 12))
 }
 
 fn is_lower_hex_identifier(value: &str, expected_length: usize) -> bool {
@@ -2172,6 +2176,12 @@ mod local_path_tests {
             Path::new("/Volumes/External/AIDOO/AIDOO-Whisper-2026-09-14_00-00-00-abcdef.flac"),
             &history,
             data
+        ));
+        assert!(is_managed_output_path(
+            Path::new(
+                "/Volumes/External/AIDOO/AIDOO-Whisper-2026-09-14_00-00-00-abcdef123456.flac"
+            ),
+            "flac"
         ));
         assert!(path_is_authorized_for_open(
             &data.join("AIDOO-Whisper-Lite-Diagnostics-20260914-000000-abcdef123456.zip"),

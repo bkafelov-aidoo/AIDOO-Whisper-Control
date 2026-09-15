@@ -38,7 +38,7 @@ The current source contains additional safeguards that are not present in the ar
 - failed audio is recoverable even when its metadata is missing, and its filename records whether retry is safe without risking another API charge;
 - completed OpenAI text survives a local finalization failure, and its recovery action retries only local work while the audio filename remains fail-safe;
 - ambiguous API outcomes are fail-safe and non-retryable, including timeouts after request start, HTTP 5xx and unreadable HTTP 2xx responses; history retranscription preserves the original FLAC and creates a blocking non-retryable Recovery copy;
-- history-linked files are accepted for opening, retranscription or deletion only when their names match the exact generated timestamp and six-character identifier format;
+- history-linked files are accepted for opening, retranscription or deletion only when their names match the exact generated timestamp and current twelve-character or legacy six-character identifier format; newly saved FLAC/TXT files use current-user-only permissions;
 - diagnostic ZIPs use an exact generated filename allowlist, and at most one megabyte is read from each included Apple crash report;
 - temporary recording files and native audio-worker waits are bounded, including cleanup of results abandoned after a timeout;
 - long recovery errors wrap in the main window, and a failed automatic paste remains available in the menu bar after the toast disappears.
