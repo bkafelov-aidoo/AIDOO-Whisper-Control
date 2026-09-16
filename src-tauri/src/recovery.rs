@@ -508,6 +508,7 @@ pub(super) async fn retry_failed_transcription(
     });
     match transcription::transcribe(&staged, &key, &settings, Some(callback)).await {
         Ok(text) => {
+            record_transcription_usage(&app, failed.duration_seconds, &settings.model);
             set_progress(&app, 100, "finishing_locally", true);
             let completed_text = text.clone();
             let completed =
@@ -806,6 +807,7 @@ pub(super) async fn retranscribe_history_item(
     });
     match transcription::transcribe(&request_audio, &key, &settings, Some(callback)).await {
         Ok(text) => {
+            record_transcription_usage(&app, entry.duration_seconds, &settings.model);
             set_progress(&app, 100, "finishing_locally", true);
             let completed_text = text.clone();
             let completed = match finalize_success(

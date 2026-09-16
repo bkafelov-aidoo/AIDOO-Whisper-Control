@@ -3,6 +3,10 @@ use std::path::Path;
 
 pub const ECONOMY_MODEL: &str = "gpt-4o-mini-transcribe";
 pub const ACCURACY_MODEL: &str = "gpt-transcribe";
+pub const LIVE_MODEL: &str = "gpt-live-1";
+pub const ECONOMY_RATE_NANO_USD_PER_MINUTE: u64 = 3_000_000;
+pub const ACCURACY_RATE_NANO_USD_PER_MINUTE: u64 = 4_500_000;
+pub const LIVE_RATE_NANO_USD_PER_MINUTE: u64 = 50_000_000;
 const SUPPORTED_LANGUAGES: &[&str] = &["auto", "bg", "en", "de", "es", "fr", "it"];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -109,7 +113,11 @@ fn normalized_optional(value: Option<String>) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{AppSettings, FailedRecording, ACCURACY_MODEL, ECONOMY_MODEL};
+    use super::{
+        cost_nano_usd, AppSettings, FailedRecording, UsageLedger, ACCURACY_MODEL,
+        ACCURACY_RATE_NANO_USD_PER_MINUTE, ECONOMY_MODEL, ECONOMY_RATE_NANO_USD_PER_MINUTE,
+        LIVE_MODEL, LIVE_RATE_NANO_USD_PER_MINUTE,
+    };
 
     #[test]
     fn production_model_aliases_remain_stable() {
@@ -157,6 +165,49 @@ mod tests {
         assert!(recording.retryable);
         assert!(recording.completed_text.is_none());
     }
+
+    #[test]
+    fn usage_cost_uses_millisecond_duration_without_minute_rounding() {
+        assert_eq!(cost_nano_usd(1_000, LIVE_RATE_NANO_USD_PER_MINUTE), 833_333);
+        assert_eq!(
+            cost_nano_usd(60_000, LIVE_RATE_NANO_USD_PER_MINUTE),
+            50_000_000
+        );
+        assert_eq!(
+            cost_nano_usd(60_000, ECONOMY_RATE_NANO_USD_PER_MINUTE),
+            3_000_000
+        );
+        assert_eq!(
+            cost_nano_usd(60_000, ACCURACY_RATE_NANO_USD_PER_MINUTE),
+            4_500_000
+        );
+    }
+
+    #[test]
+    fn usage_ledger_keeps_separate_and_combined_totals() {
+        let mut usage = UsageLedger::default();
+        usage.record(
+            "live",
+            "2026-09-16T10:00:00Z".into(),
+            30_000,
+            LIVE_MODEL,
+            false,
+        );
+        usage.record(
+            "transcription",
+            "2026-09-16T10:01:00Z".into(),
+            120_000,
+            ECONOMY_MODEL,
+            false,
+        );
+
+        assert_eq!(usage.live_session_count, 1);
+        assert_eq!(usage.transcription_count, 1);
+        assert_eq!(usage.live_cost_nano_usd, 25_000_000);
+        assert_eq!(usage.transcription_cost_nano_usd, 6_000_000);
+        assert_eq!(usage.entries.len(), 2);
+        assert_eq!(usage.entries[0].kind, "transcription");
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -170,6 +221,93 @@ pub struct TranscriptEntry {
     pub language: String,
     pub audio_path: Option<String>,
     pub text_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageEntry {
+    pub id: String,
+    pub kind: String,
+    pub created_at: String,
+    pub duration_millis: u64,
+    pub model: String,
+    pub rate_nano_usd_per_minute: u64,
+    pub cost_nano_usd: u64,
+    #[serde(default)]
+    pub imported_from_history: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct UsageLedger {
+    pub entries: Vec<UsageEntry>,
+    pub live_duration_millis: u64,
+    pub transcription_duration_millis: u64,
+    pub live_cost_nano_usd: u64,
+    pub transcription_cost_nano_usd: u64,
+    pub live_session_count: u64,
+    pub transcription_count: u64,
+}
+
+impl UsageLedger {
+    pub fn record(
+        &mut self,
+        kind: &str,
+        created_at: String,
+        duration_millis: u64,
+        model: &str,
+        imported_from_history: bool,
+    ) -> Option<UsageEntry> {
+        let rate = match (kind, model) {
+            ("live", LIVE_MODEL) => LIVE_RATE_NANO_USD_PER_MINUTE,
+            ("transcription", ECONOMY_MODEL) => ECONOMY_RATE_NANO_USD_PER_MINUTE,
+            ("transcription", ACCURACY_MODEL) => ACCURACY_RATE_NANO_USD_PER_MINUTE,
+            _ => return None,
+        };
+        let cost = cost_nano_usd(duration_millis, rate);
+        let entry = UsageEntry {
+            id: uuid::Uuid::new_v4().to_string(),
+            kind: kind.into(),
+            created_at,
+            duration_millis,
+            model: model.into(),
+            rate_nano_usd_per_minute: rate,
+            cost_nano_usd: cost,
+            imported_from_history,
+        };
+        match kind {
+            "live" => {
+                self.live_duration_millis =
+                    self.live_duration_millis.saturating_add(duration_millis);
+                self.live_cost_nano_usd = self.live_cost_nano_usd.saturating_add(cost);
+                self.live_session_count = self.live_session_count.saturating_add(1);
+            }
+            "transcription" => {
+                self.transcription_duration_millis = self
+                    .transcription_duration_millis
+                    .saturating_add(duration_millis);
+                self.transcription_cost_nano_usd =
+                    self.transcription_cost_nano_usd.saturating_add(cost);
+                self.transcription_count = self.transcription_count.saturating_add(1);
+            }
+            _ => return None,
+        }
+        self.entries.insert(0, entry.clone());
+        self.entries.truncate(500);
+        Some(entry)
+    }
+}
+
+pub fn duration_millis(duration_seconds: f64) -> u64 {
+    if !duration_seconds.is_finite() || duration_seconds <= 0.0 {
+        return 0;
+    }
+    (duration_seconds * 1_000.0).round().min(u64::MAX as f64) as u64
+}
+
+pub fn cost_nano_usd(duration_millis: u64, rate_nano_usd_per_minute: u64) -> u64 {
+    let numerator = u128::from(duration_millis) * u128::from(rate_nano_usd_per_minute);
+    ((numerator + 30_000) / 60_000).min(u128::from(u64::MAX)) as u64
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -222,6 +360,7 @@ pub struct RecordingSnapshot {
 pub struct BootstrapState {
     pub settings: AppSettings,
     pub history: Vec<TranscriptEntry>,
+    pub usage: UsageLedger,
     pub failed_recording: Option<FailedRecording>,
     pub microphones: Vec<String>,
     pub has_api_key: bool,

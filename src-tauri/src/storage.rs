@@ -1,4 +1,4 @@
-use crate::models::{AppSettings, FailedRecording, TranscriptEntry};
+use crate::models::{duration_millis, AppSettings, FailedRecording, TranscriptEntry, UsageLedger};
 use chrono::{DateTime, Utc};
 use serde::{de::DeserializeOwned, Serialize};
 use std::fs::{self, File, OpenOptions};
@@ -18,6 +18,7 @@ const MAX_DIAGNOSTIC_BYTES: usize = 1_000_000;
 const RETAINED_DIAGNOSTIC_BYTES: usize = 500_000;
 const MAX_SETTINGS_JSON_BYTES: u64 = 1_000_000;
 const MAX_HISTORY_JSON_BYTES: u64 = 10_000_000;
+const MAX_USAGE_JSON_BYTES: u64 = 10_000_000;
 const MAX_HISTORY_DELETION_JSON_BYTES: u64 = 1_000_000;
 // A bounded OpenAI response can contain up to 2 MB of JSON. Re-serializing its decoded text can
 // expand escaped characters, so Recovery metadata gets a separate still-bounded allowance.
@@ -67,6 +68,10 @@ fn settings_path() -> PathBuf {
 
 fn history_path() -> PathBuf {
     data_dir().join("history.json")
+}
+
+fn usage_path() -> PathBuf {
+    data_dir().join("usage.json")
 }
 
 fn pending_history_deletion_path() -> PathBuf {
@@ -125,6 +130,32 @@ pub fn load_history() -> Vec<TranscriptEntry> {
 pub fn save_history(history: &[TranscriptEntry]) -> Result<(), String> {
     let bounded = history.iter().take(10).cloned().collect::<Vec<_>>();
     write_json_atomic(&history_path(), &bounded)
+}
+
+pub fn load_usage(history: &[TranscriptEntry]) -> UsageLedger {
+    if let Some(mut ledger) = read_json::<UsageLedger>(&usage_path(), MAX_USAGE_JSON_BYTES) {
+        ledger.entries.truncate(500);
+        return ledger;
+    }
+
+    let mut ledger = UsageLedger::default();
+    // Seed the new ledger once from the local history so existing users do not start with an
+    // empty dashboard. History is bounded, so the UI identifies these rows as imported estimates.
+    for entry in history.iter().rev() {
+        let _ = ledger.record(
+            "transcription",
+            entry.created_at.clone(),
+            duration_millis(entry.duration_seconds),
+            &entry.model,
+            true,
+        );
+    }
+    let _ = save_usage(&ledger);
+    ledger
+}
+
+pub fn save_usage(usage: &UsageLedger) -> Result<(), String> {
+    write_json_atomic(&usage_path(), usage)
 }
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize)]
@@ -527,11 +558,11 @@ fn write_json_atomic<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::{
-        ensure_directories, failed_recording_path, load_failed_recording, read_json, recovery_dir,
-        recovery_file_matches_metadata, recovery_file_retryability, sanitize_diagnostic,
-        sanitize_support_text, with_test_data_dir, write_json_atomic,
+        ensure_directories, failed_recording_path, load_failed_recording, load_usage, read_json,
+        recovery_dir, recovery_file_matches_metadata, recovery_file_retryability,
+        sanitize_diagnostic, sanitize_support_text, with_test_data_dir, write_json_atomic,
     };
-    use crate::models::FailedRecording;
+    use crate::models::{FailedRecording, TranscriptEntry, ECONOMY_MODEL};
     use serde_json::json;
 
     #[test]
@@ -581,6 +612,37 @@ mod tests {
             .map(|entry| entry.unwrap().file_name())
             .collect::<Vec<_>>();
         assert_eq!(files, vec![std::ffi::OsString::from("settings.json")]);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn first_usage_load_imports_existing_history_once() {
+        let root = std::env::temp_dir().join(format!(
+            "aidoo-lite-usage-import-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let history = vec![TranscriptEntry {
+            id: "history-1".into(),
+            text: "private text must not enter usage.json".into(),
+            created_at: "2026-09-16T10:00:00Z".into(),
+            duration_seconds: 60.0,
+            model: ECONOMY_MODEL.into(),
+            language: "bg".into(),
+            audio_path: None,
+            text_path: None,
+        }];
+
+        with_test_data_dir(root.clone(), || {
+            let imported = load_usage(&history);
+            assert_eq!(imported.transcription_count, 1);
+            assert_eq!(imported.transcription_cost_nano_usd, 3_000_000);
+            assert!(imported.entries[0].imported_from_history);
+
+            let loaded_again = load_usage(&[]);
+            assert_eq!(loaded_again, imported);
+            let raw = std::fs::read_to_string(root.join("usage.json")).unwrap();
+            assert!(!raw.contains("private text"));
+        });
         std::fs::remove_dir_all(root).unwrap();
     }
 

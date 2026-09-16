@@ -32,6 +32,27 @@ export interface TranscriptEntry {
   textPath: string | null;
 }
 
+export interface UsageEntry {
+  id: string;
+  kind: "live" | "transcription";
+  createdAt: string;
+  durationMillis: number;
+  model: string;
+  rateNanoUsdPerMinute: number;
+  costNanoUsd: number;
+  importedFromHistory: boolean;
+}
+
+export interface UsageLedger {
+  entries: UsageEntry[];
+  liveDurationMillis: number;
+  transcriptionDurationMillis: number;
+  liveCostNanoUsd: number;
+  transcriptionCostNanoUsd: number;
+  liveSessionCount: number;
+  transcriptionCount: number;
+}
+
 export interface FailedRecording {
   path: string;
   createdAt: string;
@@ -72,6 +93,7 @@ export interface RecordingSnapshot {
 export interface BootstrapState {
   settings: AppSettings;
   history: TranscriptEntry[];
+  usage: UsageLedger;
   failedRecording: FailedRecording | null;
   microphones: string[];
   hasApiKey: boolean;

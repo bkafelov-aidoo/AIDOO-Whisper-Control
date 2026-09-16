@@ -2,7 +2,8 @@ use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-pub const LIVE_MODEL: &str = "gpt-live-1";
+use crate::models::LIVE_MODEL;
+
 pub const LIVE_BACKEND_MODEL: &str = "gpt-5.6-terra";
 const LIVE_SESSION_ENDPOINT: &str = "https://api.openai.com/v1/live/sessions";
 const MAX_SDP_BYTES: usize = 128 * 1024;

@@ -540,6 +540,7 @@ async fn stop_and_transcribe_inner(app: &AppHandle) -> Result<TranscriptionCompl
         transcription::transcribe(&request_audio, &api_key, &settings, Some(callback)).await;
     match result {
         Ok(text) => {
+            record_transcription_usage(app, captured.duration_seconds, &settings.model);
             set_progress(app, 100, "finishing_locally", true);
             let completed_text = text.clone();
             let completed = match finalize_success(

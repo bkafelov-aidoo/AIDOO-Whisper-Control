@@ -12,6 +12,7 @@ pub(super) fn release_live_session(app: &AppHandle, generation: Option<u64>) -> 
     if !state.live_session_active.swap(false, Ordering::AcqRel) {
         return false;
     }
+    finish_live_usage(app);
     state.operation_active.store(false, Ordering::Release);
     if let Ok(mut phase) = state.live_phase.lock() {
         *phase = "idle".into();
@@ -69,6 +70,9 @@ pub(super) async fn create_live_session(
             return Err(error);
         }
     };
+    if state.live_session_active.load(Ordering::Acquire) {
+        start_live_usage(&state);
+    }
     storage::append_diagnostic("GPT-Live session started");
     Ok(answer)
 }
@@ -204,6 +208,11 @@ pub(super) fn bootstrap(app: AppHandle, state: State<'_, AppState>) -> Bootstrap
         .lock()
         .map(|value| value.clone())
         .unwrap_or_default();
+    let usage = state
+        .usage
+        .lock()
+        .map(|value| value.clone())
+        .unwrap_or_default();
     let failed_recording = state
         .failed_recording
         .lock()
@@ -226,6 +235,7 @@ pub(super) fn bootstrap(app: AppHandle, state: State<'_, AppState>) -> Bootstrap
     BootstrapState {
         settings,
         history,
+        usage,
         failed_recording,
         microphones: audio::microphone_names(),
         has_api_key,

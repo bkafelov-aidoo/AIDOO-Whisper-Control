@@ -17,6 +17,7 @@ use app_ui::*;
 use commands::*;
 use dictation::*;
 use recovery::*;
+use usage::*;
 use wake_runtime::*;
 
 mod models;
@@ -26,11 +27,12 @@ mod storage;
 mod tests;
 mod text_insertion;
 mod transcription;
+mod usage;
 
 use chrono::{Local, Utc};
 use models::{
     AppSettings, BootstrapState, FailedRecording, OverlayBootstrapState, RecordingProgress,
-    RecordingSnapshot, TranscriptEntry, TranscriptionCompleted,
+    RecordingSnapshot, TranscriptEntry, TranscriptionCompleted, UsageLedger,
 };
 use std::fs::File;
 use std::io::{Read, Write};
@@ -90,6 +92,7 @@ fn recovery_plan(failed: &FailedRecording) -> Result<RecoveryPlan, String> {
 struct AppState {
     settings: Mutex<AppSettings>,
     history: Mutex<Vec<TranscriptEntry>>,
+    usage: Mutex<UsageLedger>,
     failed_recording: Mutex<Option<FailedRecording>>,
     recorder: audio::RecorderService,
     wake_word: wake_word::WakeWordService,
@@ -108,6 +111,7 @@ struct AppState {
     wake_word_calibrating: AtomicBool,
     live_session_active: AtomicBool,
     live_session_generation: AtomicU64,
+    live_usage_timing: Mutex<Option<usage::LiveUsageTiming>>,
     live_phase: Mutex<String>,
     assistant_start_request: AssistantStartRequest,
     aidoo: aidoo::runtime::AidooRuntime,
@@ -121,6 +125,7 @@ impl AppState {
         audio::cleanup_stale_temporary_audio();
         let mut history = storage::load_history();
         recover_pending_history_deletion(&mut history);
+        let usage = storage::load_usage(&history);
         let api_key = keyring_entry()
             .ok()
             .and_then(|entry| entry.get_password().ok())
@@ -132,6 +137,7 @@ impl AppState {
         Self {
             settings: Mutex::new(storage::load_settings()),
             history: Mutex::new(history),
+            usage: Mutex::new(usage),
             failed_recording: Mutex::new(failed_recording),
             recorder: audio::RecorderService::new(),
             wake_word: wake_word::WakeWordService::new(),
@@ -154,6 +160,7 @@ impl AppState {
             wake_word_calibrating: AtomicBool::new(false),
             live_session_active: AtomicBool::new(false),
             live_session_generation: AtomicU64::new(0),
+            live_usage_timing: Mutex::new(None),
             live_phase: Mutex::new("idle".into()),
             assistant_start_request: AssistantStartRequest::default(),
             aidoo: aidoo::runtime::AidooRuntime::new(),
