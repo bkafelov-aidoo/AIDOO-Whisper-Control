@@ -337,13 +337,26 @@ body[data-window="overlay"] { overflow: hidden; }
 .overlay-state-icon svg { width: 20px; }
 .overlay-state-icon.error { background: linear-gradient(145deg,#d94b63,#aa2942); }
 .overlay-state-icon.done { background: linear-gradient(145deg,#36ad7a,#1c7653); }
-.overlay-card.assistant { grid-template-columns: 46px minmax(0,1fr) auto auto; background: rgba(239,250,250,.82); box-shadow: 0 12px 30px -12px rgba(8,61,67,.34),0 2px 8px -2px rgba(8,22,36,.14),inset 0 0 0 .5px rgba(255,255,255,.62); }
-.overlay-state-icon.assistant { background: linear-gradient(145deg,#20a8b2,#16708b); }
-.overlay-card.assistant.speaking .overlay-state-icon.assistant { background: linear-gradient(145deg,#3e8ff0,#265db0); }
-.overlay-card.assistant .overlay-copy strong { color: #174b58; }
-.overlay-card.assistant .overlay-copy span { color: #4d6f76; }
-.overlay-card.assistant .assistant-wave i { background: #1695a1; }
-.overlay-card.assistant .assistant-stop { margin-left: 2px; }
+.overlay-card.assistant { min-height: 94px; padding: 15px 16px; grid-template-columns: 52px minmax(0,1fr) auto auto; gap: 14px; border-radius: 24px; background: linear-gradient(135deg,rgba(31,31,32,.93),rgba(12,13,14,.91)); color: #fff; box-shadow: 0 20px 50px -20px rgba(0,0,0,.72),0 5px 14px -7px rgba(0,0,0,.55),inset 0 0 0 .5px rgba(255,255,255,.16); -webkit-backdrop-filter: saturate(125%) blur(30px); backdrop-filter: saturate(125%) blur(30px); }
+.assistant-voice-orb { width: 50px; height: 50px; position: relative; display: grid; place-items: center; border-radius: 50%; isolation: isolate; }
+.assistant-voice-orb::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from 210deg,#8be0d2,#7db8ff,#9b8cff,#8be0d2); animation: assistantOrbTurn 5s linear infinite; opacity: .9; }
+.assistant-voice-orb::after { content: ""; position: absolute; inset: 3px; z-index: 0; border-radius: inherit; background: #17191b; box-shadow: inset 0 0 16px rgba(153,220,255,.14); }
+.assistant-voice-orb img { width: 32px; height: 32px; z-index: 1; border-radius: 9px; box-shadow: 0 5px 14px rgba(0,0,0,.35); }
+.assistant-orb-loader { width: 58px !important; height: 58px; position: absolute; z-index: 2; color: rgba(255,255,255,.78); stroke-width: 1.3; }
+.overlay-card.assistant.listening .assistant-voice-orb::before { animation-duration: 7s; opacity: .68; }
+.overlay-card.assistant.speaking .assistant-voice-orb::before { animation-duration: 1.7s; filter: saturate(130%) brightness(1.15); }
+@keyframes assistantOrbTurn { to { transform: rotate(360deg); } }
+.overlay-card.assistant .overlay-copy { gap: 4px; }
+.overlay-card.assistant .overlay-copy strong { color: #fff; font-size: 14px; font-weight: 620; letter-spacing: -.08px; }
+.overlay-card.assistant .overlay-copy span { color: rgba(255,255,255,.62); font-size: 10.5px; }
+.overlay-card.assistant .assistant-wave { height: 32px; gap: 3px; }
+.overlay-card.assistant .assistant-wave i { width: 3px; background: linear-gradient(180deg,#f6fffd,#82d8ca); box-shadow: 0 0 8px rgba(130,216,202,.26); }
+.overlay-card.assistant .assistant-wave i:nth-child(2), .overlay-card.assistant .assistant-wave i:nth-child(6) { height: 20px; }
+.overlay-card.assistant .assistant-wave i:nth-child(3), .overlay-card.assistant .assistant-wave i:nth-child(5) { height: 29px; }
+.overlay-card.assistant .assistant-wave i:nth-child(4) { height: 15px; }
+.overlay-card.assistant .assistant-stop { min-height: 34px; margin-left: 1px; padding: 0 12px; border-radius: 999px; background: rgba(255,255,255,.09); color: rgba(255,255,255,.86); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.12); font-weight: 600; }
+.overlay-card.assistant .assistant-stop:hover { background: rgba(255,255,255,.15); color: #fff; }
+.overlay-card.assistant .assistant-stop:active { background: rgba(255,255,255,.2); }
 .overlay-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .overlay-copy strong { font-size: 14px; font-weight: 650; line-height: 1.3; white-space: normal; overflow-wrap: anywhere; }
 .overlay-copy span { color: #3c4e60; font-size: 11px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
@@ -369,9 +382,9 @@ body[data-window="overlay"] { overflow: hidden; }
 
 @media (prefers-color-scheme: dark) {
   html[data-window="overlay"] .overlay-card { background: rgba(28,34,41,.78); color: #f5f7fa; box-shadow: 0 12px 28px -12px rgba(0,0,0,.58), 0 2px 8px -2px rgba(0,0,0,.3), inset 0 0 0 .5px rgba(255,255,255,.12); }
-  html[data-window="overlay"] .overlay-card.assistant { background: rgba(22,43,48,.86); }
-  html[data-window="overlay"] .overlay-card.assistant .overlay-copy strong { color: #e9ffff; }
-  html[data-window="overlay"] .overlay-card.assistant .overlay-copy span { color: #b8d4d8; }
+  html[data-window="overlay"] .overlay-card.assistant { background: linear-gradient(135deg,rgba(31,31,32,.94),rgba(12,13,14,.92)); }
+  html[data-window="overlay"] .overlay-card.assistant .overlay-copy strong { color: #fff; }
+  html[data-window="overlay"] .overlay-card.assistant .overlay-copy span { color: rgba(255,255,255,.62); }
   html[data-window="overlay"] .overlay-copy span { color: #c0cad4; }
   html[data-window="overlay"] .overlay-copy .error-text { color: #ffb2bf; }
   html[data-window="overlay"] .overlay-copy .notice-text { color: #f5cf7c; }
@@ -385,6 +398,7 @@ body[data-window="overlay"] { overflow: hidden; }
 @media (prefers-reduced-transparency: reduce) {
   .sidebar, .modal-backdrop, .toast, .hero-action, .overlay-card { -webkit-backdrop-filter: none; backdrop-filter: none; }
   html[data-window="overlay"] .overlay-card { background: #f5f7fa; }
+  html[data-window="overlay"] .overlay-card.assistant { background: #151617; }
 }
 
 @media (prefers-color-scheme: dark) and (prefers-reduced-transparency: reduce) {
@@ -392,12 +406,13 @@ body[data-window="overlay"] { overflow: hidden; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spin, .shortcut-capture.listening, .live-wave i, .overlay-wave i, .overlay-progress.indeterminate i { animation-duration: .001ms; animation-iteration-count: 1; }
+  .spin, .shortcut-capture.listening, .live-wave i, .overlay-wave i, .overlay-progress.indeterminate i, .assistant-voice-orb::before { animation-duration: .001ms; animation-iteration-count: 1; }
 }
 
 @media (prefers-contrast: more) {
   :root { --border: #aab5c0; --separator: #c4cdd6; --muted: #3f5060; }
   .overlay-card { background: rgba(250,252,254,.94); box-shadow: 0 12px 28px -12px rgba(0,0,0,.42), 0 2px 8px -2px rgba(0,0,0,.22), inset 0 0 0 .5px rgba(0,0,0,.12); }
+  .overlay-card.assistant { background: rgba(10,11,12,.97); box-shadow: 0 18px 44px -18px rgba(0,0,0,.82),inset 0 0 0 1px rgba(255,255,255,.28); }
 }
 
 @media (prefers-color-scheme: dark) and (prefers-contrast: more) {

@@ -9,7 +9,7 @@ const MAX_SDP_BYTES: usize = 128 * 1024;
 const MAX_LIVE_RESPONSE_BYTES: usize = 512 * 1024;
 const MAX_API_ERROR_BYTES: usize = 64 * 1024;
 
-const LIVE_INSTRUCTIONS: &str = "Говори на български, освен ако потребителят не поиска друг език. Бъди кратък, естествен и ясен. Това е тестов режим на AIDOO асистента: не твърди, че си променил стоматологични данни и не измисляй пациенти, статуси или резултати. Делегирай към backend модела, когато задачата изисква повече разсъждение. Кажи ясно, че интеграцията с AIDOO Kontrol още не е активна, ако потребителят поиска действие в нея.";
+const LIVE_INSTRUCTIONS: &str = "Говори на български, освен ако потребителят не поиска друг език. Бъди кратък, естествен и ясен. Това е разговор с AIDOO асистента, а не диктовка. Когато потребителят каже „Започни транскрипция“, приложението самостоятелно ще прекрати разговора и ще премине към отделния режим за запис; не продължавай с дълъг отговор. Това е тестов режим: не твърди, че си променил стоматологични данни и не измисляй пациенти, статуси или резултати. Делегирай към backend модела, когато задачата изисква повече разсъждение. Кажи ясно, че интеграцията с AIDOO Kontrol още не е активна, ако потребителят поиска действие в нея.";
 const BACKEND_INSTRUCTIONS: &str = "Отговаряй на български с кратък, проверим резултат, подходящ за гласов разговор. В този тест няма свързани AIDOO Kontrol инструменти. Не твърди, че са извършени действия и не създавай пациентски или клинични данни.";
 
 #[derive(Debug, Serialize)]
@@ -22,7 +22,25 @@ struct LiveCreateRequest<'a> {
 struct LiveSessionConfig {
     model: &'static str,
     instructions: &'static str,
+    client: LiveClientConfig,
     delegation: LiveDelegation,
+    store: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct LiveClientConfig {
+    data_channel: LiveDataChannelConfig,
+}
+
+#[derive(Debug, Serialize)]
+struct LiveDataChannelConfig {
+    allowed_client_events: Vec<&'static str>,
+    allowed_server_events: Vec<LiveServerEventSelector>,
+}
+
+#[derive(Debug, Serialize)]
+struct LiveServerEventSelector {
+    r#type: &'static str,
 }
 
 #[derive(Debug, Serialize)]
@@ -83,6 +101,23 @@ fn create_request(sdp: &str) -> Result<LiveCreateRequest<'_>, String> {
         session: LiveSessionConfig {
             model: LIVE_MODEL,
             instructions: LIVE_INSTRUCTIONS,
+            client: LiveClientConfig {
+                data_channel: LiveDataChannelConfig {
+                    allowed_client_events: vec!["session.close"],
+                    allowed_server_events: vec![
+                        LiveServerEventSelector {
+                            r#type: "session.started",
+                        },
+                        LiveServerEventSelector {
+                            r#type: "session.input_transcript.delta",
+                        },
+                        LiveServerEventSelector {
+                            r#type: "session.closed",
+                        },
+                        LiveServerEventSelector { r#type: "error" },
+                    ],
+                },
+            },
             delegation: LiveDelegation {
                 r#type: "responses",
                 responses: LiveResponsesConfig {
@@ -90,6 +125,7 @@ fn create_request(sdp: &str) -> Result<LiveCreateRequest<'_>, String> {
                     instructions: BACKEND_INSTRUCTIONS,
                 },
             },
+            store: false,
         },
         transport: LiveTransportOffer {
             r#type: "webrtc",
@@ -187,6 +223,20 @@ mod tests {
         let request = create_request("v=0\r\ns=test\r\n").unwrap();
         let value = serde_json::to_value(request).unwrap();
         assert_eq!(value["session"]["model"], LIVE_MODEL);
+        assert_eq!(value["session"]["store"], false);
+        assert_eq!(
+            value["session"]["client"]["data_channel"]["allowed_client_events"],
+            serde_json::json!(["session.close"])
+        );
+        assert_eq!(
+            value["session"]["client"]["data_channel"]["allowed_server_events"],
+            serde_json::json!([
+                {"type": "session.started"},
+                {"type": "session.input_transcript.delta"},
+                {"type": "session.closed"},
+                {"type": "error"}
+            ])
+        );
         assert_eq!(value["session"]["delegation"]["type"], "responses");
         assert_eq!(
             value["session"]["delegation"]["responses"]["model"],

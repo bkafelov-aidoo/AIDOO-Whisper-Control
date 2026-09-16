@@ -75,6 +75,17 @@ struct ActiveListener {
     worker: Option<JoinHandle<()>>,
 }
 
+struct InferenceContext {
+    audio_buffer: Arc<Mutex<VecDeque<i16>>>,
+    recent_voice: Arc<AtomicBool>,
+    audio: mpsc::Receiver<()>,
+    stop: Arc<AtomicBool>,
+    events: mpsc::Sender<WakeWordEvent>,
+    sample_rate: u32,
+    primary_threshold: f32,
+    confirmation_threshold: f32,
+}
+
 impl Drop for ActiveListener {
     fn drop(&mut self) {
         self.stream.take();
@@ -266,14 +277,16 @@ fn start_on_device(
         .spawn(move || {
             inference_loop(
                 model,
-                worker_audio_buffer,
-                worker_recent_voice,
-                audio_rx,
-                worker_stop,
-                worker_events,
-                sample_rate,
-                primary_threshold,
-                confirmation_threshold,
+                InferenceContext {
+                    audio_buffer: worker_audio_buffer,
+                    recent_voice: worker_recent_voice,
+                    audio: audio_rx,
+                    stop: worker_stop,
+                    events: worker_events,
+                    sample_rate,
+                    primary_threshold,
+                    confirmation_threshold,
+                },
             )
         })
         .map_err(|error| error.to_string())?;
@@ -385,18 +398,8 @@ fn push_audio(
     let _ = signal.try_send(());
 }
 
-fn inference_loop(
-    mut model: WakeWordModel,
-    audio_buffer: Arc<Mutex<VecDeque<i16>>>,
-    recent_voice: Arc<AtomicBool>,
-    audio: mpsc::Receiver<()>,
-    stop: Arc<AtomicBool>,
-    events: mpsc::Sender<WakeWordEvent>,
-    sample_rate: u32,
-    primary_threshold: f32,
-    confirmation_threshold: f32,
-) {
-    let window_samples = sample_rate as usize * 2;
+fn inference_loop(mut model: WakeWordModel, context: InferenceContext) {
+    let window_samples = context.sample_rate as usize * 2;
     let mut last_inference = Instant::now()
         .checked_sub(INFERENCE_INTERVAL)
         .unwrap_or_else(Instant::now);
@@ -404,19 +407,19 @@ fn inference_loop(
         .checked_sub(DETECTION_DEBOUNCE)
         .unwrap_or_else(Instant::now);
     let mut confirmation_state = ConfirmationState::new();
-    while !stop.load(Ordering::Acquire) {
-        match audio.recv_timeout(Duration::from_millis(100)) {
+    while !context.stop.load(Ordering::Acquire) {
+        match context.audio.recv_timeout(Duration::from_millis(100)) {
             Ok(()) => {}
             Err(mpsc::RecvTimeoutError::Timeout) => continue,
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
         let confirmation_pending = confirmation_state.pending();
-        if (!recent_voice.swap(false, Ordering::AcqRel) && !confirmation_pending)
+        if (!context.recent_voice.swap(false, Ordering::AcqRel) && !confirmation_pending)
             || last_inference.elapsed() < INFERENCE_INTERVAL
         {
             continue;
         }
-        let contiguous = match audio_buffer.lock() {
+        let contiguous = match context.audio_buffer.lock() {
             Ok(buffer) if buffer.len() >= window_samples => buffer
                 .iter()
                 .skip(buffer.len() - window_samples)
@@ -429,24 +432,24 @@ fn inference_loop(
             Ok(scores) => {
                 let primary = scores.get(PRIMARY_MODEL_NAME).copied().unwrap_or(0.0);
                 let confirmation = scores.get(CONFIRMATION_MODEL_NAME).copied().unwrap_or(0.0);
-                let _ = events.send(WakeWordEvent::Scores {
+                let _ = context.events.send(WakeWordEvent::Scores {
                     rms: rms(&contiguous),
                     primary,
                     confirmation,
                 });
                 let confirmed = confirmation_state.observe(
-                    primary >= primary_threshold,
-                    confirmation >= confirmation_threshold,
+                    primary >= context.primary_threshold,
+                    confirmation >= context.confirmation_threshold,
                 );
                 if confirmed && last_detection.elapsed() >= DETECTION_DEBOUNCE {
                     last_detection = Instant::now();
-                    let _ = events.send(WakeWordEvent::Detected {
+                    let _ = context.events.send(WakeWordEvent::Detected {
                         confidence: confirmation,
                     });
                 }
             }
             Err(error) => {
-                let _ = events.send(WakeWordEvent::Failed(format!(
+                let _ = context.events.send(WakeWordEvent::Failed(format!(
                     "Wake-word разпознаването спря: {error}"
                 )));
                 break;

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { AssistantCommandDetector } from "../lib/assistant-command";
 
 export type LivePhase = "idle" | "preparing" | "connecting" | "listening" | "speaking" | "switching" | "closing" | "error";
 
@@ -46,7 +47,7 @@ export function useLiveConversation(
   const switchingRef = useRef(false);
   const mountedRef = useRef(true);
   const operationRef = useRef(0);
-  const transcriptRef = useRef("");
+  const commandDetectorRef = useRef(new AssistantCommandDetector());
   const startRef = useRef<() => Promise<void>>(async () => undefined);
 
   const updatePhase = useCallback((next: LivePhase) => {
@@ -75,7 +76,7 @@ export function useLiveConversation(
     peerRef.current = null;
     void audioContextRef.current?.close().catch(() => undefined);
     audioContextRef.current = null;
-    transcriptRef.current = "";
+    commandDetectorRef.current.reset();
   }, [clearTimer]);
 
   const finish = useCallback((nextPhase: LivePhase = "idle") => {
@@ -144,7 +145,7 @@ export function useLiveConversation(
     updatePhase("preparing");
     closingRef.current = false;
     switchingRef.current = false;
-    transcriptRef.current = "";
+    commandDetectorRef.current.reset();
     try {
       await invoke("prepare_live_session");
       if (!stillCurrent()) return;
@@ -153,38 +154,22 @@ export function useLiveConversation(
 
       const peer = new RTCPeerConnection();
       peerRef.current = peer;
-      let microphone = await withTimeout(
-        navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        }),
-        MICROPHONE_TIMEOUT_MS,
-        "Микрофонът не отговори навреме.",
-      );
-      if (!stillCurrent()) {
-        microphone.getTracks().forEach((track) => track.stop());
-        return;
-      }
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
       if (microphoneName) {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const selected = devices.find((device) => device.kind === "audioinput" && device.label === microphoneName)
           ?? devices.find((device) => device.kind === "audioinput" && device.label.includes(microphoneName));
-        const currentDevice = microphone.getAudioTracks()[0]?.getSettings().deviceId;
-        if (selected?.deviceId && selected.deviceId !== currentDevice) {
-          microphone.getTracks().forEach((track) => track.stop());
-          microphone = await withTimeout(
-            navigator.mediaDevices.getUserMedia({
-              audio: {
-                deviceId: { exact: selected.deviceId },
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
-              },
-            }),
-            MICROPHONE_TIMEOUT_MS,
-            "Избраният микрофон не отговори навреме.",
-          );
-        }
+        if (selected?.deviceId) audioConstraints.deviceId = { exact: selected.deviceId };
       }
+      const microphone = await withTimeout(
+        navigator.mediaDevices.getUserMedia({ audio: audioConstraints }),
+        MICROPHONE_TIMEOUT_MS,
+        "Микрофонът не отговори навреме.",
+      );
       if (!stillCurrent()) {
         microphone.getTracks().forEach((track) => track.stop());
         return;
@@ -206,8 +191,7 @@ export function useLiveConversation(
           readyRef.current = true;
           updatePhase("listening");
         } else if (event.type === "session.input_transcript.delta" && event.delta) {
-          transcriptRef.current = `${transcriptRef.current}${event.delta}`.slice(-320);
-          if (matchesDictationCommand(transcriptRef.current)) void switchToDictation();
+          if (commandDetectorRef.current.push(event.delta)) void switchToDictation();
         } else if (event.type === "session.closed") {
           finish("idle");
         } else if (event.type === "error" || event.type === "session.failed") {
@@ -330,21 +314,4 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
 
 function delay(milliseconds: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
-}
-
-export function matchesDictationCommand(value: string) {
-  const normalized = value
-    .toLocaleLowerCase("bg-BG")
-    .normalize("NFKD")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-  return [
-    "започни транскрипция",
-    "стартирай транскрипция",
-    "започни да записваш",
-    "стартирай запис",
-    "запиши транскрипция",
-    "start transcription",
-    "start dictation",
-  ].some((command) => normalized.includes(command));
 }
