@@ -56,6 +56,8 @@
       "resources/wakeword/hey_aidoo_confirmation.onnx": "wakeword/hey_aidoo_confirmation.onnx",
       "resources/wakeword/LIVEKIT-WAKEWORD-LICENSE.txt": "wakeword/LIVEKIT-WAKEWORD-LICENSE.txt",
       "resources/wakeword/MODEL-NOTICES.txt": "wakeword/MODEL-NOTICES.txt",
+      "resources/sounds/recording-start.wav": "sounds/recording-start.wav",
+      "resources/sounds/recording-stop.wav": "sounds/recording-stop.wav",
       "infoplist/en.lproj/InfoPlist.strings": "en.lproj/InfoPlist.strings",
       "infoplist/bg.lproj/InfoPlist.strings": "bg.lproj/InfoPlist.strings"
     },

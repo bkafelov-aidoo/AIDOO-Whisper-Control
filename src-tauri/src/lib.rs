@@ -5,6 +5,7 @@ mod app_ui;
 mod audio;
 mod commands;
 mod dictation;
+mod feedback_sound;
 mod recovery;
 mod wake_runtime;
 mod wake_word;

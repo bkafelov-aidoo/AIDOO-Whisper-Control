@@ -803,8 +803,16 @@ pub(super) fn overlay_accepts_pointer_input(state: &str) -> bool {
 
 pub(super) fn set_recording_state(app: &AppHandle, next: &str) {
     let state = app.state::<AppState>();
+    let mut previous = None;
     if let Ok(mut current) = state.recording_status.lock() {
+        previous = Some(current.clone());
         *current = next.into();
+    }
+    if let Some(sound) = previous
+        .as_deref()
+        .and_then(|previous| feedback_sound::for_recording_transition(previous, next))
+    {
+        feedback_sound::play(app, sound);
     }
     if let Ok(mut started) = state.recording_started_at.lock() {
         match next {

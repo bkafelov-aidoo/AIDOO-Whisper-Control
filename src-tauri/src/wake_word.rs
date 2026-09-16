@@ -2,10 +2,10 @@ use crate::audio::{microphone_names, MicrophoneRoutingConfig};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, Stream, StreamConfig};
 use livekit_wakeword::WakeWordModel;
+use serde::Serialize;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use serde::Serialize;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -46,7 +46,9 @@ impl ConfirmationState {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum WakeWordEvent {
-    Detected { confidence: f32 },
+    Detected {
+        confidence: f32,
+    },
     Scores {
         rms: f32,
         primary: f32,
@@ -587,6 +589,9 @@ mod tests {
             vec![3, 4, 5, 6]
         );
         assert_eq!(receiver.try_recv(), Ok(()));
-        assert!(matches!(receiver.try_recv(), Err(mpsc::TryRecvError::Empty)));
+        assert!(matches!(
+            receiver.try_recv(),
+            Err(mpsc::TryRecvError::Empty)
+        ));
     }
 }

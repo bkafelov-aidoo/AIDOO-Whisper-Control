@@ -1,21 +1,6 @@
 use super::*;
 
 #[cfg(target_os = "macos")]
-#[link(name = "AudioToolbox", kind = "framework")]
-extern "C" {
-    fn AudioServicesPlaySystemSound(sound_id: u32);
-}
-
-fn play_wake_acknowledgement() {
-    #[cfg(target_os = "macos")]
-    // SAFETY: AudioServicesPlaySystemSound accepts a value-type system sound identifier and does
-    // not retain pointers or caller-owned memory. 1113 is a built-in macOS alert sound.
-    unsafe {
-        AudioServicesPlaySystemSound(1113);
-    }
-}
-
-#[cfg(target_os = "macos")]
 pub(super) fn install_macos_power_observers(app: AppHandle) {
     use block2::RcBlock;
     use objc2_app_kit::{
@@ -83,7 +68,6 @@ pub(super) fn install_wake_word_events(app: AppHandle) {
                         storage::append_diagnostic(&format!(
                             "wake word detected; confidence={confidence:.3}"
                         ));
-                        play_wake_acknowledgement();
                         if let Err(error) = start_recording_inner(&app, "voice") {
                             set_error(&app, &error);
                         }
@@ -110,9 +94,7 @@ pub(super) fn install_wake_word_events(app: AppHandle) {
                     }
                     wake_word::WakeWordEvent::Failed(error) => {
                         let state = app.state::<AppState>();
-                        let calibrating = state
-                            .wake_word_calibrating
-                            .swap(false, Ordering::AcqRel);
+                        let calibrating = state.wake_word_calibrating.swap(false, Ordering::AcqRel);
                         stop_wake_word_listener(&state);
                         if let Ok(mut current) = state.wake_word_error.lock() {
                             *current = Some(error.clone());

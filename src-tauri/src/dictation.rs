@@ -170,9 +170,7 @@ pub(super) fn wake_word_should_listen(state: &AppState) -> bool {
     let settings_ready = state
         .settings
         .lock()
-        .map(|settings| {
-            calibrating || (settings.onboarding_complete && settings.wake_word_enabled)
-        })
+        .map(|settings| calibrating || (settings.onboarding_complete && settings.wake_word_enabled))
         .unwrap_or(false);
     let has_api_key = state
         .api_key

@@ -9,6 +9,7 @@ import os
 import plistlib
 import re
 import tomllib
+import wave
 from pathlib import Path
 
 
@@ -115,6 +116,33 @@ def main() -> int:
     ).hexdigest()
     if icon_hash != EXPECTED_PRODUCT_ICON_SHA256:
         errors.append("The original AIDOO product icon has been changed")
+
+    expected_feedback_sounds = {
+        "resources/sounds/recording-start.wav": (
+            "sounds/recording-start.wav",
+            "69346ba258eb1e295327edc0e284a1af13cd41915bf14f81bf972ad63e362fa8",
+        ),
+        "resources/sounds/recording-stop.wav": (
+            "sounds/recording-stop.wav",
+            "50814bacfc01bbb528e4cff8d301b1475ea4cf9a284ffa71494eb37121d64785",
+        ),
+    }
+    resources = bundle.get("resources", {})
+    for source, (destination, expected_hash) in expected_feedback_sounds.items():
+        path = ROOT / "src-tauri" / source
+        if resources.get(source) != destination:
+            errors.append(f"The feedback sound is not bundled at {destination}: {source}")
+            continue
+        if hashlib.sha256(path.read_bytes()).hexdigest() != expected_hash:
+            errors.append(f"The reviewed feedback sound has changed: {source}")
+        with wave.open(str(path), "rb") as audio:
+            if (
+                audio.getnchannels() != 1
+                or audio.getsampwidth() != 2
+                or audio.getframerate() != 44_100
+                or not 0.4 <= audio.getnframes() / audio.getframerate() <= 0.6
+            ):
+                errors.append(f"Unexpected feedback sound format or duration: {source}")
 
     with (ROOT / "src-tauri/Entitlements.plist").open("rb") as source:
         entitlements = plistlib.load(source)
