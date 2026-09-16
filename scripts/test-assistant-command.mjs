@@ -61,6 +61,8 @@ test("recognizes natural commands that end the AI conversation", () => {
     "Затвори",
     "Затвори ми",
     "Приключи разговора",
+    "Приключваме",
+    "Приключваме разговора",
     "Спри асистента",
     "Прекрати сесията",
     "Довиждане",
@@ -86,10 +88,24 @@ test("recognizes a fragmented end command once", () => {
 });
 
 test("maps a real Live input-transcript event to the end-session command", () => {
+  for (const phrase of ["Край.", "Затвори!", "Приключваме."]) {
+    const detector = new AssistantVoiceCommandDetector();
+    assert.equal(detectAssistantVoiceCommandFromLiveEvent({
+      type: "session.input_transcript.delta",
+      delta: phrase,
+    }, detector), "end-session", phrase);
+  }
+});
+
+test("recognizes fragmented приключваме from Live transcript deltas", () => {
   const detector = new AssistantVoiceCommandDetector();
   assert.equal(detectAssistantVoiceCommandFromLiveEvent({
     type: "session.input_transcript.delta",
-    delta: "Край.",
+    delta: "Приключ",
+  }, detector), null);
+  assert.equal(detectAssistantVoiceCommandFromLiveEvent({
+    type: "session.input_transcript.delta",
+    delta: "ваме.",
   }, detector), "end-session");
 });
 
