@@ -52,10 +52,10 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State, WindowEvent};
 use zeroize::Zeroizing;
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
-const KEYRING_SERVICE: &str = "app.aidoo.whisper-lite";
+const KEYRING_SERVICE: &str = "app.aidoo.whisper-control";
 const KEYRING_USER: &str = "openai-api-key";
 const AIDOO_KEYRING_USER: &str = "aidoo-password";
-const TRAY_ID: &str = "aidoo-whisper-lite";
+const TRAY_ID: &str = "aidoo-whisper-control";
 const APP_MENU_ID: &str = "aidoo-app-menu";
 const APP_QUIT_MENU_ID: &str = "aidoo-app-quit";
 const MAX_RECORDING_DURATION: std::time::Duration = std::time::Duration::from_secs(5 * 60);
@@ -228,14 +228,14 @@ fn install_tray(app: &tauri::App) -> tauri::Result<()> {
     );
     let menu = build_tray_menu(app.handle(), status)?;
     let initial_tooltip = match (uses_english_ui(app.handle()), status) {
-        (true, "recovery") => "AIDOO Whisper Lite — action required",
-        (false, "recovery") => "AIDOO Whisper Lite — нужно е действие",
-        (true, "setup") => "AIDOO Whisper Lite — finish setup",
-        (false, "setup") => "AIDOO Whisper Lite — довършете настройката",
-        (true, "permission") => "AIDOO Whisper Lite — permission required",
-        (false, "permission") => "AIDOO Whisper Lite — нужно е разрешение",
-        (true, _) => "AIDOO Whisper Lite — ready",
-        (false, _) => "AIDOO Whisper Lite — готов",
+        (true, "recovery") => "AIDOO Whisper Control — action required",
+        (false, "recovery") => "AIDOO Whisper Control — нужно е действие",
+        (true, "setup") => "AIDOO Whisper Control — finish setup",
+        (false, "setup") => "AIDOO Whisper Control — довършете настройката",
+        (true, "permission") => "AIDOO Whisper Control — permission required",
+        (false, "permission") => "AIDOO Whisper Control — нужно е разрешение",
+        (true, _) => "AIDOO Whisper Control — ready",
+        (false, _) => "AIDOO Whisper Control — готов",
     };
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .tooltip(initial_tooltip)
@@ -395,7 +395,7 @@ pub fn run() {
             create_diagnostic_bundle
         ])
         .build(tauri::generate_context!())
-        .expect("error while building AIDOO Whisper Lite");
+        .expect("error while building AIDOO Whisper Control");
     app.run(|app, event| match event {
         tauri::RunEvent::ExitRequested { api, .. }
             if app

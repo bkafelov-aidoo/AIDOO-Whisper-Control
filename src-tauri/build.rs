@@ -62,5 +62,5 @@ fn main() {
         tauri_build::Attributes::new()
             .app_manifest(tauri_build::AppManifest::new().commands(COMMANDS)),
     )
-    .expect("failed to build AIDOO Whisper Lite permissions");
+    .expect("failed to build AIDOO Whisper Control permissions");
 }

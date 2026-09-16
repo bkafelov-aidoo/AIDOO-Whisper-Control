@@ -1,16 +1,16 @@
-name: Release AIDOO Whisper Lite for macOS
+name: Release AIDOO Whisper Control for macOS
 
 on:
   workflow_dispatch:
   push:
-    tags: ["lite-v*"]
+    tags: ["control-v*"]
 
 permissions:
   contents: read
   checks: write
 
 concurrency:
-  group: aidoo-whisper-lite-macos-${{ github.ref }}
+  group: aidoo-whisper-control-macos-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -90,7 +90,7 @@ jobs:
       - name: Store website release files
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: aidoo-whisper-lite-macos-${{ github.ref_name }}
+          name: aidoo-whisper-control-macos-${{ github.ref_name }}
           path: release/
           if-no-files-found: error
           retention-days: 14

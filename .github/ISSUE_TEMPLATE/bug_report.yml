@@ -1,11 +1,11 @@
 name: Bug report
-description: Report a problem with AIDOO Whisper Lite for macOS
+description: Report a problem with AIDOO Whisper Control for macOS
 title: "[Bug]: "
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for helping improve AIDOO Whisper Lite. Do not include an OpenAI API key, private transcript text, or audio you do not intend to share.
+        Thank you for helping improve AIDOO Whisper Control. Do not include an OpenAI API key, private transcript text, or audio you do not intend to share.
 
   - type: input
     id: app-version

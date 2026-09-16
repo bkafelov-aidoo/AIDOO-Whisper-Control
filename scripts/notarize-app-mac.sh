@@ -10,7 +10,7 @@ if [[ -z "$app_path" || ! -d "$app_path" ]]; then
   exit 1
 fi
 
-submission_zip="$(mktemp -t aidoo-whisper-lite-notary).zip"
+submission_zip="$(mktemp -t aidoo-whisper-control-notary).zip"
 trap 'python3 - "$submission_zip" <<'PY'
 import os, sys
 try:

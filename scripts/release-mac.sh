@@ -27,12 +27,12 @@ run_notarization() {
 
 working_tree_state="$(git status --porcelain=v1 --untracked-files=normal -- .)"
 if [[ -n "$working_tree_state" ]]; then
-  printf 'Refusing to release from a working tree with uncommitted Lite changes:\n%s\n' \
+  printf 'Refusing to release from a working tree with uncommitted Control changes:\n%s\n' \
     "$working_tree_state" >&2
   exit 1
 fi
 
-export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/aidoo-whisper-lite-release-target}"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/aidoo-whisper-control-release-target}"
 expected_signing_identity="Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)"
 signing_identity="${APPLE_SIGNING_IDENTITY:-$expected_signing_identity}"
 if [[ "$signing_identity" != "$expected_signing_identity" ]]; then
@@ -46,7 +46,7 @@ import json, sys
 print(json.loads(Path(sys.argv[1]).read_text())["version"])
 PY
 )"
-expected_tag="lite-v${version}"
+expected_tag="control-v${version}"
 if ! git tag --points-at HEAD --list "$expected_tag" | grep -Fxq "$expected_tag"; then
   printf 'Refusing to release untagged source. HEAD must have tag %s.\n' "$expected_tag" >&2
   exit 1
@@ -62,12 +62,12 @@ cargo clippy --locked --release --target aarch64-apple-darwin --manifest-path sr
 # use this exact sequence once.
 npx tauri build --target aarch64-apple-darwin --bundles app,dmg --ci -- --locked
 
-dmg="$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/dmg/AIDOO Whisper Lite_${version}_aarch64.dmg"
-app="$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/macos/AIDOO Whisper Lite.app"
+dmg="$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/dmg/AIDOO Whisper Control_${version}_aarch64.dmg"
+app="$CARGO_TARGET_DIR/aarch64-apple-darwin/release/bundle/macos/AIDOO Whisper Control.app"
 test -f "$dmg" && test -d "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
-file "$app/Contents/MacOS/aidoo-whisper-lite" | grep -q 'arm64'
-test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = 'app.aidoo.whisper-lite'
+file "$app/Contents/MacOS/aidoo-whisper-control" | grep -q 'arm64'
+test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = 'app.aidoo.whisper-control'
 test "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$version"
 test "$(plutil -extract LSMinimumSystemVersion raw "$app/Contents/Info.plist")" = '13.0'
 signature="$(codesign -d --verbose=4 "$app" 2>&1)"
@@ -78,8 +78,8 @@ run_notarization "$project_root/scripts/notarize-app-mac.sh" "$app"
 
 # Rebuild the disk image from the stapled application so offline Gatekeeper validation
 # succeeds for the exact copy that users install from the AIDOO website.
-dmg_staging="$(mktemp -d -t aidoo-whisper-lite-dmg)"
-verify_mount="$(mktemp -d -t aidoo-whisper-lite-mount)"
+dmg_staging="$(mktemp -d -t aidoo-whisper-control-dmg)"
+verify_mount="$(mktemp -d -t aidoo-whisper-control-mount)"
 mounted=false
 cleanup() {
   if [[ "$mounted" == true ]]; then
@@ -102,7 +102,7 @@ from pathlib import Path
 import sys
 Path(sys.argv[1]).unlink(missing_ok=True)
 PY
-hdiutil create -volname "AIDOO Whisper Lite" -srcfolder "$dmg_staging" -ov -format UDZO "$dmg"
+hdiutil create -volname "AIDOO Whisper Control" -srcfolder "$dmg_staging" -ov -format UDZO "$dmg"
 codesign --force --sign "$signing_identity" --timestamp "$dmg"
 codesign --verify --strict --verbose=2 "$dmg"
 dmg_signature="$(codesign -d --verbose=4 "$dmg" 2>&1)"

@@ -1,12 +1,12 @@
 [package]
-name = "aidoo-whisper-lite"
+name = "aidoo-whisper-control"
 version = "1.1.0"
-description = "Cost-efficient voice dictation for macOS"
+description = "Voice control and cost-efficient dictation for AIDOO on macOS"
 authors = ["Aidoo Ltd. OOD"]
 edition = "2021"
 
 [lib]
-name = "aidoo_whisper_lite_lib"
+name = "aidoo_whisper_control_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

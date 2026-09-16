@@ -2,7 +2,7 @@ import type { AppLanguage } from "./types";
 
 export const copy = {
   bg: {
-    product: "AIDOO Whisper Lite",
+    product: "AIDOO Whisper Control",
     tagline: "Говориш. Текстът се появява.",
     dictation: "Диктовка",
     assistant: "AIDOO асистент",
@@ -176,7 +176,7 @@ export const copy = {
     saved: "Настройките са запазени.",
     deleted: "Изтрито.",
     welcomeTitle: "Настройте диктовката за няколко минути",
-    welcomeBody: "AIDOO Whisper Lite записва само докато държите shortcut-а и изпраща аудиото към избрания OpenAI transcription модел.",
+    welcomeBody: "AIDOO Whisper Control записва само докато държите shortcut-а и изпраща аудиото към избрания OpenAI transcription модел.",
     continue: "Продължи",
     back: "Назад",
     finish: "Завърши настройката",
@@ -201,7 +201,7 @@ export const copy = {
     retryLoad: "Опитай отново",
   },
   en: {
-    product: "AIDOO Whisper Lite",
+    product: "AIDOO Whisper Control",
     tagline: "Speak. Your text appears.",
     dictation: "Dictation",
     assistant: "AIDOO Assistant",
@@ -375,7 +375,7 @@ export const copy = {
     saved: "Settings saved.",
     deleted: "Deleted.",
     welcomeTitle: "Set up dictation in a few minutes",
-    welcomeBody: "AIDOO Whisper Lite records only while you hold the shortcut and sends the audio to your selected OpenAI transcription model.",
+    welcomeBody: "AIDOO Whisper Control records only while you hold the shortcut and sends the audio to your selected OpenAI transcription model.",
     continue: "Continue",
     back: "Back",
     finish: "Finish setup",

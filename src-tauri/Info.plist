@@ -5,8 +5,8 @@
   <key>CFBundleIconName</key>
   <string>icon</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>AIDOO Whisper Lite uses your selected microphone for dictation and testing. If you enable Hey, AIDOO, wake-phrase detection stays local on this Mac.</string>
+  <string>AIDOO Whisper Control uses your selected microphone for dictation and testing. If you enable Hey, AIDOO, wake-phrase detection stays local on this Mac.</string>
   <key>NSAppleEventsUsageDescription</key>
-  <string>AIDOO Whisper Lite uses browser automation to show and refresh the relevant AIDOO Kontrol patient screen after confirmed changes.</string>
+  <string>AIDOO Whisper Control uses browser automation to show and refresh the relevant AIDOO Kontrol patient screen after confirmed changes.</string>
 </dict>
 </plist>

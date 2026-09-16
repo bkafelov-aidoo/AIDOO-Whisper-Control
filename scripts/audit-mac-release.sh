@@ -10,11 +10,11 @@ import json, sys
 print(json.loads(Path(sys.argv[1]).read_text())["version"])
 PY
 )"
-dmg="${1:-$project_root/release/$version/AIDOO Whisper Lite_${version}_aarch64.dmg}"
+dmg="${1:-$project_root/release/$version/AIDOO Whisper Control_${version}_aarch64.dmg}"
 checksum="$dmg.sha256"
 test -f "$dmg"
 test -f "$checksum"
-test "$(basename -- "$dmg")" = "AIDOO Whisper Lite_${version}_aarch64.dmg"
+test "$(basename -- "$dmg")" = "AIDOO Whisper Control_${version}_aarch64.dmg"
 
 python3 - "$project_root" <<'PY'
 from pathlib import Path
@@ -65,7 +65,7 @@ test "$(cat "$checksum")" = "$expected_checksum"
 checksum_dir="$(dirname -- "$checksum")"
 (cd "$checksum_dir" && shasum -a 256 -c "$(basename -- "$checksum")")
 
-mount_dir="$(mktemp -d -t aidoo-whisper-lite-audit)"
+mount_dir="$(mktemp -d -t aidoo-whisper-control-audit)"
 mounted=false
 cleanup() {
   if [[ "$mounted" == true ]]; then
@@ -83,7 +83,7 @@ trap cleanup EXIT
 
 hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mount_dir" -quiet
 mounted=true
-app="$mount_dir/AIDOO Whisper Lite.app"
+app="$mount_dir/AIDOO Whisper Control.app"
 test -d "$app"
 
 codesign --verify --deep --strict --verbose=2 "$app"
@@ -92,16 +92,16 @@ xcrun stapler validate "$dmg"
 spctl --assess --verbose=2 --type execute "$app"
 spctl --assess --verbose=2 --type open --context context:primary-signature "$dmg"
 codesign --verify --strict --verbose=2 "$dmg"
-file "$app/Contents/MacOS/aidoo-whisper-lite" | grep -q 'arm64'
-test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = 'app.aidoo.whisper-lite'
+file "$app/Contents/MacOS/aidoo-whisper-control" | grep -q 'arm64'
+test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = 'app.aidoo.whisper-control'
 test "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$version"
 test "$(plutil -extract LSMinimumSystemVersion raw "$app/Contents/Info.plist")" = '13.0'
-test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Info.plist")" = 'AIDOO Whisper Lite uses your selected microphone for dictation and testing. If you enable Hey, AIDOO, wake-phrase detection stays local on this Mac.'
-test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Resources/en.lproj/InfoPlist.strings")" = 'AIDOO Whisper Lite uses your selected microphone for dictation and testing. If you enable Hey, AIDOO, wake-phrase detection stays local on this Mac.'
-test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Resources/bg.lproj/InfoPlist.strings")" = 'AIDOO Whisper Lite използва избрания микрофон за диктовка и тест. Ако включите Hey, AIDOO, разпознаването на фразата остава локално на този Mac.'
-test "$(plutil -extract NSAppleEventsUsageDescription raw "$app/Contents/Info.plist")" = 'AIDOO Whisper Lite uses browser automation to show and refresh the relevant AIDOO Kontrol patient screen after confirmed changes.'
-test "$(plutil -extract NSAppleEventsUsageDescription raw "$app/Contents/Resources/en.lproj/InfoPlist.strings")" = 'AIDOO Whisper Lite uses browser automation to show and refresh the relevant AIDOO Kontrol patient screen after confirmed changes.'
-test "$(plutil -extract NSAppleEventsUsageDescription raw "$app/Contents/Resources/bg.lproj/InfoPlist.strings")" = 'AIDOO Whisper Lite използва автоматизация на браузъра, за да показва и обновява правилния пациентски екран в AIDOO Kontrol след потвърдени промени.'
+test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Info.plist")" = 'AIDOO Whisper Control uses your selected microphone for dictation and testing. If you enable Hey, AIDOO, wake-phrase detection stays local on this Mac.'
+test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Resources/en.lproj/InfoPlist.strings")" = 'AIDOO Whisper Control uses your selected microphone for dictation and testing. If you enable Hey, AIDOO, wake-phrase detection stays local on this Mac.'
+test "$(plutil -extract NSMicrophoneUsageDescription raw "$app/Contents/Resources/bg.lproj/InfoPlist.strings")" = 'AIDOO Whisper Control използва избрания микрофон за диктовка и тест. Ако включите Hey, AIDOO, разпознаването на фразата остава локално на този Mac.'
+test "$(plutil -extract NSAppleEventsUsageDescription raw "$app/Contents/Info.plist")" = 'AIDOO Whisper Control uses browser automation to show and refresh the relevant AIDOO Kontrol patient screen after confirmed changes.'
+test "$(plutil -extract NSAppleEventsUsageDescription raw "$app/Contents/Resources/en.lproj/InfoPlist.strings")" = 'AIDOO Whisper Control uses browser automation to show and refresh the relevant AIDOO Kontrol patient screen after confirmed changes.'
+test "$(plutil -extract NSAppleEventsUsageDescription raw "$app/Contents/Resources/bg.lproj/InfoPlist.strings")" = 'AIDOO Whisper Control използва автоматизация на браузъра, за да показва и обновява правилния пациентски екран в AIDOO Kontrol след потвърдени промени.'
 test -f "$app/Contents/Resources/THIRD_PARTY_NOTICES.txt"
 cmp -s "$app/Contents/Resources/icon.icns" "$project_root/src-tauri/icons/icon.icns"
 
@@ -119,4 +119,4 @@ printf '%s' "$entitlements" | grep -q 'com.apple.security.device.audio-input'
 printf '%s' "$entitlements" | grep -q 'com.apple.security.network.client'
 printf '%s' "$entitlements" | grep -q 'com.apple.security.automation.apple-events'
 
-printf 'AIDOO Whisper Lite macOS release audit passed: %s\n' "$dmg"
+printf 'AIDOO Whisper Control macOS release audit passed: %s\n' "$dmg"

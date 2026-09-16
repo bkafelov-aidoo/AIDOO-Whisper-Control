@@ -5,21 +5,21 @@ Status date: 15 September 2026
 ## Current audited release candidate
 
 - Source: parent commit `be02bdec48f33078c44709ab473860add57474df` (`Show model accuracy levels`), exported to the dedicated repository as `9e5dfd154e2d5c4d6cbc3711e3528ec4e146dcd8`.
-- Package: `release/1.0.5/AIDOO Whisper Lite_1.0.5_aarch64.dmg`.
+- Package: `release/1.0.5/AIDOO Whisper Control_1.0.5_aarch64.dmg`.
 - SHA-256: `6d022df0acaec4dd5f8d56aa969334a483ecb1e1c6e31bb7d1b34a90fa96ef34`.
-- Architecture: Apple Silicon (`arm64`); minimum macOS version: 13; bundle ID: `app.aidoo.whisper-lite`.
+- Architecture: Apple Silicon (`arm64`); minimum macOS version: 13; bundle ID: `app.aidoo.whisper-control`.
 - Signing identity: `Developer ID Application: Aidoo Ltd. OOD (4KKVT2TUUA)`.
 - Apple notarization tickets are stapled to the application and DMG. Gatekeeper accepts both as `Notarized Developer ID`.
-- The audited application was installed from this exact DMG and launched from `/Applications/AIDOO Whisper Lite.app`.
+- The audited application was installed from this exact DMG and launched from `/Applications/AIDOO Whisper Control.app`.
 
 ## Automated evidence
 
-- `npm run release:mac` completed successfully from a clean tree at the exact local `lite-v1.0.5` source tag.
+- `npm run release:mac` completed successfully from a clean tree at the exact local `control-v1.0.5` source tag.
 - TypeScript checking, all 89 representative English error-localization cases, release configuration, Apple Silicon dependency boundary and all three website-page checks pass.
 - The production frontend build passes.
 - All 51 native unit tests pass and Rust Clippy passes for all Apple Silicon release targets with warnings denied.
 - `npm audit --omit=dev` and the current RustSec database scan report no production vulnerabilities.
-- GitHub Actions run [34988829806](https://github.com/bkafelov-aidoo/AIDOO-Whisper-Lite/actions/runs/34988829806) validates dedicated-repository commit `edd83570ad1a788610dae7d1b1744c9d5cfe3246`; local release checks, tests, strict Clippy, signing and notarization also pass for the same source.
+- GitHub Actions run [34988829806](https://github.com/bkafelov-aidoo/AIDOO-Whisper-Control/actions/runs/34988829806) validates dedicated-repository commit `edd83570ad1a788610dae7d1b1744c9d5cfe3246`; local release checks, tests, strict Clippy, signing and notarization also pass for the same source.
 - Recovery safety tests prove that audio is marked non-retryable before an ambiguous OpenAI request, completed text can only take the local-finalization path, cleanup failure leaves a Delete-only item, missing/corrupt recovery metadata fails safe, and no already charged audio can re-enter the network path.
 - A full local HTTP upload-path test proves that a timeout after request transmission, an HTTP 5xx response and an unreadable HTTP 2xx response are all non-retryable. It uses a test-only local client; production still allows only the two audited OpenAI HTTPS destinations and rejects redirects.
 - History file deletion is journaled and crash-safe; the automated suite covers rollback before the history commit, cleanup after the commit and the narrow interruption between the JSON commit and journal phase update.

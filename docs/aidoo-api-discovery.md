@@ -68,7 +68,7 @@ The deployed test frontend bundles were inspected after the browser debugger sto
 - Surface records are keyed by the exact sorted `regions` set. Their status IDs are merged for that region set and they force `isMilkTooth=false` and `forObservation=false`.
 - `PUT .../teeth-status/overwrite` belongs to the NZIS import/overwrite flow and is not the ordinary correction endpoint.
 
-The Lite client implements these fixed routes, exact write shapes, a pre-write snapshot comparison, and separate post-write read-backs. A transport timeout triggers one read-back and never an automatic second write. A composite diagnosis/procedure/note action reports partial or uncertain state if one write succeeds and a later write fails.
+The Control client implements these fixed routes, exact write shapes, a pre-write snapshot comparison, and separate post-write read-backs. A transport timeout triggers one read-back and never an automatic second write. A composite diagnosis/procedure/note action reports partial or uncertain state if one write succeeds and a later write fails.
 
 ### Schedule read and write contract (2026-09-17)
 
@@ -81,7 +81,7 @@ The deployed schedule page was reloaded with the Network domain enabled. Only re
 - `POST /clinics/{clinicId}/appointments/search` accepts `{ doctorIds: string[] | null, treatmentRoomIds: string[] | null, fromDate: YYYY-MM-DD, toDate: YYYY-MM-DD }`.
 - Appointment search results contain `id`, `appointmentType`, `doctor.id`, `treatmentRoomId`, UTC `startTime`/`endTime`, and an optional `patientAppointment.patientId`. Embedded names, phones and clinic metadata are deliberately not modelled.
 - `POST /clinics/{clinicId}/appointments` creates a patient appointment with `appointmentType`, `doctorId`, `treatmentRoomId`, UTC `startTime`/`endTime`, and `patientAppointment` containing the selected patient's current identity fields, `status=SCHEDULED`, and `dentalTechnologyReadiness=NOT_SET`.
-- The frontend source also exposes GET/PUT/DELETE routes for an existing appointment. The Lite voice flow does not expose modification or deletion.
+- The frontend source also exposes GET/PUT/DELETE routes for an existing appointment. The Control voice flow does not expose modification or deletion.
 
 Slot discovery intersects the selected doctor's own work intervals with both doctor and room occupancy in 15-minute increments. An explicit date is searched only on that date; an omitted date searches from today through 30 days. The proposed slot is memory-only. Booking requires its opaque slot ID, checks the same day again immediately before the write, performs one POST, reads the day again, and refreshes the visible schedule. A transport failure triggers read-back only and never a second POST.
 

@@ -53,7 +53,7 @@ def fetch_range(start: int, end: int, attempts: int = 5) -> bytes:
             SOURCE_URL,
             headers={
                 "Range": f"bytes={start}-{end}",
-                "User-Agent": "AIDOO-Whisper-Lite-wakeword-training/1.0",
+                "User-Agent": "AIDOO-Whisper-Control-wakeword-training/1.0",
             },
         )
         try:

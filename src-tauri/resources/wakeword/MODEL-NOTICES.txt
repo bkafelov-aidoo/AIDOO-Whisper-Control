@@ -1,4 +1,4 @@
-AIDOO Whisper Lite — Hey, AIDOO model notices
+AIDOO Whisper Control — Hey, AIDOO model notices
 ================================================
 
 The custom hey_aidoo.onnx and hey_aidoo_confirmation.onnx classifiers were
@@ -8,7 +8,7 @@ https://github.com/livekit/livekit-wakeword
 
 General-speech negatives were sampled as frozen embeddings from LiveKit's
 published wake-word feature dataset. Neither the source audio nor the feature
-dataset is distributed with AIDOO Whisper Lite.
+dataset is distributed with AIDOO Whisper Control.
 
 Synthetic training speech was produced with the MIT-licensed
 rhasspy/piper-voices en_US-libritts_r-medium model:
@@ -21,7 +21,7 @@ https://creativecommons.org/licenses/by/4.0/
 
 The generated speech was transformed with room impulse responses and
 background audio, converted into frozen audio embeddings, and used to train a
-two-stage wake-word classifier. AIDOO Whisper Lite does not distribute the
+two-stage wake-word classifier. AIDOO Whisper Control does not distribute the
 Piper voice model or the LibriTTS-R recordings.
 
 Dataset citation requested by the LibriTTS-R authors:

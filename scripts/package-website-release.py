@@ -15,7 +15,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parent.parent
 VERSION = json.loads((ROOT / "package.json").read_text())["version"]
-DMG_NAME = f"AIDOO Whisper Lite_{VERSION}_aarch64.dmg"
+DMG_NAME = f"AIDOO Whisper Control_{VERSION}_aarch64.dmg"
 
 
 def sha256(path: Path) -> str:
@@ -108,12 +108,12 @@ def expected_manifest(release_dir: Path) -> dict[str, object]:
     files = [dmg, checksum, *public_website_files(website_root)]
     return {
         "schemaVersion": 1,
-        "product": "AIDOO Whisper Lite",
+        "product": "AIDOO Whisper Control",
         "version": VERSION,
         "platform": "macOS",
         "architecture": "arm64",
         "minimumSystemVersion": "13.0",
-        "bundleIdentifier": "app.aidoo.whisper-lite",
+        "bundleIdentifier": "app.aidoo.whisper-control",
         "files": [
             {
                 "path": path.relative_to(release_dir).as_posix(),

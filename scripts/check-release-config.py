@@ -51,12 +51,12 @@ def main() -> int:
     is_github_release = (
         os.environ.get("GITHUB_ACTIONS") == "true"
         and os.environ.get("GITHUB_WORKFLOW")
-        == "Release AIDOO Whisper Lite for macOS"
+        == "Release AIDOO Whisper Control for macOS"
     )
     if is_github_release and github_ref_type != "tag":
         errors.append("The macOS release workflow must run from an exact release tag")
     if github_ref_type == "tag":
-        expected_tag = f"lite-v{versions['package.json']}"
+        expected_tag = f"control-v{versions['package.json']}"
         if github_ref_name != expected_tag:
             errors.append(
                 f"Release tag {github_ref_name!r} does not match {expected_tag!r}"
@@ -65,7 +65,7 @@ def main() -> int:
     bundle = tauri.get("bundle", {})
     macos = bundle.get("macOS", {})
     expected_values = {
-        "identifier": (tauri.get("identifier"), "app.aidoo.whisper-lite"),
+        "identifier": (tauri.get("identifier"), "app.aidoo.whisper-control"),
         "minimumSystemVersion": (macos.get("minimumSystemVersion"), "13.0"),
         "signingIdentity": (macos.get("signingIdentity"), EXPECTED_IDENTITY),
         "createUpdaterArtifacts": (bundle.get("createUpdaterArtifacts"), False),
@@ -207,7 +207,7 @@ def main() -> int:
     expected_support_binding = 'const SUPPORT_EMAIL_URL = "mailto:support@aidoo.bg";'
     if frontend_source.count(expected_support_binding) != 1:
         errors.append("The frontend must bind support to the exact allowlisted AIDOO email")
-    if "AIDOO-Whisper-Lite/issues" in frontend_source:
+    if "AIDOO-Whisper-Control/issues" in frontend_source:
         errors.append("The frontend must not link users to private source-repository Issues")
 
     expected_transcription_models = {
@@ -450,7 +450,7 @@ def main() -> int:
     if manifest_commands != allowed_commands:
         errors.append("Application command permissions do not cover the exact manifest")
 
-    workflow_path = ROOT / ".github/workflows/release-lite-macos.yml"
+    workflow_path = ROOT / ".github/workflows/release-control-macos.yml"
     workflow = workflow_path.read_text()
     workflow_sources = {
         path: path.read_text()
@@ -524,7 +524,7 @@ def main() -> int:
             )
     for required_workflow_guard in (
         "runs-on: macos-15",
-        "group: aidoo-whisper-lite-macos-${{ github.ref }}",
+        "group: aidoo-whisper-control-macos-${{ github.ref }}",
         "cancel-in-progress: false",
         "timeout-minutes: 75",
         "umask 077",

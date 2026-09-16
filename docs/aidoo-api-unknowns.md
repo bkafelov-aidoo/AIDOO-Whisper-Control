@@ -29,10 +29,10 @@ The deployed frontend contract now supports an isolated pilot client and voice t
 - Semantics of the editable `GET .../teeth-status?visitId={visitId}&isNzok=false` response, especially why empty teeth have allocated record identifiers.
 - Whether the local signer/NHIF calls are mandatory for non-NZOK status entry or are incidental to the current web flow.
 - A retained browser Network capture of a successful surface add, replacement, and multiple change. The deployed frontend source establishes the request contract, but a real controlled write is still required before clinical release.
-- Whether the server has its own optimistic-concurrency field. The Lite pilot compensates by comparing the full editable snapshot immediately before writing.
+- Whether the server has its own optimistic-concurrency field. The Control pilot compensates by comparing the full editable snapshot immediately before writing.
 - Idempotency support, if any. No idempotency behavior will be inferred.
 - Validation error schema and partial-success behavior.
-- Whether partial success is possible when `teethStatus` contains multiple records. The Lite client treats any read-back mismatch as uncertain.
+- Whether partial success is possible when `teethStatus` contains multiple records. The Control client treats any read-back mismatch as uncertain.
 
 ## Diagnoses, procedures, and official notes
 
@@ -40,14 +40,14 @@ The deployed frontend contract now supports an isolated pilot client and voice t
 - Whether procedure price currency must be sent explicitly when the clinic catalog returns a currency-specific price. The deployed active-treatment UI posts the selected procedure object with `procedureId`, `price` and `discount`.
 - Server behavior for duplicate procedure IDs, incompatible diagnosis/treatment combinations, and rows created with only a note.
 - Whether one treatment row can be selected reliably from speech when multiple active rows use the same tooth. The assistant currently requires the opaque existing row ID after a disambiguating read; it must not guess.
-- Transactionality across the treatment write and one or more procedure writes. The Lite client does not retry and reports a partial/uncertain result when read-back does not confirm the complete intended state.
+- Transactionality across the treatment write and one or more procedure writes. The Control client does not retry and reports a partial/uncertain result when read-back does not confirm the complete intended state.
 
 ## Schedule
 
 - Controlled live evidence for a successful appointment POST and its independent search read-back. The deployed frontend route and payload are extracted and locally contract-tested, but implementation work did not create a real appointment.
-- Server-side conflict semantics when two clients book the same doctor or room concurrently. The Lite client performs an immediate preflight but still treats a rejected or unverified write conservatively.
+- Server-side conflict semantics when two clients book the same doctor or room concurrently. The Control client performs an immediate preflight but still treats a rejected or unverified write conservatively.
 - Clinic-specific rules beyond doctor work intervals, room occupancy and 15-minute granularity, such as holidays, appointment-type duration rules or hidden buffers.
-- Whether an idempotency key is supported for appointment creation. The Lite client does not infer one and never retries an ambiguous POST.
+- Whether an idempotency key is supported for appointment creation. The Control client does not infer one and never retries an ambiguous POST.
 
 ## Browser training exit criteria
 

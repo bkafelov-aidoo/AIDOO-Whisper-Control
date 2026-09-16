@@ -1,6 +1,6 @@
-# AIDOO Whisper Lite
+# AIDOO Whisper Control
 
-A focused macOS voice typing app. Hold a keyboard shortcut, speak, and release it to send the recording to the selected OpenAI transcription model. The result stays in the clipboard and can be pasted automatically into the active application.
+A macOS voice assistant for AIDOO Control and focused dictation. Use natural speech to navigate clinical and schedule workflows, or hold a keyboard shortcut to transcribe directly into the active application.
 
 ## Product behavior
 
@@ -35,12 +35,12 @@ python3 scripts/generate-third-party-notices.py
 npm run check
 cargo check --locked --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml
 cargo clippy --locked --release --target aarch64-apple-darwin --manifest-path src-tauri/Cargo.toml -- -D warnings
-CARGO_TARGET_DIR=/tmp/aidoo-whisper-lite-target npm run tauri dev
+CARGO_TARGET_DIR=/tmp/aidoo-whisper-control-target npm run tauri dev
 ```
 
 `rustup` reads the exact compiler, target, Clippy and rustfmt versions from `rust-toolchain.toml`. Native unit tests are run separately with the same release target in CI.
 
-The app bundle identifier is `app.aidoo.whisper-lite`. User-facing recordings default to `~/Documents/AIDOO Whisper Lite/Transcriptions`. Private settings, history and recovery data live under `~/Library/Application Support/AIDOO Whisper Lite`.
+The app bundle identifier is `app.aidoo.whisper-control`. User-facing recordings default to `~/Documents/AIDOO Whisper Control/Transcriptions`. Private settings, history and recovery data live under `~/Library/Application Support/AIDOO Whisper Control`.
 
 ## Release
 

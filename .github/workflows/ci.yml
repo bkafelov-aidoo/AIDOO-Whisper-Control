@@ -1,4 +1,4 @@
-name: Check AIDOO Whisper Lite for macOS
+name: Check AIDOO Whisper Control for macOS
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
   checks: write
 
 concurrency:
-  group: aidoo-whisper-lite-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: aidoo-whisper-control-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:

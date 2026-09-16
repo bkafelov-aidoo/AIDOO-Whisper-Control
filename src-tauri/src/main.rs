@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    aidoo_whisper_lite_lib::run()
+    aidoo_whisper_control_lib::run()
 }

@@ -1,7 +1,7 @@
-AIDOO Whisper Lite — Third-Party Notices
+AIDOO Whisper Control — Third-Party Notices
 ==========================================
 
-AIDOO Whisper Lite includes the open-source packages listed below. The application code
+AIDOO Whisper Control includes the open-source packages listed below. The application code
 created by Aidoo Ltd. OOD remains subject to its own distribution terms. Each dependency
 retains its original copyright and license terms.
 

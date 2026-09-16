@@ -756,7 +756,7 @@ fn is_managed_diagnostic_path(path: &Path, data_directory: &Path) -> bool {
     let Some(stem) = path.file_stem().and_then(|value| value.to_str()) else {
         return false;
     };
-    let Some(suffix) = stem.strip_prefix("AIDOO-Whisper-Lite-Diagnostics-") else {
+    let Some(suffix) = stem.strip_prefix("AIDOO-Whisper-Control-Diagnostics-") else {
         return false;
     };
     let Some((timestamp, identifier)) = suffix.rsplit_once('-') else {
@@ -887,7 +887,7 @@ pub(super) fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String>
         .map(|entry| entry.text.clone())
         .collect::<Vec<_>>();
     let path = storage::data_dir().join(format!(
-        "AIDOO-Whisper-Lite-Diagnostics-{}-{}.zip",
+        "AIDOO-Whisper-Control-Diagnostics-{}-{}.zip",
         Local::now().format("%Y%m%d-%H%M%S"),
         &uuid::Uuid::new_v4().simple().to_string()[..12]
     ));
@@ -928,7 +928,7 @@ pub(super) fn create_diagnostic_bundle(app: AppHandle) -> Result<String, String>
             .filter_map(Result::ok)
             .filter(|entry| {
                 let name = entry.file_name().to_string_lossy().to_lowercase();
-                name.contains("aidoo whisper lite") || name.contains("aidoo-whisper-lite")
+                name.contains("aidoo whisper control") || name.contains("aidoo-whisper-control")
             })
             .filter_map(|entry| {
                 if !entry.file_type().ok()?.is_file() {

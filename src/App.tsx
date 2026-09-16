@@ -151,7 +151,7 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand">
           <img src="/app-icon.png" alt="" />
-          <div><strong>AIDOO</strong><span>Whisper Lite</span></div>
+          <div><strong>AIDOO</strong><span>Whisper Control</span></div>
         </div>
         <nav>
           <NavButton active={page === "dictation"} disabled={isBusy} icon={<Mic />} label={t("dictation")} onClick={() => setPage("dictation")} />

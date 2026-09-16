@@ -196,7 +196,7 @@ fn completed_openai_text_is_finished_locally_without_another_request() {
 #[test]
 fn local_open_scope_accepts_only_history_files_and_diagnostic_bundles() {
     let history = [history_entry()];
-    let data = Path::new("/Users/example/Library/Application Support/AIDOO Whisper Lite");
+    let data = Path::new("/Users/example/Library/Application Support/AIDOO Whisper Control");
 
     assert!(path_is_authorized_for_open(
         Path::new("/Volumes/External/AIDOO/AIDOO-Whisper-2026-09-14_00-00-00-abcdef.flac"),
@@ -208,7 +208,7 @@ fn local_open_scope_accepts_only_history_files_and_diagnostic_bundles() {
         "flac"
     ));
     assert!(path_is_authorized_for_open(
-        &data.join("AIDOO-Whisper-Lite-Diagnostics-20260914-000000-abcdef123456.zip"),
+        &data.join("AIDOO-Whisper-Control-Diagnostics-20260914-000000-abcdef123456.zip"),
         &history,
         data
     ));
@@ -255,17 +255,17 @@ fn local_open_scope_accepts_only_history_files_and_diagnostic_bundles() {
         "flac"
     ));
     assert!(!path_is_authorized_for_open(
-        &data.join("AIDOO-Whisper-Lite-Diagnostics-20260914-000000.zip"),
+        &data.join("AIDOO-Whisper-Control-Diagnostics-20260914-000000.zip"),
         &history,
         data
     ));
     assert!(!path_is_authorized_for_open(
-        &data.join("AIDOO-Whisper-Lite-Diagnostics-20261314-000000-abcdef123456.zip"),
+        &data.join("AIDOO-Whisper-Control-Diagnostics-20261314-000000-abcdef123456.zip"),
         &history,
         data
     ));
     assert!(!path_is_authorized_for_open(
-        &data.join("AIDOO-Whisper-Lite-Diagnostics-20260914-000000-abcdef12345g.zip"),
+        &data.join("AIDOO-Whisper-Control-Diagnostics-20260914-000000-abcdef12345g.zip"),
         &history,
         data
     ));
@@ -611,23 +611,23 @@ fn recovery_remains_visible_in_the_tray_until_it_is_resolved() {
 fn tray_tooltip_covers_starting_processing_and_completion() {
     assert_eq!(
         tray_tooltip("starting", true),
-        "AIDOO Whisper Lite — starting microphone"
+        "AIDOO Whisper Control — starting microphone"
     );
     assert_eq!(
         tray_tooltip("transcribing", false),
-        "AIDOO Whisper Lite — транскрибирам"
+        "AIDOO Whisper Control — транскрибирам"
     );
     assert_eq!(
         tray_tooltip("done", false),
-        "AIDOO Whisper Lite — транскрипцията е готова"
+        "AIDOO Whisper Control — транскрипцията е готова"
     );
     assert_eq!(
         tray_tooltip("wake-listening", true),
-        "AIDOO Whisper Lite — listening for Hey, AIDOO"
+        "AIDOO Whisper Control — listening for Hey, AIDOO"
     );
     assert_eq!(
         tray_tooltip("wake-error", false),
-        "AIDOO Whisper Lite — проблем с гласовото активиране"
+        "AIDOO Whisper Control — проблем с гласовото активиране"
     );
 }
 

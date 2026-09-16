@@ -31,7 +31,7 @@ pub fn data_dir() -> PathBuf {
     }
     dirs::data_local_dir()
         .unwrap_or_else(std::env::temp_dir)
-        .join("AIDOO Whisper Lite")
+        .join("AIDOO Whisper Control")
 }
 
 #[cfg(test)]
@@ -54,7 +54,7 @@ pub(crate) fn with_test_data_dir<T>(path: PathBuf, test: impl FnOnce() -> T) -> 
 pub fn default_output_dir() -> PathBuf {
     dirs::document_dir()
         .unwrap_or_else(data_dir)
-        .join("AIDOO Whisper Lite")
+        .join("AIDOO Whisper Control")
         .join("Transcriptions")
 }
 

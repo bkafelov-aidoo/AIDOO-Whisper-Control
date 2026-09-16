@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the license notices bundled with AIDOO Whisper Lite."""
+"""Generate the license notices bundled with AIDOO Whisper Control."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ def cargo_packages() -> list[tuple[str, str, str, str, list[Path]]]:
     )
     metadata = json.loads(result.stdout)
     own_id = next(
-        package["id"] for package in metadata["packages"] if package["name"] == "aidoo-whisper-lite"
+        package["id"] for package in metadata["packages"] if package["name"] == "aidoo-whisper-control"
     )
     resolved = {node["id"] for node in metadata["resolve"]["nodes"]}
     packages = []
@@ -105,10 +105,10 @@ def node_packages() -> list[tuple[str, str, str, str, list[Path]]]:
 def render() -> str:
     ecosystems = (("Rust", cargo_packages()), ("JavaScript", node_packages()))
     sections = [
-        "AIDOO Whisper Lite — Third-Party Notices",
+        "AIDOO Whisper Control — Third-Party Notices",
         "==========================================",
         "",
-        "AIDOO Whisper Lite includes the open-source packages listed below. The application code",
+        "AIDOO Whisper Control includes the open-source packages listed below. The application code",
         "created by Aidoo Ltd. OOD remains subject to its own distribution terms. Each dependency",
         "retains its original copyright and license terms.",
         "",

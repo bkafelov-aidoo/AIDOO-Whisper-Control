@@ -435,9 +435,9 @@ pub(super) fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<M
         app,
         "show",
         if english {
-            "Open AIDOO Whisper Lite"
+            "Open AIDOO Whisper Control"
         } else {
-            "Отвори AIDOO Whisper Lite"
+            "Отвори AIDOO Whisper Control"
         },
         true,
         None::<&str>,
@@ -706,30 +706,30 @@ fn update_tray_menu(app: &AppHandle, current: &str) {
 
 pub(super) fn tray_tooltip(current: &str, english: bool) -> &'static str {
     match (english, current) {
-        (true, "starting") => "AIDOO Whisper Lite — starting microphone",
-        (true, "recording") => "AIDOO Whisper Lite — recording",
-        (true, "transcribing") => "AIDOO Whisper Lite — transcribing",
-        (true, "done") => "AIDOO Whisper Lite — transcription ready",
-        (true, "error") => "AIDOO Whisper Lite — error",
-        (true, "recovery") => "AIDOO Whisper Lite — action required",
-        (true, "setup") => "AIDOO Whisper Lite — finish setup",
-        (true, "permission") => "AIDOO Whisper Lite — permission required",
-        (true, "wake-listening") => "AIDOO Whisper Lite — listening for Hey, AIDOO",
-        (true, "wake-error") => "AIDOO Whisper Lite — voice activation needs attention",
-        (true, "live") => "AIDOO Whisper Lite — voice conversation active",
-        (true, _) => "AIDOO Whisper Lite — ready",
-        (false, "starting") => "AIDOO Whisper Lite — стартирам микрофона",
-        (false, "recording") => "AIDOO Whisper Lite — записвам",
-        (false, "transcribing") => "AIDOO Whisper Lite — транскрибирам",
-        (false, "done") => "AIDOO Whisper Lite — транскрипцията е готова",
-        (false, "error") => "AIDOO Whisper Lite — грешка",
-        (false, "recovery") => "AIDOO Whisper Lite — нужно е действие",
-        (false, "setup") => "AIDOO Whisper Lite — довършете настройката",
-        (false, "permission") => "AIDOO Whisper Lite — нужно е разрешение",
-        (false, "wake-listening") => "AIDOO Whisper Lite — слушам за Hey, AIDOO",
-        (false, "wake-error") => "AIDOO Whisper Lite — проблем с гласовото активиране",
-        (false, "live") => "AIDOO Whisper Lite — активен гласов разговор",
-        (false, _) => "AIDOO Whisper Lite — готов",
+        (true, "starting") => "AIDOO Whisper Control — starting microphone",
+        (true, "recording") => "AIDOO Whisper Control — recording",
+        (true, "transcribing") => "AIDOO Whisper Control — transcribing",
+        (true, "done") => "AIDOO Whisper Control — transcription ready",
+        (true, "error") => "AIDOO Whisper Control — error",
+        (true, "recovery") => "AIDOO Whisper Control — action required",
+        (true, "setup") => "AIDOO Whisper Control — finish setup",
+        (true, "permission") => "AIDOO Whisper Control — permission required",
+        (true, "wake-listening") => "AIDOO Whisper Control — listening for Hey, AIDOO",
+        (true, "wake-error") => "AIDOO Whisper Control — voice activation needs attention",
+        (true, "live") => "AIDOO Whisper Control — voice conversation active",
+        (true, _) => "AIDOO Whisper Control — ready",
+        (false, "starting") => "AIDOO Whisper Control — стартирам микрофона",
+        (false, "recording") => "AIDOO Whisper Control — записвам",
+        (false, "transcribing") => "AIDOO Whisper Control — транскрибирам",
+        (false, "done") => "AIDOO Whisper Control — транскрипцията е готова",
+        (false, "error") => "AIDOO Whisper Control — грешка",
+        (false, "recovery") => "AIDOO Whisper Control — нужно е действие",
+        (false, "setup") => "AIDOO Whisper Control — довършете настройката",
+        (false, "permission") => "AIDOO Whisper Control — нужно е разрешение",
+        (false, "wake-listening") => "AIDOO Whisper Control — слушам за Hey, AIDOO",
+        (false, "wake-error") => "AIDOO Whisper Control — проблем с гласовото активиране",
+        (false, "live") => "AIDOO Whisper Control — активен гласов разговор",
+        (false, _) => "AIDOO Whisper Control — готов",
     }
 }
 

@@ -186,11 +186,11 @@ finish() {
 
 
 TOTAL_STAGES=4
-export GH_REPO="bkafelov-aidoo/AIDOO-Whisper-Lite"
+export GH_REPO="bkafelov-aidoo/AIDOO-Whisper-Control"
 EXPECTED_IDENTITY="Developer ID Application: Aidoo Ltd. OOD"
 EXPECTED_TEAM_ID="4KKVT2TUUA"
 
-banner "AIDOO Whisper Lite · GitHub release credentials"
+banner "AIDOO Whisper Control · GitHub release credentials"
 
 stage "GitHub access"
 say "This wizard writes six repository secrets to $GH_REPO. It never prints or stores their values in the project."
@@ -246,7 +246,7 @@ pause "Continue to notarization credentials?"
 stage "Apple notarization account"
 say "Apple notarization uses an app-specific password, never your primary Apple Account password. Two-factor authentication must be enabled."
 open_url "https://account.apple.com/account/manage"
-step "In Sign-In and Security, open App-Specific Passwords. Generate one named 'AIDOO Whisper Lite notarization' and copy it."
+step "In Sign-In and Security, open App-Specific Passwords. Generate one named 'AIDOO Whisper Control notarization' and copy it."
 ask_secret APPLE_ID_VALUE "Enter the Apple Account email used for notarization:"
 ask_secret APPLE_PASSWORD_VALUE "Paste the generated app-specific password:"
 if [[ -z "$APPLE_ID_VALUE" || -z "$APPLE_PASSWORD_VALUE" ]]; then

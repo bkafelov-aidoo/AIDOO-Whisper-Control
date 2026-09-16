@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AIDOO Whisper Lite",
+  "productName": "AIDOO Whisper Control",
   "version": "1.1.0",
-  "identifier": "app.aidoo.whisper-lite",
+  "identifier": "app.aidoo.whisper-control",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "AIDOO Whisper Lite",
+        "title": "AIDOO Whisper Control",
         "width": 1040,
         "height": 720,
         "minWidth": 900,
@@ -27,7 +27,7 @@
       {
         "label": "overlay",
         "url": "index.html?window=overlay",
-        "title": "AIDOO Whisper Lite",
+        "title": "AIDOO Whisper Control",
         "width": 552,
         "height": 156,
         "minHeight": 132,
@@ -67,7 +67,7 @@
     ],
     "category": "Productivity",
     "shortDescription": "Говориш. Текстът се появява.",
-    "longDescription": "AIDOO Whisper Lite is a focused, cost-efficient voice typing assistant for macOS.",
+    "longDescription": "AIDOO Whisper Control combines voice control for AIDOO with focused, cost-efficient dictation on macOS.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
