@@ -46,6 +46,12 @@ export interface MicrophoneProbe {
   heardAudio: boolean;
 }
 
+export interface WakeWordCalibrationScore {
+  rms: number;
+  primary: number;
+  confirmation: number;
+}
+
 export interface RecordingProgress {
   percent: number;
   stage: string;

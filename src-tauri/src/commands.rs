@@ -1,6 +1,38 @@
 use super::*;
 
 #[tauri::command]
+pub(super) fn start_wake_word_calibration(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    if state.recording_active.load(Ordering::Acquire)
+        || state.operation_active.load(Ordering::Acquire)
+    {
+        return Err("Изчакайте текущата операция да приключи.".into());
+    }
+    if audio::microphone_names().is_empty() {
+        return Err("Не е намерен микрофон.".into());
+    }
+    state.wake_word_calibrating.store(true, Ordering::Release);
+    reconcile_wake_word_listener(&app);
+    if !state.wake_word_listening.load(Ordering::Acquire) {
+        state.wake_word_calibrating.store(false, Ordering::Release);
+        return Err(state
+            .wake_word_error
+            .lock()
+            .ok()
+            .and_then(|error| error.clone())
+            .unwrap_or_else(|| "Калибрацията не можа да стартира.".into()));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub(super) fn stop_wake_word_calibration(app: AppHandle) {
+    let state = app.state::<AppState>();
+    state.wake_word_calibrating.store(false, Ordering::Release);
+    schedule_wake_word_reconcile(&app, std::time::Duration::from_millis(100));
+}
+
+#[tauri::command]
 pub(super) fn delete_failed_recording(app: AppHandle) -> Result<(), String> {
     let state = app.state::<AppState>();
     let _operation = acquire_operation(&app, &state)?;

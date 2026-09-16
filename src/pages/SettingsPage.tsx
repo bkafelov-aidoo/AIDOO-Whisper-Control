@@ -10,6 +10,7 @@ import { type ToastHandler } from "../ui-types";
 import { formatShortcut } from "../lib/presentation";
 import { SettingsSection, SettingRow, Toggle, ModelPicker, StorageControls } from "../components/SettingsControls";
 import { useShortcutCapture } from "../hooks/useShortcutCapture";
+import { WakeWordCalibrationDialog } from "../components/WakeWordCalibrationDialog";
 
 const SUPPORT_EMAIL_URL = "mailto:support@aidoo.bg";
 
@@ -31,8 +32,9 @@ export function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToas
   const [microphoneBusy, setMicrophoneBusy] = useState(false);
   const [accessibilityBusy, setAccessibilityBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
+  const [calibrationOpen, setCalibrationOpen] = useState(false);
   const launchAtLoginDirty = useRef(false);
-  const controlsDisabled = isBusy || keyBusy || shortcutBusy || diagnosticBusy || microphoneBusy || accessibilityBusy || saveBusy;
+  const controlsDisabled = isBusy || keyBusy || shortcutBusy || diagnosticBusy || microphoneBusy || accessibilityBusy || saveBusy || calibrationOpen;
   const shortcutButtonDisabled = isBusy || keyBusy || diagnosticBusy || microphoneBusy || accessibilityBusy || saveBusy;
   useShortcutCapture(shortcutBusy, setShortcutBusy, (binding) => setDraft((current) => ({ ...current, dictationShortcut: binding })), (message) => onToast(errorMessage(message, language), "error"));
 
@@ -81,7 +83,7 @@ export function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToas
       <SettingRow title={t("testMicrophone")} detail={t("microphoneTestHelp")}><button className="secondary-button" disabled={controlsDisabled || !data.microphones.length} onClick={async () => { setMicrophoneBusy(true); try { const probe = await invoke<MicrophoneProbe>("test_microphone", { microphoneName: draft.microphoneName, automaticFallback: draft.automaticMicrophoneFallback }); if (!probe.heardAudio) throw new Error(t("microphoneSilent")); onToast(probe.usedFallback ? t("microphoneFallback", { name: probe.deviceName }) : t("microphoneOk"), probe.usedFallback ? "warning" : "success"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setMicrophoneBusy(false); } }}>{microphoneBusy ? <LoaderCircle className="spin" /> : <AudioLines />}{t("testMicrophone")}</button></SettingRow>
       <SettingRow title={t("accessibility")} detail={data.accessibilityGranted ? t("ready") : t("accessibilityHelp")}><div className="inline-actions"><button className="secondary-button" disabled={controlsDisabled} onClick={async () => { try { await invoke("open_accessibility_settings"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}>{t("grant")}</button><button className="secondary-button" disabled={controlsDisabled} onClick={async () => { setAccessibilityBusy(true); try { await invoke("refresh_accessibility_status"); await onRefresh(); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setAccessibilityBusy(false); } }}>{accessibilityBusy ? <LoaderCircle className="spin" /> : data.accessibilityGranted ? <Check /> : <RefreshCw />}{t("refresh")}</button></div></SettingRow>
       <SettingRow title={t("shortcut")} detail={formatShortcut(draft.dictationShortcut)}><button className="secondary-button" disabled={shortcutButtonDisabled} onClick={async () => { if (shortcutBusy) { try { await invoke("cancel_shortcut_capture"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setShortcutBusy(false); } return; } setShortcutBusy(true); try { await invoke("begin_shortcut_capture"); } catch (reason) { setShortcutBusy(false); onToast(errorMessage(reason, language), "error"); } }}>{shortcutBusy ? <X /> : null}{shortcutBusy ? t("cancel") : t("changeShortcut")}</button></SettingRow>
-      <SettingRow title={t("wakeWord")} detail={t("wakeWordHelp")}><Toggle label={t("wakeWord")} checked={draft.wakeWordEnabled} disabled={controlsDisabled} onChange={(wakeWordEnabled) => setDraft({ ...draft, wakeWordEnabled })} /></SettingRow>
+      <SettingRow title={t("wakeWord")} detail={t("wakeWordHelp")}><div className="inline-actions"><button className="secondary-button" disabled={controlsDisabled || !data.microphones.length} onClick={() => setCalibrationOpen(true)}><AudioLines />{t("wakeCalibration")}</button><Toggle label={t("wakeWord")} checked={draft.wakeWordEnabled} disabled={controlsDisabled} onChange={(wakeWordEnabled) => setDraft({ ...draft, wakeWordEnabled })} /></div></SettingRow>
       {draft.wakeWordEnabled && <SettingRow title={t("wakeWordAutoStop")} detail={t("wakeWordAutoStopHelp")}><Toggle label={t("wakeWordAutoStop")} checked={draft.wakeWordAutoStop} disabled={controlsDisabled} onChange={(wakeWordAutoStop) => setDraft({ ...draft, wakeWordAutoStop })} /></SettingRow>}
       <SettingRow title={t("autoPaste")} detail={t("autoPasteHelp")}><Toggle label={t("autoPaste")} checked={draft.autoPaste} disabled={controlsDisabled} onChange={(autoPaste) => setDraft({ ...draft, autoPaste })} /></SettingRow>
     </SettingsSection>
@@ -95,5 +97,6 @@ export function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToas
       <p className="section-help">{t("diagnosticsHelp")}</p><div className="inline-actions"><button className="secondary-button" disabled={controlsDisabled} onClick={async () => { setDiagnosticBusy(true); try { const path = await invoke<string>("create_diagnostic_bundle"); await invoke("open_local_path", { path, reveal: true }); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setDiagnosticBusy(false); } }}>{diagnosticBusy ? <LoaderCircle className="spin" /> : <FileText />}{t("createDiagnostics")}</button><button className="secondary-button" disabled={controlsDisabled} onClick={async () => { try { await openUrl(SUPPORT_EMAIL_URL); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("openSupport")}</button></div>
     </SettingsSection>
     <footer className="settings-footer"><button className="primary-button large" disabled={controlsDisabled} title={isBusy ? t("finishDictationFirst") : undefined} onClick={async () => { setSaveBusy(true); try { await onSave(draft); launchAtLoginDirty.current = false; } catch { /* The parent already showed the localized error. */ } finally { setSaveBusy(false); } }}>{saveBusy ? <LoaderCircle className="spin" /> : <Check />}{t("save")}</button></footer>
+    {calibrationOpen && <WakeWordCalibrationDialog language={language} onClose={() => setCalibrationOpen(false)} onToast={onToast} />}
   </div>;
 }

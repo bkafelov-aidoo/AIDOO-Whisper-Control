@@ -8,6 +8,8 @@ fn main() {
         "begin_shortcut_capture",
         "cancel_shortcut_capture",
         "test_microphone",
+        "start_wake_word_calibration",
+        "stop_wake_word_calibration",
         "start_recording",
         "stop_and_transcribe",
         "retry_failed_transcription",

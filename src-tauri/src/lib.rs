@@ -87,6 +87,7 @@ struct AppState {
     last_recording_error: Mutex<Option<String>>,
     wake_word_error: Mutex<Option<String>>,
     wake_word_listening: AtomicBool,
+    wake_word_calibrating: AtomicBool,
     api_key: Mutex<Option<Zeroizing<String>>>,
 }
 
@@ -126,6 +127,7 @@ impl AppState {
             last_recording_error: Mutex::new(recovery_error),
             wake_word_error: Mutex::new(None),
             wake_word_listening: AtomicBool::new(false),
+            wake_word_calibrating: AtomicBool::new(false),
             api_key: Mutex::new(api_key),
         }
     }
@@ -283,6 +285,8 @@ pub fn run() {
             begin_shortcut_capture,
             cancel_shortcut_capture,
             test_microphone,
+            start_wake_word_calibration,
+            stop_wake_word_calibration,
             start_recording,
             stop_and_transcribe,
             retry_failed_transcription,

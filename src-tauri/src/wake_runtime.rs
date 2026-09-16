@@ -72,6 +72,10 @@ pub(super) fn install_wake_word_events(app: AppHandle) {
                         {
                             continue;
                         }
+                        if state.wake_word_calibrating.load(Ordering::Acquire) {
+                            let _ = app.emit("wake-word:calibration-detected", confidence);
+                            continue;
+                        }
                         stop_wake_word_listener(&state);
                         if let Ok(mut error) = state.wake_word_error.lock() {
                             *error = None;
@@ -84,15 +88,42 @@ pub(super) fn install_wake_word_events(app: AppHandle) {
                             set_error(&app, &error);
                         }
                     }
+                    wake_word::WakeWordEvent::Scores {
+                        rms,
+                        primary,
+                        confirmation,
+                    } => {
+                        if app
+                            .state::<AppState>()
+                            .wake_word_calibrating
+                            .load(Ordering::Acquire)
+                        {
+                            let _ = app.emit(
+                                "wake-word:calibration-score",
+                                serde_json::json!({
+                                    "rms": rms,
+                                    "primary": primary,
+                                    "confirmation": confirmation,
+                                }),
+                            );
+                        }
+                    }
                     wake_word::WakeWordEvent::Failed(error) => {
                         let state = app.state::<AppState>();
+                        let calibrating = state
+                            .wake_word_calibrating
+                            .swap(false, Ordering::AcqRel);
                         stop_wake_word_listener(&state);
                         if let Ok(mut current) = state.wake_word_error.lock() {
                             *current = Some(error.clone());
                         }
                         storage::append_diagnostic(&format!("wake word stream failed: {error}"));
                         let _ = app.emit("wake-word:status", "error");
-                        let _ = app.emit("toast", &error);
+                        if calibrating {
+                            let _ = app.emit("wake-word:calibration-error", &error);
+                        } else {
+                            let _ = app.emit("toast", &error);
+                        }
                         refresh_tray_menu(&app);
                         schedule_wake_word_reconcile(&app, std::time::Duration::from_secs(5));
                     }

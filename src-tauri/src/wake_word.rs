@@ -5,7 +5,8 @@ use livekit_wakeword::WakeWordModel;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc};
+use serde::Serialize;
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -42,9 +43,15 @@ impl ConfirmationState {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
 pub enum WakeWordEvent {
     Detected { confidence: f32 },
+    Scores {
+        rms: f32,
+        primary: f32,
+        confirmation: f32,
+    },
     Failed(String),
 }
 
@@ -242,15 +249,23 @@ fn start_on_device(
     let channels = config.channels;
     let model = WakeWordModel::new(&[primary_model_path, confirmation_model_path], sample_rate)
         .map_err(|error| format!("Wake-word моделът не може да се зареди: {error}"))?;
-    let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<i16>>(8);
+    let audio_buffer = Arc::new(Mutex::new(VecDeque::<i16>::with_capacity(
+        sample_rate as usize * 3,
+    )));
+    let recent_voice = Arc::new(AtomicBool::new(false));
+    let (audio_tx, audio_rx) = mpsc::sync_channel::<()>(1);
     let stop = Arc::new(AtomicBool::new(false));
     let worker_stop = stop.clone();
     let worker_events = events.clone();
+    let worker_audio_buffer = audio_buffer.clone();
+    let worker_recent_voice = recent_voice.clone();
     let worker = std::thread::Builder::new()
         .name("aidoo-wakeword-inference".into())
         .spawn(move || {
             inference_loop(
                 model,
+                worker_audio_buffer,
+                worker_recent_voice,
                 audio_rx,
                 worker_stop,
                 worker_events,
@@ -267,23 +282,44 @@ fn start_on_device(
             "Микрофонът за гласово активиране прекъсна: {error}"
         )));
     };
+    let max_buffer_samples = sample_rate as usize * 3;
     let stream_result = match sample_format {
-        SampleFormat::F32 => device.build_input_stream(
-            &config,
-            move |data: &[f32], _| {
-                let _ = audio_tx.try_send(downmix_f32(data, channels));
-            },
-            error_callback,
-            None,
-        ),
-        SampleFormat::I16 => device.build_input_stream(
-            &config,
-            move |data: &[i16], _| {
-                let _ = audio_tx.try_send(downmix_i16(data, channels));
-            },
-            error_callback,
-            None,
-        ),
+        SampleFormat::F32 => {
+            let buffer = audio_buffer.clone();
+            let voice = recent_voice.clone();
+            device.build_input_stream(
+                &config,
+                move |data: &[f32], _| {
+                    push_audio(
+                        &buffer,
+                        &voice,
+                        &audio_tx,
+                        downmix_f32(data, channels),
+                        max_buffer_samples,
+                    );
+                },
+                error_callback,
+                None,
+            )
+        }
+        SampleFormat::I16 => {
+            let buffer = audio_buffer.clone();
+            let voice = recent_voice.clone();
+            device.build_input_stream(
+                &config,
+                move |data: &[i16], _| {
+                    push_audio(
+                        &buffer,
+                        &voice,
+                        &audio_tx,
+                        downmix_i16(data, channels),
+                        max_buffer_samples,
+                    );
+                },
+                error_callback,
+                None,
+            )
+        }
         SampleFormat::U16 => device.build_input_stream(
             &config,
             move |data: &[u16], _| {
@@ -294,7 +330,13 @@ fn start_on_device(
                     })
                     .map(|sample| sample as i16)
                     .collect::<Vec<_>>();
-                let _ = audio_tx.try_send(downmix_i16(&converted, channels));
+                push_audio(
+                    &audio_buffer,
+                    &recent_voice,
+                    &audio_tx,
+                    downmix_i16(&converted, channels),
+                    max_buffer_samples,
+                );
             },
             error_callback,
             None,
@@ -322,9 +364,30 @@ fn start_on_device(
     })
 }
 
+fn push_audio(
+    buffer: &Mutex<VecDeque<i16>>,
+    recent_voice: &AtomicBool,
+    signal: &mpsc::SyncSender<()>,
+    samples: Vec<i16>,
+    max_samples: usize,
+) {
+    if rms(&samples) >= VOICE_RMS_GATE {
+        recent_voice.store(true, Ordering::Release);
+    }
+    if let Ok(mut buffer) = buffer.lock() {
+        buffer.extend(samples);
+        while buffer.len() > max_samples {
+            buffer.pop_front();
+        }
+    }
+    let _ = signal.try_send(());
+}
+
 fn inference_loop(
     mut model: WakeWordModel,
-    audio: mpsc::Receiver<Vec<i16>>,
+    audio_buffer: Arc<Mutex<VecDeque<i16>>>,
+    recent_voice: Arc<AtomicBool>,
+    audio: mpsc::Receiver<()>,
     stop: Arc<AtomicBool>,
     events: mpsc::Sender<WakeWordEvent>,
     sample_rate: u32,
@@ -332,42 +395,43 @@ fn inference_loop(
     confirmation_threshold: f32,
 ) {
     let window_samples = sample_rate as usize * 2;
-    let mut window = VecDeque::with_capacity(window_samples);
     let mut last_inference = Instant::now()
         .checked_sub(INFERENCE_INTERVAL)
         .unwrap_or_else(Instant::now);
     let mut last_detection = Instant::now()
         .checked_sub(DETECTION_DEBOUNCE)
         .unwrap_or_else(Instant::now);
-    let mut recent_voice = false;
     let mut confirmation_state = ConfirmationState::new();
     while !stop.load(Ordering::Acquire) {
-        let samples = match audio.recv_timeout(Duration::from_millis(100)) {
-            Ok(samples) => samples,
+        match audio.recv_timeout(Duration::from_millis(100)) {
+            Ok(()) => {}
             Err(mpsc::RecvTimeoutError::Timeout) => continue,
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
-        };
-        if rms(&samples) >= VOICE_RMS_GATE {
-            recent_voice = true;
-        }
-        window.extend(samples);
-        while window.len() > window_samples {
-            window.pop_front();
         }
         let confirmation_pending = confirmation_state.pending();
-        if window.len() < window_samples
-            || (!recent_voice && !confirmation_pending)
+        if (!recent_voice.swap(false, Ordering::AcqRel) && !confirmation_pending)
             || last_inference.elapsed() < INFERENCE_INTERVAL
         {
             continue;
         }
+        let contiguous = match audio_buffer.lock() {
+            Ok(buffer) if buffer.len() >= window_samples => buffer
+                .iter()
+                .skip(buffer.len() - window_samples)
+                .copied()
+                .collect::<Vec<_>>(),
+            _ => continue,
+        };
         last_inference = Instant::now();
-        recent_voice = false;
-        let contiguous = window.iter().copied().collect::<Vec<_>>();
         match model.predict(&contiguous) {
             Ok(scores) => {
                 let primary = scores.get(PRIMARY_MODEL_NAME).copied().unwrap_or(0.0);
                 let confirmation = scores.get(CONFIRMATION_MODEL_NAME).copied().unwrap_or(0.0);
+                let _ = events.send(WakeWordEvent::Scores {
+                    rms: rms(&contiguous),
+                    primary,
+                    confirmation,
+                });
                 let confirmed = confirmation_state.observe(
                     primary >= primary_threshold,
                     confirmation >= confirmation_threshold,
@@ -507,5 +571,22 @@ mod tests {
     fn voice_gate_rejects_silence_and_accepts_speech_level_audio() {
         assert_eq!(rms(&[0; 32]), 0.0);
         assert!(rms(&[1000; 32]) > VOICE_RMS_GATE);
+    }
+
+    #[test]
+    fn ring_buffer_keeps_contiguous_audio_when_the_wake_signal_is_full() {
+        let buffer = Mutex::new(VecDeque::new());
+        let recent_voice = AtomicBool::new(false);
+        let (signal, receiver) = mpsc::sync_channel(1);
+
+        push_audio(&buffer, &recent_voice, &signal, vec![1, 2, 3], 4);
+        push_audio(&buffer, &recent_voice, &signal, vec![4, 5, 6], 4);
+
+        assert_eq!(
+            buffer.lock().unwrap().iter().copied().collect::<Vec<_>>(),
+            vec![3, 4, 5, 6]
+        );
+        assert_eq!(receiver.try_recv(), Ok(()));
+        assert!(matches!(receiver.try_recv(), Err(mpsc::TryRecvError::Empty)));
     }
 }

@@ -283,6 +283,8 @@ def main() -> int:
         "allow-begin-shortcut-capture",
         "allow-cancel-shortcut-capture",
         "allow-test-microphone",
+        "allow-start-wake-word-calibration",
+        "allow-stop-wake-word-calibration",
         "allow-start-recording",
         "allow-stop-and-transcribe",
         "allow-retry-failed-transcription",

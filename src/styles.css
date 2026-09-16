@@ -240,6 +240,31 @@ select { min-width: 190px; }
 .danger-icon svg { width: 22px; }
 .confirm-dialog h2 { margin: 3px 0; font-size: 17px; }
 .confirm-dialog p { max-height: 92px; margin: 0 0 8px; overflow: hidden; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.calibration-dialog { width: min(480px,92vw); min-height: 430px; padding: 32px; border: 1px solid rgba(255,255,255,.76); border-radius: 22px; background: #fff; box-shadow: 0 34px 100px rgba(7,27,50,.42); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; position: relative; }
+.calibration-dialog:focus { outline: none; }
+.calibration-dialog .close-button { position: absolute; right: 15px; top: 15px; }
+.calibration-dialog h2 { margin: 2px 0; color: #1e374e; font-size: 21px; letter-spacing: -.25px; }
+.calibration-dialog p { max-width: 390px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.calibration-dialog footer { min-height: 40px; margin-top: 8px; display: flex; gap: 8px; }
+.calibration-icon { width: 64px; height: 64px; border-radius: 20px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; box-shadow: 0 10px 28px rgba(31,116,211,.14); }
+.calibration-icon svg { width: 28px; }
+.calibration-icon.listening, .calibration-icon.countdown { color: #fff; background: linear-gradient(145deg,#378cf5,#1265ce); animation: calibrationPulse 1.4s ease-in-out infinite; }
+.calibration-icon.success { color: #fff; background: linear-gradient(145deg,#36ad7a,#1c7653); }
+@keyframes calibrationPulse { 50% { box-shadow: 0 0 0 9px rgba(40,126,225,.14); } }
+.privacy-note { max-width: 390px; padding: 10px 12px; border-radius: 10px; background: #f1f7fd; color: #496a87; font-size: 11px; line-height: 1.45; }
+.calibration-loader { width: 22px; color: var(--accent); }
+.calibration-countdown { color: var(--accent-dark); font-size: 56px; line-height: 1; font-variant-numeric: tabular-nums; }
+.calibration-prompt { color: #173c62; font-size: 24px; letter-spacing: -.3px; }
+.calibration-meter { width: min(330px,100%); height: 8px; border-radius: 999px; background: #e4ebf2; overflow: hidden; }
+.calibration-meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#2e83e7,#35b487); transition: width .16s ease-out; }
+.calibration-live { color: #496176; display: inline-flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 650; }
+.calibration-live > i { width: 8px; height: 8px; border-radius: 50%; background: #df405b; box-shadow: 0 0 0 4px rgba(223,64,91,.12); }
+.calibration-attempts { display: flex; gap: 9px; }
+.calibration-attempts i { width: 31px; height: 31px; border: 2px solid #cbd7e2; border-radius: 50%; color: #718294; display: grid; place-items: center; font-size: 11px; font-style: normal; font-weight: 700; }
+.calibration-attempts i.done { border-color: #2e9b70; background: #e3f5ec; color: #237a59; }
+.calibration-attempts svg { width: 14px; }
+.calibration-dialog small { color: var(--muted); font-size: 10px; }
+.calibration-result { color: #24445f; font-size: 16px; }
 .toast { position: fixed; z-index: 1400; left: 50%; bottom: 28px; transform: translateX(-50%); min-height: 48px; max-width: min(540px,calc(100vw - 40px)); padding: 11px 15px; border: 1px solid #a8d4bd; border-radius: 12px; background: rgba(241,250,245,.96); color: #235f46; box-shadow: 0 16px 42px rgba(22,65,45,.2); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 650; }
 .toast svg { width: 16px; }
 .toast.warning { border-color: #dfc47d; background: rgba(255,248,232,.97); color: #72521c; box-shadow: 0 16px 42px rgba(91,67,25,.18); }

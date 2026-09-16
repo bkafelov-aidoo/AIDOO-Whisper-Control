@@ -166,10 +166,13 @@ pub(super) fn wake_word_model_paths(app: &AppHandle) -> Result<(PathBuf, PathBuf
 }
 
 pub(super) fn wake_word_should_listen(state: &AppState) -> bool {
+    let calibrating = state.wake_word_calibrating.load(Ordering::Acquire);
     let settings_ready = state
         .settings
         .lock()
-        .map(|settings| settings.onboarding_complete && settings.wake_word_enabled)
+        .map(|settings| {
+            calibrating || (settings.onboarding_complete && settings.wake_word_enabled)
+        })
         .unwrap_or(false);
     let has_api_key = state
         .api_key
@@ -187,10 +190,9 @@ pub(super) fn wake_word_should_listen(state: &AppState) -> bool {
         .map(|status| status.as_str() == "idle")
         .unwrap_or(false);
     settings_ready
-        && has_api_key
-        && accessibility_granted()
-        && !has_recovery
-        && idle
+        && (calibrating || (has_api_key && accessibility_granted()))
+        && (calibrating || !has_recovery)
+        && (calibrating || idle)
         && !state.operation_active.load(Ordering::Acquire)
         && !state.recording_active.load(Ordering::Acquire)
 }
