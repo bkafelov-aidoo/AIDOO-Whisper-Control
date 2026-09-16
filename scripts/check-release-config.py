@@ -254,22 +254,24 @@ def main() -> int:
             )
 
     runtime_sources = "\n".join(
-        path.read_text() for path in (ROOT / "src-tauri/src").glob("*.rs")
+        path.read_text() for path in (ROOT / "src-tauri/src").rglob("*.rs")
     )
     runtime_https_urls = set(re.findall(r'"(https://[^"\s]+)"', runtime_sources))
     expected_runtime_https_urls = {
         "https://api.openai.com/v1/models",
         "https://api.openai.com/v1/audio/transcriptions",
         "https://api.openai.com/v1/live/sessions",
+        "https://aidoo-platform.on.dev-craft.tech/web",
     }
     if runtime_https_urls != expected_runtime_https_urls:
         errors.append(
             f"Native runtime HTTPS destinations differ: {sorted(runtime_https_urls)}"
         )
-    if runtime_sources.count(".https_only(true)") != 3:
-        errors.append("All OpenAI clients must reject non-HTTPS requests")
-    if runtime_sources.count(".redirect(reqwest::redirect::Policy::none())") != 3:
-        errors.append("All OpenAI clients must reject HTTP redirects")
+    if runtime_sources.count(".https_only(true)") != 4:
+        errors.append("All native API clients must reject non-HTTPS requests")
+    # Four production clients plus the HTTP-only local contract-test client.
+    if runtime_sources.count(".redirect(reqwest::redirect::Policy::none())") != 5:
+        errors.append("All native API clients must reject HTTP redirects")
     javascript_dependencies = {
         **package.get("dependencies", {}),
         **package.get("devDependencies", {}),
@@ -309,6 +311,20 @@ def main() -> int:
         "allow-update-settings",
         "allow-save-api-key",
         "allow-delete-api-key",
+        "allow-connect-aidoo",
+        "allow-reconnect-aidoo",
+        "allow-disconnect-aidoo",
+        "allow-aidoo-search-patients",
+        "allow-aidoo-status-catalog",
+        "allow-aidoo-diagnosis-catalog",
+        "allow-aidoo-procedure-catalog",
+        "allow-aidoo-create-status-visit",
+        "allow-aidoo-prepare-status-draft",
+        "allow-aidoo-confirm-status-draft",
+        "allow-aidoo-cancel-status-draft",
+        "allow-aidoo-prepare-treatment-draft",
+        "allow-aidoo-confirm-treatment-draft",
+        "allow-aidoo-cancel-treatment-draft",
         "allow-begin-shortcut-capture",
         "allow-cancel-shortcut-capture",
         "allow-test-microphone",

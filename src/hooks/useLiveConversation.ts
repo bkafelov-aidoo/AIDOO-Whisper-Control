@@ -6,8 +6,9 @@ import {
   AssistantVoiceCommandDetector,
   detectAssistantVoiceCommandFromLiveEvent,
 } from "../lib/assistant-command";
+import { executeAidooLiveTool, functionCallFromLiveEvent, sendAidooToolOutput } from "../lib/aidoo-live-tools";
 
-export type LivePhase = "idle" | "preparing" | "connecting" | "listening" | "speaking" | "switching" | "closing" | "error";
+export type LivePhase = "idle" | "preparing" | "connecting" | "listening" | "speaking" | "working" | "switching" | "closing" | "error";
 
 export interface LiveConversationState {
   phase: LivePhase;
@@ -25,6 +26,7 @@ interface LiveEvent {
   type?: string;
   delta?: string;
   error?: { message?: string };
+  event?: { type?: string; item?: { type?: string; call_id?: string; name?: string; arguments?: string } };
 }
 
 const MICROPHONE_TIMEOUT_MS = 12_000;
@@ -49,11 +51,13 @@ export function useLiveConversation(
   const readyRef = useRef(false);
   const closingRef = useRef(false);
   const switchingRef = useRef(false);
+  const toolBusyRef = useRef(false);
   const mountedRef = useRef(true);
   const operationRef = useRef(0);
   const commandDetectorRef = useRef(new AssistantVoiceCommandDetector());
   const startRef = useRef<() => Promise<void>>(async () => undefined);
   const stopRef = useRef<() => void>(() => undefined);
+  const handledToolCallsRef = useRef(new Set<string>());
 
   const updatePhase = useCallback((next: LivePhase) => {
     if (mountedRef.current) setPhase(next);
@@ -82,6 +86,8 @@ export function useLiveConversation(
     void audioContextRef.current?.close().catch(() => undefined);
     audioContextRef.current = null;
     commandDetectorRef.current.reset();
+    handledToolCallsRef.current.clear();
+    toolBusyRef.current = false;
   }, [clearTimer]);
 
   const finish = useCallback((nextPhase: LivePhase = "idle") => {
@@ -219,7 +225,7 @@ export function useLiveConversation(
       for (const track of microphone.getAudioTracks()) peer.addTrack(track, microphone);
       updatePhase("connecting");
 
-      peer.addEventListener("track", ({ track }) => monitorRemoteAudio(track, audioContextRef, monitorFrameRef, readyRef, closingRef, mountedRef, updatePhase));
+      peer.addEventListener("track", ({ track }) => monitorRemoteAudio(track, audioContextRef, monitorFrameRef, readyRef, closingRef, toolBusyRef, mountedRef, updatePhase));
 
       const channel = peer.createDataChannel("oai-events");
       channelRef.current = channel;
@@ -235,6 +241,21 @@ export function useLiveConversation(
           const command = detectAssistantVoiceCommandFromLiveEvent(event, commandDetectorRef.current);
           if (command === "start-dictation") void switchToDictation();
           if (command === "end-session") stopRef.current();
+        } else if (event.type === "response.event") {
+          const call = functionCallFromLiveEvent(event);
+          if (!call?.call_id || handledToolCallsRef.current.has(call.call_id)) return;
+          handledToolCallsRef.current.add(call.call_id);
+          toolBusyRef.current = true;
+          updatePhase("working");
+          void executeAidooLiveTool(call).then(({ callId, output }) => {
+            if (channel.readyState !== "open" || closingRef.current) return;
+            sendAidooToolOutput(channel, callId, output);
+            toolBusyRef.current = false;
+            updatePhase("listening");
+          }).catch((reason) => {
+            toolBusyRef.current = false;
+            fail(reason);
+          });
         } else if (event.type === "session.closed") {
           finish("idle");
         } else if (event.type === "error" || event.type === "session.failed") {
@@ -279,6 +300,7 @@ function monitorRemoteAudio(
   monitorFrameRef: MutableRefObject<number | null>,
   readyRef: MutableRefObject<boolean>,
   closingRef: MutableRefObject<boolean>,
+  toolBusyRef: MutableRefObject<boolean>,
   mountedRef: MutableRefObject<boolean>,
   updatePhase: (phase: LivePhase) => void,
 ) {
@@ -301,7 +323,7 @@ function monitorRemoteAudio(
         energy += centered * centered;
       }
       if (Math.sqrt(energy / samples.length) > 0.025) lastSpeechAt = performance.now();
-      if (readyRef.current && !closingRef.current && mountedRef.current) {
+      if (readyRef.current && !closingRef.current && !toolBusyRef.current && mountedRef.current) {
         updatePhase(performance.now() - lastSpeechAt < 280 ? "speaking" : "listening");
       }
       monitorFrameRef.current = requestAnimationFrame(monitor);

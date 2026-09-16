@@ -9,8 +9,8 @@ const MAX_SDP_BYTES: usize = 128 * 1024;
 const MAX_LIVE_RESPONSE_BYTES: usize = 512 * 1024;
 const MAX_API_ERROR_BYTES: usize = 64 * 1024;
 
-const LIVE_INSTRUCTIONS: &str = "Говори на български, освен ако потребителят не поиска друг език. Бъди кратък, естествен и ясен. Това е разговор с AIDOO асистента, а не диктовка. Когато потребителят каже „Започни транскрипция“, приложението самостоятелно ще прекрати разговора и ще премине към отделния режим за запис; не продължавай с дълъг отговор. Когато каже „Край“, „Затвори“, „Приключи разговора“, „Приключваме“, „Спри асистента“ или „Довиждане“, приложението ще затвори сесията; не започвай нов отговор. Това е тестов режим: не твърди, че си променил стоматологични данни и не измисляй пациенти, статуси или резултати. Делегирай към backend модела, когато задачата изисква повече разсъждение. Кажи ясно, че интеграцията с AIDOO Kontrol още не е активна, ако потребителят поиска действие в нея.";
-const BACKEND_INSTRUCTIONS: &str = "Отговаряй на български с кратък, проверим резултат, подходящ за гласов разговор. В този тест няма свързани AIDOO Kontrol инструменти. Не твърди, че са извършени действия и не създавай пациентски или клинични данни.";
+const LIVE_INSTRUCTIONS: &str = "Говори на български, освен ако потребителят не поиска друг език. Бъди кратък, естествен и ясен. Това е разговор с AIDOO асистента, а не диктовка. Когато потребителят каже „Започни транскрипция“, приложението ще премине към отделния режим за запис. Когато каже „Край“, „Затвори“, „Приключи разговора“, „Приключваме“, „Спри асистента“ или „Довиждане“, приложението ще затвори сесията. Делегирай всяка задача за AIDOO Kontrol към backend модела. Не твърди, че действие е извършено, преди инструментът да върне успех. Преди създаване на посещение или клиничен запис кажи с глас точно какво ще направиш и поискай ясно „Да“ или „Потвърждавам“. При „Запиши официална забележка“ изслушай текста, уточни зъба или реда за лечение и го подготви като забележка до процедурите.";
+const BACKEND_INSTRUCTIONS: &str = "Управляваш AIDOO Kontrol чрез предоставените инструменти. Отговаряй на български, кратко и проверимо. Никога не измисляй пациент, ID, статус, диагноза, процедура, повърхност или резултат. При избор на пациент първо търси и при повече от един резултат поискай уточнение. За посещение за статус уточни дали е по НЗОК или частно, опиши действието и поискай гласово потвърждение; извикай create_aidoo_status_visit едва след ясно „Да“, „Потвърждавам“ или „Потвърди“. За статус първо вземи актуалния каталог, после подготви чернова. Прочети дословно spokenSummary и изчакай отделно гласово потвърждение. Едва тогава извикай confirm_aidoo_status. За корекция използвай operation=replace и existingStatusId. За няколко промени ги подай заедно. За диагноза, процедури или официална забележка първо вземи съответните каталози, после извикай prepare_aidoo_treatment. При фразата „Запиши официална забележка“ поискай текста и точния зъб или ред за лечение; note е точният продиктуван текст. Прочети дословно spokenSummary и потвърди чрез confirm_aidoo_treatment само след отделно гласово потвърждение. Ако проверката върне uncertain, rejected или staleDraft, съобщи ясно, че записът не е потвърден, и не повтаряй автоматично.";
 
 #[derive(Debug, Serialize)]
 struct LiveCreateRequest<'a> {
@@ -53,6 +53,9 @@ struct LiveDelegation {
 struct LiveResponsesConfig {
     model: &'static str,
     instructions: &'static str,
+    tools: Vec<serde_json::Value>,
+    tool_choice: &'static str,
+    parallel_tool_calls: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -103,7 +106,11 @@ fn create_request(sdp: &str) -> Result<LiveCreateRequest<'_>, String> {
             instructions: LIVE_INSTRUCTIONS,
             client: LiveClientConfig {
                 data_channel: LiveDataChannelConfig {
-                    allowed_client_events: vec!["session.close"],
+                    allowed_client_events: vec![
+                        "session.close",
+                        "response.item.create",
+                        "response.create",
+                    ],
                     allowed_server_events: vec![
                         LiveServerEventSelector {
                             r#type: "session.started",
@@ -115,6 +122,9 @@ fn create_request(sdp: &str) -> Result<LiveCreateRequest<'_>, String> {
                             r#type: "session.closed",
                         },
                         LiveServerEventSelector { r#type: "error" },
+                        LiveServerEventSelector {
+                            r#type: "response.event",
+                        },
                     ],
                 },
             },
@@ -123,6 +133,9 @@ fn create_request(sdp: &str) -> Result<LiveCreateRequest<'_>, String> {
                 responses: LiveResponsesConfig {
                     model: LIVE_BACKEND_MODEL,
                     instructions: BACKEND_INSTRUCTIONS,
+                    tools: aidoo_tools(),
+                    tool_choice: "auto",
+                    parallel_tool_calls: false,
                 },
             },
             store: false,
@@ -131,6 +144,166 @@ fn create_request(sdp: &str) -> Result<LiveCreateRequest<'_>, String> {
             r#type: "webrtc",
             sdp,
         },
+    })
+}
+
+fn aidoo_tools() -> Vec<serde_json::Value> {
+    vec![
+        function_tool(
+            "search_aidoo_patients",
+            "Търси пациент в AIDOO. Използвай поне четири знака и не избирай при двусмислен резултат.",
+            serde_json::json!({
+                "type": "object",
+                "properties": { "query": { "type": "string", "minLength": 4 } },
+                "required": ["query"],
+                "additionalProperties": false
+            }),
+        ),
+        function_tool(
+            "get_aidoo_status_catalog",
+            "Връща актуалния каталог от статуси и техните ID. Извикай преди подготовка на зъбен статус.",
+            empty_object_schema(),
+        ),
+        function_tool(
+            "create_aidoo_status_visit",
+            "Създава посещение за статус по НЗОК или частно и създава статусния запис, само след отделно ясно гласово потвърждение.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "patientId": { "type": "string" },
+                    "isNzok": { "type": "boolean" },
+                    "confirmation": { "type": "string", "description": "Точната потвърждаваща фраза на потребителя." }
+                },
+                "required": ["patientId", "isNzok", "confirmation"],
+                "additionalProperties": false
+            }),
+        ),
+        function_tool(
+            "prepare_aidoo_status",
+            "Чете актуалното посещение и статус, проверява каталога и подготвя чернова без запис.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "patientId": { "type": "string" },
+                    "isNzok": { "type": "boolean" },
+                    "changes": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "operation": { "type": "string", "enum": ["add", "replace"] },
+                                "tooth": { "type": "string" },
+                                "statusId": { "type": "string" },
+                                "regions": { "type": "array", "items": { "type": "string", "enum": ["MESIAL", "DISTAL", "OCCLUSAL", "VESTIBULAR", "LINGUAL", "PALATAL", "CERVICAL_LINGUAL", "CERVICAL_VESTIBULAR", "CERVICAL_PALATAL"] } },
+                                "existingStatusId": { "type": ["string", "null"] },
+                                "isMilkTooth": { "type": "boolean" },
+                                "forObservation": { "type": "boolean" },
+                                "note": { "type": ["string", "null"] }
+                            },
+                            "required": ["operation", "tooth", "statusId", "regions", "existingStatusId", "isMilkTooth", "forObservation", "note"],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": ["patientId", "isNzok", "changes"],
+                "additionalProperties": false
+            }),
+        ),
+        function_tool(
+            "confirm_aidoo_status",
+            "Записва подготвената чернова и прави независимо read-back потвърждение. Използвай само след гласово потвърждение.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "draftId": { "type": "string" },
+                    "confirmation": { "type": "string", "description": "Точната потвърждаваща фраза на потребителя." }
+                },
+                "required": ["draftId", "confirmation"],
+                "additionalProperties": false
+            }),
+        ),
+        function_tool(
+            "cancel_aidoo_status",
+            "Изтрива само локалната непотвърдена чернова. Не променя AIDOO.",
+            empty_object_schema(),
+        ),
+        function_tool(
+            "get_aidoo_diagnosis_catalog",
+            "Връща актуалния каталог от диагнози и ID.",
+            empty_object_schema(),
+        ),
+        function_tool(
+            "get_aidoo_procedure_catalog",
+            "Връща актуалния каталог от процедури, ID и цени.",
+            empty_object_schema(),
+        ),
+        function_tool(
+            "prepare_aidoo_treatment",
+            "Подготвя без запис диагноза, процедури и/или официална забележка в реда до процедурите.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "patientId": { "type": "string" },
+                    "change": {
+                        "type": "object",
+                        "properties": {
+                            "tooth": { "type": "string" },
+                            "existingTreatmentId": { "type": ["string", "null"] },
+                            "diagnosisId": { "type": ["string", "null"] },
+                            "treatmentId": { "type": ["string", "null"] },
+                            "note": { "type": ["string", "null"], "description": "Точният продиктуван текст на официалната забележка." },
+                            "procedureIds": { "type": "array", "items": { "type": "string" } }
+                        },
+                        "required": ["tooth", "existingTreatmentId", "diagnosisId", "treatmentId", "note", "procedureIds"],
+                        "additionalProperties": false
+                    }
+                },
+                "required": ["patientId", "change"],
+                "additionalProperties": false
+            }),
+        ),
+        function_tool(
+            "confirm_aidoo_treatment",
+            "Записва подготвените диагноза, процедури и официална забележка и прави независимо read-back потвърждение.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "draftId": { "type": "string" },
+                    "confirmation": { "type": "string" }
+                },
+                "required": ["draftId", "confirmation"],
+                "additionalProperties": false
+            }),
+        ),
+        function_tool(
+            "cancel_aidoo_treatment",
+            "Изтрива локалната непотвърдена чернова за диагноза, процедури и забележка.",
+            empty_object_schema(),
+        ),
+    ]
+}
+
+fn function_tool(
+    name: &'static str,
+    description: &'static str,
+    parameters: serde_json::Value,
+) -> serde_json::Value {
+    serde_json::json!({
+        "type": "function",
+        "name": name,
+        "description": description,
+        "parameters": parameters,
+        "strict": true
+    })
+}
+
+fn empty_object_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
     })
 }
 
@@ -226,7 +399,7 @@ mod tests {
         assert_eq!(value["session"]["store"], false);
         assert_eq!(
             value["session"]["client"]["data_channel"]["allowed_client_events"],
-            serde_json::json!(["session.close"])
+            serde_json::json!(["session.close", "response.item.create", "response.create"])
         );
         assert_eq!(
             value["session"]["client"]["data_channel"]["allowed_server_events"],
@@ -234,7 +407,8 @@ mod tests {
                 {"type": "session.started"},
                 {"type": "session.input_transcript.delta"},
                 {"type": "session.closed"},
-                {"type": "error"}
+                {"type": "error"},
+                {"type": "response.event"}
             ])
         );
         assert_eq!(value["session"]["delegation"]["type"], "responses");
@@ -242,6 +416,23 @@ mod tests {
             value["session"]["delegation"]["responses"]["model"],
             LIVE_BACKEND_MODEL
         );
+        let tools = value["session"]["delegation"]["responses"]["tools"]
+            .as_array()
+            .unwrap();
+        assert_eq!(tools.len(), 11);
+        assert!(tools.iter().all(|tool| tool["strict"] == true));
+        assert!(tools
+            .iter()
+            .any(|tool| tool["name"] == "prepare_aidoo_status"));
+        assert!(tools
+            .iter()
+            .any(|tool| tool["name"] == "confirm_aidoo_status"));
+        assert!(tools
+            .iter()
+            .any(|tool| tool["name"] == "create_aidoo_status_visit"));
+        assert!(tools
+            .iter()
+            .any(|tool| tool["name"] == "prepare_aidoo_treatment"));
         assert_eq!(value["transport"]["type"], "webrtc");
         assert_eq!(value["transport"]["sdp"], "v=0\r\ns=test\r\n");
     }

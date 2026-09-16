@@ -148,6 +148,7 @@ export default function Overlay() {
     : assistantPhase === "connecting" ? (language === "bg" ? "Свързвам се с AIDOO…" : "Connecting to AIDOO…")
       : assistantPhase === "listening" ? (language === "bg" ? "AIDOO ви слуша" : "AIDOO is listening")
         : assistantPhase === "speaking" ? (language === "bg" ? "AIDOO говори" : "AIDOO is speaking")
+          : assistantPhase === "working" ? (language === "bg" ? "Проверявам действието в AIDOO…" : "Checking the action in AIDOO…")
           : assistantPhase === "switching" ? (language === "bg" ? "Стартирам транскрипция…" : "Starting dictation…")
             : assistantPhase === "closing" ? (language === "bg" ? "Приключвам разговора…" : "Ending the conversation…")
               : language === "bg" ? "AI разговорът е прекъснат" : "AI conversation interrupted";
@@ -157,7 +158,7 @@ export default function Overlay() {
       {assistantActive ? <div ref={card} className={`overlay-card assistant ${assistantPhase}`}>
         <div className="assistant-voice-orb" aria-hidden="true">
           <img src="/app-icon.png" alt="" />
-          {(assistantPhase === "preparing" || assistantPhase === "connecting" || assistantPhase === "switching" || assistantPhase === "closing") && <LoaderCircle className="assistant-orb-loader spin" />}
+          {(assistantPhase === "preparing" || assistantPhase === "connecting" || assistantPhase === "working" || assistantPhase === "switching" || assistantPhase === "closing") && <LoaderCircle className="assistant-orb-loader spin" />}
         </div>
         <div className="overlay-copy" role="status" aria-live="polite" aria-atomic="true">
           <strong>{assistantStatus}</strong>

@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { isEnabled } from "@tauri-apps/plugin-autostart";
-import { AudioLines, Check, CircleArrowRight, CircleHelp, ExternalLink, FileText, FolderOpen, KeyRound, Languages, LoaderCircle, Mic, Power, RefreshCw, ShieldCheck, X } from "lucide-react";
+import { AudioLines, Check, CircleArrowRight, CircleHelp, ExternalLink, FileText, FolderOpen, KeyRound, Languages, Link2, LoaderCircle, Mic, Power, RefreshCw, ShieldCheck, Unplug, X } from "lucide-react";
 import { errorMessage, translator } from "../i18n";
 import { type AppLanguage, type AppSettings, type BootstrapState, type MicrophoneProbe } from "../types";
 import { type ToastHandler } from "../ui-types";
@@ -27,6 +27,10 @@ export function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToas
   const [draft, setDraft] = useState(data.settings);
   const [apiKey, setApiKey] = useState("");
   const [keyBusy, setKeyBusy] = useState(false);
+  const [aidooBusy, setAidooBusy] = useState(false);
+  const [aidooClinicSlug, setAidooClinicSlug] = useState(data.settings.aidooClinicSlug ?? "");
+  const [aidooEmail, setAidooEmail] = useState(data.settings.aidooEmail ?? "");
+  const [aidooPassword, setAidooPassword] = useState("");
   const [shortcutBusy, setShortcutBusy] = useState(false);
   const [diagnosticBusy, setDiagnosticBusy] = useState(false);
   const [microphoneBusy, setMicrophoneBusy] = useState(false);
@@ -34,13 +38,16 @@ export function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToas
   const [saveBusy, setSaveBusy] = useState(false);
   const [calibrationOpen, setCalibrationOpen] = useState(false);
   const launchAtLoginDirty = useRef(false);
-  const controlsDisabled = isBusy || keyBusy || shortcutBusy || diagnosticBusy || microphoneBusy || accessibilityBusy || saveBusy || calibrationOpen;
+  const controlsDisabled = isBusy || keyBusy || aidooBusy || shortcutBusy || diagnosticBusy || microphoneBusy || accessibilityBusy || saveBusy || calibrationOpen;
   const shortcutButtonDisabled = isBusy || keyBusy || diagnosticBusy || microphoneBusy || accessibilityBusy || saveBusy;
+  const aidooIdentityChanged = aidooClinicSlug.trim() !== (data.settings.aidooClinicSlug ?? "") || aidooEmail.trim() !== (data.settings.aidooEmail ?? "");
   useShortcutCapture(shortcutBusy, setShortcutBusy, (binding) => setDraft((current) => ({ ...current, dictationShortcut: binding })), (message) => onToast(errorMessage(message, language), "error"));
 
   useEffect(() => {
     launchAtLoginDirty.current = false;
     setDraft(data.settings);
+    setAidooClinicSlug(data.settings.aidooClinicSlug ?? "");
+    setAidooEmail(data.settings.aidooEmail ?? "");
   }, [data.settings]);
   useEffect(() => {
     let disposed = false;
@@ -72,6 +79,19 @@ export function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToas
       <p className="section-help">{t("apiHelp")}</p><p className="instruction-note"><CircleHelp />{t("apiSteps")}</p>
       <div className="api-row"><input type="password" aria-label={t("apiTitle")} autoComplete="new-password" spellCheck={false} value={apiKey} disabled={controlsDisabled} onChange={(event) => setApiKey(event.target.value)} placeholder={data.hasApiKey ? "••••••••••••••••••" : "sk-…"} /><button className="secondary-button" disabled={controlsDisabled} onClick={async () => { try { await openUrl("https://platform.openai.com/api-keys"); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("createKey")}</button><button className="primary-button" disabled={controlsDisabled || !apiKey.trim()} onClick={async () => { setKeyBusy(true); try { await invoke("save_api_key", { apiKey }); setApiKey(""); await onRefresh(); onToast(t("keySaved")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setKeyBusy(false); } }}>{keyBusy ? <LoaderCircle className="spin" /> : <ShieldCheck />}{t("verifySave")}</button></div>
       {data.hasApiKey && <button className="text-button danger" disabled={controlsDisabled} onClick={async () => { setKeyBusy(true); try { await invoke("delete_api_key"); await onRefresh(); onToast(t("deleted")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setKeyBusy(false); } }}>{t("removeKey")}</button>}
+    </SettingsSection>
+    <SettingsSection icon={<Link2 />} title={t("aidooConnection")}>
+      <p className="section-help">{t("aidooConnectionHelp")}</p>
+      <p className={`connection-status ${data.aidooConnected ? "connected" : ""}`}><span />{data.aidooConnected ? t("aidooConnected") : data.hasAidooPassword ? t("aidooConfigured") : t("aidooNotConfigured")}</p>
+      <div className="aidoo-connection-grid">
+        <label><span>{t("aidooClinicSlug")}</span><input value={aidooClinicSlug} disabled={controlsDisabled} autoCapitalize="none" spellCheck={false} onChange={(event) => setAidooClinicSlug(event.target.value)} placeholder="demo" /></label>
+        <label><span>{t("aidooEmail")}</span><input type="email" value={aidooEmail} disabled={controlsDisabled} autoCapitalize="none" spellCheck={false} onChange={(event) => setAidooEmail(event.target.value)} /></label>
+        <label><span>{t("aidooPassword")}</span><input type="password" value={aidooPassword} disabled={controlsDisabled} autoComplete="new-password" onChange={(event) => setAidooPassword(event.target.value)} placeholder={data.hasAidooPassword ? "••••••••••••" : ""} /></label>
+      </div>
+      <div className="inline-actions">
+        <button className="primary-button" disabled={controlsDisabled || !aidooClinicSlug.trim() || !aidooEmail.trim() || (!aidooPassword && (!data.hasAidooPassword || aidooIdentityChanged))} onClick={async () => { setAidooBusy(true); try { if (aidooPassword) { await invoke("connect_aidoo", { clinicSlug: aidooClinicSlug, email: aidooEmail, password: aidooPassword }); } else { await invoke("reconnect_aidoo"); } setAidooPassword(""); await onRefresh(); onToast(t("aidooConnectedToast")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setAidooBusy(false); } }}>{aidooBusy ? <LoaderCircle className="spin" /> : <Link2 />}{data.hasAidooPassword && !aidooPassword && !aidooIdentityChanged ? t("aidooReconnect") : t("aidooConnect")}</button>
+        {data.hasAidooPassword && <button className="text-button danger" disabled={controlsDisabled} onClick={async () => { setAidooBusy(true); try { await invoke("disconnect_aidoo"); setAidooPassword(""); await onRefresh(); onToast(t("aidooDisconnectedToast")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setAidooBusy(false); } }}><Unplug />{t("aidooDisconnect")}</button>}
+      </div>
     </SettingsSection>
     <SettingsSection icon={<Languages />} title={t("modelLanguage")}>
       <ModelPicker settings={draft} language={language} disabled={controlsDisabled} onChange={setDraft} />

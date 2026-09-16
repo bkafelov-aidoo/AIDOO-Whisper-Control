@@ -1,13 +1,14 @@
-import { AudioLines, MessageCircle, Mic, Square } from "lucide-react";
+import { AudioLines, Link2, MessageCircle, Mic, Square } from "lucide-react";
 import { translator } from "../i18n";
 import type { AppLanguage } from "../types";
 import type { LiveConversationState } from "../hooks/useLiveConversation";
 
-export function AssistantPage({ live, language, available, dictationBusy }: {
+export function AssistantPage({ live, language, available, dictationBusy, aidooConnected }: {
   live: LiveConversationState;
   language: AppLanguage;
   available: boolean;
   dictationBusy: boolean;
+  aidooConnected: boolean;
 }) {
   const t = translator(language);
   const active = !["idle", "error"].includes(live.phase);
@@ -15,7 +16,8 @@ export function AssistantPage({ live, language, available, dictationBusy }: {
     : live.phase === "connecting" ? t("liveConnecting")
       : live.phase === "listening" ? t("liveListening")
         : live.phase === "speaking" ? t("liveSpeaking")
-          : live.phase === "switching" ? t("liveSwitching")
+          : live.phase === "working" ? t("liveWorking")
+            : live.phase === "switching" ? t("liveSwitching")
             : live.phase === "closing" ? t("liveClosing")
               : live.phase === "error" ? t("liveError")
                 : t("liveReady");
@@ -40,6 +42,11 @@ export function AssistantPage({ live, language, available, dictationBusy }: {
           : <button className="primary-button assistant-start" disabled={!available || dictationBusy} onClick={() => void live.start()}><AudioLines />{t("liveStart")}</button>}
       </div>
       {live.error && <div className="assistant-error" role="alert">{live.error}</div>}
+    </section>
+    <section className="assistant-command-card">
+      <div><Link2 /><span>{t("aidooConnection")}</span></div>
+      <strong>{aidooConnected ? t("aidooConnected") : t("aidooNotConfigured")}</strong>
+      <p>{t("aidooConnectionHelp")}</p>
     </section>
     <section className="assistant-command-card">
       <div><Mic /><span>{t("assistantCommandLabel")}</span></div>

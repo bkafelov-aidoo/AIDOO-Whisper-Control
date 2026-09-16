@@ -1,6 +1,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(clippy::undocumented_unsafe_blocks)]
 
+mod aidoo;
 mod app_ui;
 mod audio;
 mod commands;
@@ -11,6 +12,7 @@ mod recovery;
 mod wake_runtime;
 mod wake_word;
 
+use aidoo::commands::*;
 use app_ui::*;
 use commands::*;
 use dictation::*;
@@ -47,6 +49,7 @@ use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
 const KEYRING_SERVICE: &str = "app.aidoo.whisper-lite";
 const KEYRING_USER: &str = "openai-api-key";
+const AIDOO_KEYRING_USER: &str = "aidoo-password";
 const TRAY_ID: &str = "aidoo-whisper-lite";
 const APP_MENU_ID: &str = "aidoo-app-menu";
 const APP_QUIT_MENU_ID: &str = "aidoo-app-quit";
@@ -107,6 +110,7 @@ struct AppState {
     live_session_generation: AtomicU64,
     live_phase: Mutex<String>,
     assistant_start_request: AssistantStartRequest,
+    aidoo: aidoo::runtime::AidooRuntime,
     api_key: Mutex<Option<Zeroizing<String>>>,
 }
 
@@ -151,6 +155,7 @@ impl AppState {
             live_session_generation: AtomicU64::new(0),
             live_phase: Mutex::new("idle".into()),
             assistant_start_request: AssistantStartRequest::default(),
+            aidoo: aidoo::runtime::AidooRuntime::new(),
             api_key: Mutex::new(api_key),
         }
     }
@@ -158,6 +163,10 @@ impl AppState {
 
 fn keyring_entry() -> Result<keyring::Entry, String> {
     keyring::Entry::new(KEYRING_SERVICE, KEYRING_USER).map_err(|error| error.to_string())
+}
+
+fn aidoo_keyring_entry() -> Result<keyring::Entry, String> {
+    keyring::Entry::new(KEYRING_SERVICE, AIDOO_KEYRING_USER).map_err(|error| error.to_string())
 }
 
 #[cfg(target_os = "macos")]
@@ -317,6 +326,20 @@ pub fn run() {
             update_settings,
             save_api_key,
             delete_api_key,
+            connect_aidoo,
+            reconnect_aidoo,
+            disconnect_aidoo,
+            aidoo_search_patients,
+            aidoo_status_catalog,
+            aidoo_diagnosis_catalog,
+            aidoo_procedure_catalog,
+            aidoo_create_status_visit,
+            aidoo_prepare_status_draft,
+            aidoo_confirm_status_draft,
+            aidoo_cancel_status_draft,
+            aidoo_prepare_treatment_draft,
+            aidoo_confirm_treatment_draft,
+            aidoo_cancel_treatment_draft,
             begin_shortcut_capture,
             cancel_shortcut_capture,
             test_microphone,

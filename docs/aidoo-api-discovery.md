@@ -47,6 +47,29 @@ Ambiguities / follow-up:
 
 ## Observed contracts
 
+### Static frontend contract extraction (2026-09-16)
+
+The deployed test frontend bundles were inspected after the browser debugger stopped retaining requests. This is source-level evidence from the same deployed environment, distinct from a successful controlled write. It established the following client contract:
+
+- `POST /clinics/{clinicSlug}/sessions` with `{ email, password }`; response includes `sessionId`, `user.id`, and `user.clinic.id`.
+- `GET /statuses` returns the current status catalog.
+- `POST /clinics/{clinicId}/patients/{patientId}/teeth-status?visitId={visitId}&isNzok={boolean}` creates the visit's status update.
+- `PUT /clinics/{clinicId}/patients/{patientId}/teeth-status?visitId={visitId}` writes `{ teethStatus: ToothStatusWrite[] }`.
+- `GET /clinics/{clinicId}/patients/{patientId}/teeth-status?visitId={visitId}&isNzok={boolean}` reads the editable snapshot used for stale-draft detection.
+- `GET /clinics/{clinicId}/patients/{patientId}/teeth-status/visits/{visitId}` is the independent post-write read-back.
+- `POST /clinics/{clinicId}/patients/{patientId}/visits` with `{ doctorId }` creates the visit for both funding choices. The following status-update POST carries `isNzok=true` for НЗОК or `false` for private reception.
+- `GET /clinics/{clinicId}/diagnoses` returns the diagnosis catalog.
+- `GET /clinics/{clinicId}/procedures/prices?sortBy=name&direction=ASC&currency={clinicCurrency}` returns procedures and their current prices; the currency comes from the authenticated clinic.
+- `GET /clinics/{clinicId}/patients/{patientId}/visits/{visitId}/treatments` reads the treatment rows used for stale-draft and post-write verification.
+- `POST /clinics/{clinicId}/patients/{patientId}/visits/{visitId}/treatments` creates a row; `PUT` on the same route with `/{treatmentId}` updates diagnosis, treatment and `note`.
+- `POST /clinics/{clinicId}/patients/{patientId}/treatments/{treatmentId}/procedures` adds a procedure with `{ procedureId, price, discount }`.
+- The “Забележки” control beside procedures writes the treatment row's `note`; it is distinct from the visit's internal note.
+- The normal UI sends only affected records in `teethStatus`. It removes `id`, `timestamp`, `generatedByProcedure`, and UI-only `fake` before writing.
+- Surface records are keyed by the exact sorted `regions` set. Their status IDs are merged for that region set and they force `isMilkTooth=false` and `forObservation=false`.
+- `PUT .../teeth-status/overwrite` belongs to the NZIS import/overwrite flow and is not the ordinary correction endpoint.
+
+The Lite client implements these fixed routes, exact write shapes, a pre-write snapshot comparison, and separate post-write read-backs. A transport timeout triggers one read-back and never an automatic second write. A composite diagnosis/procedure/note action reports partial or uncertain state if one write succeeds and a later write fails.
+
 All identifiers below are route placeholders. No observed patient, visit, clinic, user, or session identifier is stored in this file.
 
 ### Login and session creation

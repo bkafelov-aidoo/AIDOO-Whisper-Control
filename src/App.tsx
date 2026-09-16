@@ -192,6 +192,7 @@ export default function App() {
             language={language}
             available={data.settings.onboardingComplete && data.hasApiKey}
             dictationBusy={recordingBusy}
+            aidooConnected={data.aidooConnected}
           />
         )}
         {page === "history" && (

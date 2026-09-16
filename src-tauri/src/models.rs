@@ -41,6 +41,8 @@ pub struct AppSettings {
     pub automatic_microphone_fallback: bool,
     pub wake_word_enabled: bool,
     pub wake_word_auto_stop: bool,
+    pub aidoo_clinic_slug: Option<String>,
+    pub aidoo_email: Option<String>,
     pub dictation_shortcut: ShortcutBinding,
 }
 
@@ -61,6 +63,8 @@ impl Default for AppSettings {
             automatic_microphone_fallback: true,
             wake_word_enabled: false,
             wake_word_auto_stop: true,
+            aidoo_clinic_slug: None,
+            aidoo_email: None,
             dictation_shortcut: ShortcutBinding::key("alt_gr", &[]),
         }
     }
@@ -89,7 +93,15 @@ impl AppSettings {
         {
             self.microphone_name = None;
         }
+        self.aidoo_clinic_slug = normalized_optional(self.aidoo_clinic_slug.take());
+        self.aidoo_email = normalized_optional(self.aidoo_email.take());
     }
+}
+
+fn normalized_optional(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 #[cfg(test)]
@@ -210,6 +222,8 @@ pub struct BootstrapState {
     pub failed_recording: Option<FailedRecording>,
     pub microphones: Vec<String>,
     pub has_api_key: bool,
+    pub has_aidoo_password: bool,
+    pub aidoo_connected: bool,
     pub accessibility_granted: bool,
     pub app_version: String,
     pub default_output_directory: String,

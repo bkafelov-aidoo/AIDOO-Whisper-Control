@@ -15,6 +15,8 @@ export interface AppSettings {
   automaticMicrophoneFallback: boolean;
   wakeWordEnabled: boolean;
   wakeWordAutoStop: boolean;
+  aidooClinicSlug: string | null;
+  aidooEmail: string | null;
   dictationShortcut: ShortcutBinding;
 }
 
@@ -72,6 +74,8 @@ export interface BootstrapState {
   failedRecording: FailedRecording | null;
   microphones: string[];
   hasApiKey: boolean;
+  hasAidooPassword: boolean;
+  aidooConnected: boolean;
   accessibilityGranted: boolean;
   appVersion: string;
   defaultOutputDirectory: string;
@@ -81,7 +85,7 @@ export interface BootstrapState {
 export interface OverlayBootstrapState {
   uiLanguage: "auto" | "bg" | "en";
   recording: RecordingSnapshot;
-  assistantPhase: "idle" | "preparing" | "connecting" | "listening" | "speaking" | "switching" | "closing" | "error";
+  assistantPhase: "idle" | "preparing" | "connecting" | "listening" | "speaking" | "working" | "switching" | "closing" | "error";
 }
 
 export interface TranscriptionCompleted {

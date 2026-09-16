@@ -92,6 +92,7 @@ pub(super) fn set_live_phase(
         "connecting",
         "listening",
         "speaking",
+        "working",
         "switching",
         "closing",
         "error",
@@ -213,12 +214,18 @@ pub(super) fn bootstrap(app: AppHandle, state: State<'_, AppState>) -> Bootstrap
         .lock()
         .map(|value| value.is_some())
         .unwrap_or(false);
+    let has_aidoo_password = aidoo_keyring_entry()
+        .ok()
+        .and_then(|entry| entry.get_password().ok())
+        .is_some();
     BootstrapState {
         settings,
         history,
         failed_recording,
         microphones: audio::microphone_names(),
         has_api_key,
+        has_aidoo_password,
+        aidoo_connected: state.aidoo.connected(),
         accessibility_granted: accessibility_granted(),
         app_version: app.package_info().version.to_string(),
         default_output_directory: storage::default_output_dir().to_string_lossy().to_string(),

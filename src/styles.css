@@ -435,3 +435,15 @@ body[data-window="overlay"] { overflow: hidden; }
   .live-assistant-action { grid-column: 2 / 4; justify-self: start; }
   .api-row { grid-template-columns: 1fr; }
 }
+
+.connection-status { display: flex; align-items: center; gap: 8px; margin: 10px 0 16px; color: var(--muted); font-size: 13px; }
+.connection-status > span { width: 9px; height: 9px; border-radius: 50%; background: #9aa6b2; box-shadow: 0 0 0 4px rgba(154,166,178,.12); }
+.connection-status.connected { color: #18734b; }
+.connection-status.connected > span { background: #24a36a; box-shadow: 0 0 0 4px rgba(36,163,106,.13); }
+.aidoo-connection-grid { display: grid; grid-template-columns: .7fr 1.2fr 1fr; gap: 12px; margin-bottom: 14px; }
+.aidoo-connection-grid label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 650; }
+.aidoo-connection-grid input { width: 100%; }
+
+@media (max-width: 850px) {
+  .aidoo-connection-grid { grid-template-columns: 1fr; }
+}
