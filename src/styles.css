@@ -313,10 +313,12 @@ select { min-width: 190px; }
 .calibration-loader { width: 22px; color: var(--accent); }
 .calibration-countdown { color: var(--accent-dark); font-size: 56px; line-height: 1; font-variant-numeric: tabular-nums; }
 .calibration-prompt { color: #173c62; font-size: 24px; letter-spacing: -.3px; }
-.calibration-meter { width: min(330px,100%); height: 8px; border-radius: 999px; background: #e4ebf2; overflow: hidden; }
+.calibration-meter { width: min(330px,100%); height: 12px; border-radius: 999px; background: #e4ebf2; overflow: hidden; box-shadow: inset 0 1px 2px rgba(20,48,74,.08); }
 .calibration-meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#2e83e7,#35b487); transition: width .16s ease-out; }
-.calibration-live { color: #496176; display: inline-flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 650; }
+.calibration-live { min-height: 30px; padding: 6px 11px; border-radius: 999px; background: #f1f5f8; color: #496176; display: inline-flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700; transition: color .16s ease, background .16s ease; }
 .calibration-live > i { width: 8px; height: 8px; border-radius: 50%; background: #df405b; box-shadow: 0 0 0 4px rgba(223,64,91,.12); }
+.calibration-live.hearing { color: #176a4a; background: #e5f5ed; }
+.calibration-live.hearing > i { background: #2e9b70; box-shadow: 0 0 0 5px rgba(46,155,112,.14); animation: calibrationPulse 900ms ease-in-out infinite; }
 .calibration-attempts { display: flex; gap: 9px; }
 .calibration-attempts i { width: 31px; height: 31px; border: 2px solid #cbd7e2; border-radius: 50%; color: #718294; display: grid; place-items: center; font-size: 11px; font-style: normal; font-weight: 700; }
 .calibration-attempts i.done { border-color: #2e9b70; background: #e3f5ec; color: #237a59; }

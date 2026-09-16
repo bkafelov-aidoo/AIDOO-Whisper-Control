@@ -21,8 +21,11 @@ export function WakeWordCalibrationDialog({ language, onClose, onToast }: {
   const [countdown, setCountdown] = useState(3);
   const [matches, setMatches] = useState(0);
   const [level, setLevel] = useState(0);
+  const [hearing, setHearing] = useState(false);
+  const [heardVoice, setHeardVoice] = useState(false);
   const phaseRef = useRef<Phase>("intro");
   const timeoutRef = useRef<number | null>(null);
+  const hearingTimerRef = useRef<number | null>(null);
 
   const moveTo = (next: Phase) => {
     phaseRef.current = next;
@@ -31,6 +34,9 @@ export function WakeWordCalibrationDialog({ language, onClose, onToast }: {
   const stop = async () => {
     if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
     timeoutRef.current = null;
+    if (hearingTimerRef.current) window.clearTimeout(hearingTimerRef.current);
+    hearingTimerRef.current = null;
+    setHearing(false);
     await invoke("stop_wake_word_calibration").catch(() => undefined);
   };
   const close = async () => {
@@ -41,6 +47,15 @@ export function WakeWordCalibrationDialog({ language, onClose, onToast }: {
 
   useEffect(() => {
     const events = createEventScope(listen, (reason) => onToast(String(reason), "error"));
+    events.listen<number>("wake-word:calibration-level", ({ payload }) => {
+      if (phaseRef.current !== "countdown" && phaseRef.current !== "listening") return;
+      setLevel(Math.min(1, payload / 0.05));
+      if (payload < 0.006) return;
+      setHearing(true);
+      setHeardVoice(true);
+      if (hearingTimerRef.current) window.clearTimeout(hearingTimerRef.current);
+      hearingTimerRef.current = window.setTimeout(() => setHearing(false), 650);
+    });
     events.listen<WakeWordCalibrationScore>("wake-word:calibration-score", ({ payload }) => {
       if (phaseRef.current === "countdown" || phaseRef.current === "listening") {
         setLevel(Math.min(1, payload.rms / 0.05));
@@ -70,6 +85,8 @@ export function WakeWordCalibrationDialog({ language, onClose, onToast }: {
   const start = async () => {
     setMatches(0);
     setLevel(0);
+    setHearing(false);
+    setHeardVoice(false);
     setCountdown(3);
     moveTo("starting");
     try {
@@ -109,7 +126,7 @@ export function WakeWordCalibrationDialog({ language, onClose, onToast }: {
       <strong className="calibration-prompt">Hey, AIDOO</strong>
       <p>{t("wakeCalibrationListening")}</p>
       <div className="calibration-meter" aria-label={t("wakeCalibrationMicrophoneActive")}><i style={{ width: `${Math.max(4, level * 100)}%` }} /></div>
-      <span className="calibration-live"><i />{t("wakeCalibrationMicrophoneActive")}</span>
+      <span className={`calibration-live ${hearing ? "hearing" : ""}`}><i />{hearing ? t("wakeCalibrationHearing") : heardVoice ? t("wakeCalibrationRecognizing") : t("wakeCalibrationWaiting")}</span>
       <div className="calibration-attempts" aria-label={t("wakeCalibrationProgress", { current: matches, total: REQUIRED_MATCHES })}>{Array.from({ length: REQUIRED_MATCHES }, (_, index) => <i key={index} className={index < matches ? "done" : ""}>{index < matches ? <Check /> : index + 1}</i>)}</div>
       <small>{t("wakeCalibrationProgress", { current: matches, total: REQUIRED_MATCHES })}</small>
     </>}
