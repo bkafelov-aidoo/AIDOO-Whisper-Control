@@ -41,6 +41,8 @@ struct LiveDataChannelConfig {
 #[derive(Debug, Serialize)]
 struct LiveServerEventSelector {
     r#type: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    response_event: Option<&'static str>,
 }
 
 #[derive(Debug, Serialize)]
@@ -114,16 +116,23 @@ fn create_request(sdp: &str) -> Result<LiveCreateRequest<'_>, String> {
                     allowed_server_events: vec![
                         LiveServerEventSelector {
                             r#type: "session.started",
+                            response_event: None,
                         },
                         LiveServerEventSelector {
                             r#type: "session.input_transcript.delta",
+                            response_event: None,
                         },
                         LiveServerEventSelector {
                             r#type: "session.closed",
+                            response_event: None,
                         },
-                        LiveServerEventSelector { r#type: "error" },
+                        LiveServerEventSelector {
+                            r#type: "error",
+                            response_event: None,
+                        },
                         LiveServerEventSelector {
                             r#type: "response.event",
+                            response_event: Some("response.output_item.done"),
                         },
                     ],
                 },
@@ -408,7 +417,7 @@ mod tests {
                 {"type": "session.input_transcript.delta"},
                 {"type": "session.closed"},
                 {"type": "error"},
-                {"type": "response.event"}
+                {"type": "response.event", "response_event": "response.output_item.done"}
             ])
         );
         assert_eq!(value["session"]["delegation"]["type"], "responses");
