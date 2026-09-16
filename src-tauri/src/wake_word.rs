@@ -13,6 +13,34 @@ const COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 const INFERENCE_INTERVAL: Duration = Duration::from_millis(250);
 const DETECTION_DEBOUNCE: Duration = Duration::from_secs(3);
 const VOICE_RMS_GATE: f32 = 0.006;
+const PRIMARY_MODEL_NAME: &str = "hey_aidoo";
+const CONFIRMATION_MODEL_NAME: &str = "hey_aidoo_confirmation";
+const CONFIRMATION_HISTORY: usize = 3;
+
+struct ConfirmationState {
+    recent_primary: VecDeque<bool>,
+}
+
+impl ConfirmationState {
+    fn new() -> Self {
+        Self {
+            recent_primary: VecDeque::with_capacity(CONFIRMATION_HISTORY),
+        }
+    }
+
+    fn pending(&self) -> bool {
+        self.recent_primary.iter().any(|detected| *detected)
+    }
+
+    fn observe(&mut self, primary: bool, confirmation: bool) -> bool {
+        let confirmed = confirmation && self.pending();
+        self.recent_primary.push_back(primary);
+        while self.recent_primary.len() > CONFIRMATION_HISTORY {
+            self.recent_primary.pop_front();
+        }
+        confirmed
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum WakeWordEvent {
@@ -23,8 +51,10 @@ pub enum WakeWordEvent {
 enum Command {
     Start {
         routing: MicrophoneRoutingConfig,
-        model_path: PathBuf,
-        threshold: f32,
+        primary_model_path: PathBuf,
+        confirmation_model_path: PathBuf,
+        primary_threshold: f32,
+        confirmation_threshold: f32,
         reply: mpsc::Sender<Result<String, String>>,
     },
     Stop(mpsc::Sender<()>),
@@ -63,19 +93,27 @@ impl WakeWordService {
                     match command {
                         Command::Start {
                             routing,
-                            model_path,
-                            threshold,
+                            primary_model_path,
+                            confirmation_model_path,
+                            primary_threshold,
+                            confirmation_threshold,
                             reply,
                         } => {
                             let result = if active.is_some() {
                                 Ok("already-listening".into())
                             } else {
-                                start(&routing, model_path, threshold, event_tx.clone()).map(
-                                    |(listener, device_name)| {
-                                        active = Some(listener);
-                                        device_name
-                                    },
+                                start(
+                                    &routing,
+                                    primary_model_path,
+                                    confirmation_model_path,
+                                    primary_threshold,
+                                    confirmation_threshold,
+                                    event_tx.clone(),
                                 )
+                                .map(|(listener, device_name)| {
+                                    active = Some(listener);
+                                    device_name
+                                })
                             };
                             let _ = reply.send(result);
                         }
@@ -100,15 +138,19 @@ impl WakeWordService {
     pub fn start(
         &self,
         routing: MicrophoneRoutingConfig,
-        model_path: PathBuf,
-        threshold: f32,
+        primary_model_path: PathBuf,
+        confirmation_model_path: PathBuf,
+        primary_threshold: f32,
+        confirmation_threshold: f32,
     ) -> Result<String, String> {
         let (reply, response) = mpsc::channel();
         self.commands
             .send(Command::Start {
                 routing,
-                model_path,
-                threshold,
+                primary_model_path,
+                confirmation_model_path,
+                primary_threshold,
+                confirmation_threshold,
                 reply,
             })
             .map_err(|_| "Гласовото активиране не работи.".to_string())?;
@@ -127,14 +169,22 @@ impl WakeWordService {
 
 fn start(
     routing: &MicrophoneRoutingConfig,
-    model_path: PathBuf,
-    threshold: f32,
+    primary_model_path: PathBuf,
+    confirmation_model_path: PathBuf,
+    primary_threshold: f32,
+    confirmation_threshold: f32,
     events: mpsc::Sender<WakeWordEvent>,
 ) -> Result<(ActiveListener, String), String> {
-    if !model_path.is_file() {
+    if !primary_model_path.is_file() {
         return Err(format!(
-            "Моделът за „Hey, AIDOO“ не е намерен: {}",
-            model_path.display()
+            "Основният модел за „Hey, AIDOO“ не е намерен: {}",
+            primary_model_path.display()
+        ));
+    }
+    if !confirmation_model_path.is_file() {
+        return Err(format!(
+            "Потвърждаващият модел за „Hey, AIDOO“ не е намерен: {}",
+            confirmation_model_path.display()
         ));
     }
     let host = cpal::default_host();
@@ -150,8 +200,16 @@ fn start(
     );
     let mut failures = Vec::new();
     for name in plan {
-        let result = device_named(&name)
-            .and_then(|device| start_on_device(device, &model_path, threshold, events.clone()));
+        let result = device_named(&name).and_then(|device| {
+            start_on_device(
+                device,
+                &primary_model_path,
+                &confirmation_model_path,
+                primary_threshold,
+                confirmation_threshold,
+                events.clone(),
+            )
+        });
         match result {
             Ok(listener) => return Ok((listener, name)),
             Err(error) => failures.push(format!("{name}: {error}")),
@@ -169,8 +227,10 @@ fn start(
 
 fn start_on_device(
     device: cpal::Device,
-    model_path: &std::path::Path,
-    threshold: f32,
+    primary_model_path: &std::path::Path,
+    confirmation_model_path: &std::path::Path,
+    primary_threshold: f32,
+    confirmation_threshold: f32,
     events: mpsc::Sender<WakeWordEvent>,
 ) -> Result<ActiveListener, String> {
     let supported = device
@@ -180,7 +240,7 @@ fn start_on_device(
     let config: StreamConfig = supported.into();
     let sample_rate = config.sample_rate.0;
     let channels = config.channels;
-    let model = WakeWordModel::new(&[model_path], sample_rate)
+    let model = WakeWordModel::new(&[primary_model_path, confirmation_model_path], sample_rate)
         .map_err(|error| format!("Wake-word моделът не може да се зареди: {error}"))?;
     let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<i16>>(8);
     let stop = Arc::new(AtomicBool::new(false));
@@ -195,7 +255,8 @@ fn start_on_device(
                 worker_stop,
                 worker_events,
                 sample_rate,
-                threshold,
+                primary_threshold,
+                confirmation_threshold,
             )
         })
         .map_err(|error| error.to_string())?;
@@ -267,7 +328,8 @@ fn inference_loop(
     stop: Arc<AtomicBool>,
     events: mpsc::Sender<WakeWordEvent>,
     sample_rate: u32,
-    threshold: f32,
+    primary_threshold: f32,
+    confirmation_threshold: f32,
 ) {
     let window_samples = sample_rate as usize * 2;
     let mut window = VecDeque::with_capacity(window_samples);
@@ -278,6 +340,7 @@ fn inference_loop(
         .checked_sub(DETECTION_DEBOUNCE)
         .unwrap_or_else(Instant::now);
     let mut recent_voice = false;
+    let mut confirmation_state = ConfirmationState::new();
     while !stop.load(Ordering::Acquire) {
         let samples = match audio.recv_timeout(Duration::from_millis(100)) {
             Ok(samples) => samples,
@@ -291,8 +354,9 @@ fn inference_loop(
         while window.len() > window_samples {
             window.pop_front();
         }
+        let confirmation_pending = confirmation_state.pending();
         if window.len() < window_samples
-            || !recent_voice
+            || (!recent_voice && !confirmation_pending)
             || last_inference.elapsed() < INFERENCE_INTERVAL
         {
             continue;
@@ -302,11 +366,17 @@ fn inference_loop(
         let contiguous = window.iter().copied().collect::<Vec<_>>();
         match model.predict(&contiguous) {
             Ok(scores) => {
-                if let Some(confidence) = scores.values().copied().reduce(f32::max) {
-                    if confidence >= threshold && last_detection.elapsed() >= DETECTION_DEBOUNCE {
-                        last_detection = Instant::now();
-                        let _ = events.send(WakeWordEvent::Detected { confidence });
-                    }
+                let primary = scores.get(PRIMARY_MODEL_NAME).copied().unwrap_or(0.0);
+                let confirmation = scores.get(CONFIRMATION_MODEL_NAME).copied().unwrap_or(0.0);
+                let confirmed = confirmation_state.observe(
+                    primary >= primary_threshold,
+                    confirmation >= confirmation_threshold,
+                );
+                if confirmed && last_detection.elapsed() >= DETECTION_DEBOUNCE {
+                    last_detection = Instant::now();
+                    let _ = events.send(WakeWordEvent::Detected {
+                        confidence: confirmation,
+                    });
                 }
             }
             Err(error) => {
@@ -316,6 +386,36 @@ fn inference_loop(
                 break;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod confirmation_tests {
+    use super::ConfirmationState;
+
+    #[test]
+    fn confirmation_accepts_any_of_the_previous_three_intervals() {
+        for delay in 1..=3 {
+            let mut state = ConfirmationState::new();
+            assert!(!state.observe(true, false));
+            for _ in 1..delay {
+                assert!(!state.observe(false, false));
+            }
+            assert!(state.observe(false, true), "delay {delay} must confirm");
+        }
+    }
+
+    #[test]
+    fn confirmation_rejects_same_interval_and_expired_candidates() {
+        let mut same_interval = ConfirmationState::new();
+        assert!(!same_interval.observe(true, true));
+
+        let mut expired = ConfirmationState::new();
+        assert!(!expired.observe(true, false));
+        for _ in 0..3 {
+            assert!(!expired.observe(false, false));
+        }
+        assert!(!expired.observe(false, true));
     }
 }
 

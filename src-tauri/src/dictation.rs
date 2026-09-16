@@ -1,7 +1,8 @@
 use super::*;
 use tauri::path::BaseDirectory;
 
-const WAKE_WORD_THRESHOLD: f32 = 0.68;
+const WAKE_WORD_PRIMARY_THRESHOLD: f32 = 0.68;
+const WAKE_WORD_CONFIRMATION_THRESHOLD: f32 = 0.76;
 const VOICE_SILENCE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1_500);
 const VOICE_NO_SPEECH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
@@ -147,10 +148,21 @@ pub(crate) fn release_shortcut_capture_operation(app: &AppHandle) {
     schedule_wake_word_reconcile(app, std::time::Duration::from_millis(300));
 }
 
-pub(super) fn wake_word_model_path(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
+pub(super) fn wake_word_model_paths(app: &AppHandle) -> Result<(PathBuf, PathBuf), String> {
+    let primary = app
+        .path()
         .resolve("wakeword/hey_aidoo.onnx", BaseDirectory::Resource)
-        .map_err(|error| format!("Пътят до wake-word модела не е достъпен: {error}"))
+        .map_err(|error| format!("Пътят до основния wake-word модел не е достъпен: {error}"))?;
+    let confirmation = app
+        .path()
+        .resolve(
+            "wakeword/hey_aidoo_confirmation.onnx",
+            BaseDirectory::Resource,
+        )
+        .map_err(|error| {
+            format!("Пътят до потвърждаващия wake-word модел не е достъпен: {error}")
+        })?;
+    Ok((primary, confirmation))
 }
 
 pub(super) fn wake_word_should_listen(state: &AppState) -> bool {
@@ -213,8 +225,15 @@ pub(super) fn reconcile_wake_word_listener(app: &AppHandle) {
         preferred_name: settings.microphone_name,
         automatic_fallback: settings.automatic_microphone_fallback,
     };
-    let result = wake_word_model_path(app)
-        .and_then(|path| state.wake_word.start(routing, path, WAKE_WORD_THRESHOLD));
+    let result = wake_word_model_paths(app).and_then(|(primary, confirmation)| {
+        state.wake_word.start(
+            routing,
+            primary,
+            confirmation,
+            WAKE_WORD_PRIMARY_THRESHOLD,
+            WAKE_WORD_CONFIRMATION_THRESHOLD,
+        )
+    });
     match result {
         Ok(device) => {
             if let Ok(mut error) = state.wake_word_error.lock() {

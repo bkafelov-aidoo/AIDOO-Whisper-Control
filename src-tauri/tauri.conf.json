@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "AIDOO Whisper Lite",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "identifier": "app.aidoo.whisper-lite",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -52,6 +52,8 @@
     "createUpdaterArtifacts": false,
     "resources": {
       "../resources/THIRD_PARTY_NOTICES.txt": "THIRD_PARTY_NOTICES.txt",
+      "resources/wakeword/hey_aidoo.onnx": "wakeword/hey_aidoo.onnx",
+      "resources/wakeword/hey_aidoo_confirmation.onnx": "wakeword/hey_aidoo_confirmation.onnx",
       "resources/wakeword/LIVEKIT-WAKEWORD-LICENSE.txt": "wakeword/LIVEKIT-WAKEWORD-LICENSE.txt",
       "resources/wakeword/MODEL-NOTICES.txt": "wakeword/MODEL-NOTICES.txt",
       "infoplist/en.lproj/InfoPlist.strings": "en.lproj/InfoPlist.strings",
