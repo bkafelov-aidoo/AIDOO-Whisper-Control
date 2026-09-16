@@ -166,6 +166,8 @@ def main() -> int:
 
     expected_external_urls = {
         "https://platform.openai.com/api-keys",
+        "https://app.aidoo.bg/clinics/*/login",
+        "https://aidoo-web.on.dev-craft.tech/clinics/*/login",
         "mailto:support@aidoo.bg",
     }
     structured_permissions = [
@@ -192,8 +194,8 @@ def main() -> int:
         }
         if len(allowed_urls) != len(allowed_entries) or allowed_urls != expected_external_urls:
             errors.append(
-                "External URL permissions must contain exactly the OpenAI API-key page "
-                "and AIDOO support email"
+                "External URL permissions must contain exactly the reviewed OpenAI, "
+                "AIDOO clinic, and support destinations"
             )
         if opener.get("deny"):
             errors.append("The scoped URL opener must not define an unexpected deny list")
@@ -261,6 +263,9 @@ def main() -> int:
         "https://api.openai.com/v1/models",
         "https://api.openai.com/v1/audio/transcriptions",
         "https://api.openai.com/v1/live/sessions",
+        "https://app.aidoo.bg",
+        "https://app.aidoo.bg/web",
+        "https://aidoo-web.on.dev-craft.tech",
         "https://aidoo-platform.on.dev-craft.tech/web",
     }
     if runtime_https_urls != expected_runtime_https_urls:

@@ -42,6 +42,7 @@ pub struct AppSettings {
     pub wake_word_enabled: bool,
     pub wake_word_auto_stop: bool,
     pub aidoo_clinic_slug: Option<String>,
+    pub aidoo_clinic_url: Option<String>,
     pub aidoo_email: Option<String>,
     pub dictation_shortcut: ShortcutBinding,
 }
@@ -64,6 +65,7 @@ impl Default for AppSettings {
             wake_word_enabled: false,
             wake_word_auto_stop: true,
             aidoo_clinic_slug: None,
+            aidoo_clinic_url: None,
             aidoo_email: None,
             dictation_shortcut: ShortcutBinding::key("alt_gr", &[]),
         }
@@ -94,6 +96,7 @@ impl AppSettings {
             self.microphone_name = None;
         }
         self.aidoo_clinic_slug = normalized_optional(self.aidoo_clinic_slug.take());
+        self.aidoo_clinic_url = normalized_optional(self.aidoo_clinic_url.take());
         self.aidoo_email = normalized_optional(self.aidoo_email.take());
     }
 }
@@ -224,6 +227,7 @@ pub struct BootstrapState {
     pub has_api_key: bool,
     pub has_aidoo_password: bool,
     pub aidoo_connected: bool,
+    pub aidoo_connection_error: Option<String>,
     pub accessibility_granted: bool,
     pub app_version: String,
     pub default_output_directory: String,

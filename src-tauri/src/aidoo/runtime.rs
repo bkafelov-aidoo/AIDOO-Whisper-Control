@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use zeroize::Zeroizing;
 
 pub struct AidooRuntime {
-    pub client: AidooClient,
+    client: Mutex<AidooClient>,
     session: Mutex<Option<AidooSession>>,
     pending_draft: Mutex<Option<StatusDraft>>,
     pending_treatment_draft: Mutex<Option<TreatmentDraft>>,
@@ -27,8 +27,9 @@ pub struct AidooSessionSnapshot {
 impl AidooRuntime {
     pub fn new() -> Self {
         Self {
-            client: AidooClient::production()
-                .expect("fixed AIDOO client configuration must be valid"),
+            client: Mutex::new(
+                AidooClient::production().expect("fixed AIDOO client configuration must be valid"),
+            ),
             session: Mutex::new(None),
             pending_draft: Mutex::new(None),
             pending_treatment_draft: Mutex::new(None),
@@ -37,12 +38,13 @@ impl AidooRuntime {
 
     pub async fn connect(
         &self,
+        api_base: &str,
         clinic_slug: &str,
         email: &str,
         password: &str,
     ) -> Result<(), String> {
-        let response = self
-            .client
+        let client = AidooClient::for_api_base(api_base)?;
+        let response = client
             .login(clinic_slug, email, password)
             .await
             .map_err(|error| error.message)?;
@@ -53,6 +55,10 @@ impl AidooRuntime {
             return Err("AIDOO върна непълна сесия.".into());
         }
         *self
+            .client
+            .lock()
+            .map_err(|_| "AIDOO клиентът е заключен.")? = client;
+        *self
             .session
             .lock()
             .map_err(|_| "AIDOO сесията е заключена.")? = Some(AidooSession {
@@ -62,6 +68,13 @@ impl AidooRuntime {
             current_currency: response.user.clinic.current_currency,
         });
         Ok(())
+    }
+
+    pub fn client(&self) -> Result<AidooClient, String> {
+        self.client
+            .lock()
+            .map(|client| client.clone())
+            .map_err(|_| "AIDOO клиентът е заключен.".into())
     }
 
     pub fn session(&self) -> Result<AidooSessionSnapshot, String> {

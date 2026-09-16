@@ -218,6 +218,11 @@ pub(super) fn bootstrap(app: AppHandle, state: State<'_, AppState>) -> Bootstrap
         .ok()
         .and_then(|entry| entry.get_password().ok())
         .is_some();
+    let aidoo_connection_error = state
+        .aidoo_connection_error
+        .lock()
+        .ok()
+        .and_then(|value| value.clone());
     BootstrapState {
         settings,
         history,
@@ -226,6 +231,7 @@ pub(super) fn bootstrap(app: AppHandle, state: State<'_, AppState>) -> Bootstrap
         has_api_key,
         has_aidoo_password,
         aidoo_connected: state.aidoo.connected(),
+        aidoo_connection_error,
         accessibility_granted: accessibility_granted(),
         app_version: app.package_info().version.to_string(),
         default_output_directory: storage::default_output_dir().to_string_lossy().to_string(),

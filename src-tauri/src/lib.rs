@@ -111,6 +111,7 @@ struct AppState {
     live_phase: Mutex<String>,
     assistant_start_request: AssistantStartRequest,
     aidoo: aidoo::runtime::AidooRuntime,
+    aidoo_connection_error: Mutex<Option<String>>,
     api_key: Mutex<Option<Zeroizing<String>>>,
 }
 
@@ -156,6 +157,7 @@ impl AppState {
             live_phase: Mutex::new("idle".into()),
             assistant_start_request: AssistantStartRequest::default(),
             aidoo: aidoo::runtime::AidooRuntime::new(),
+            aidoo_connection_error: Mutex::new(None),
             api_key: Mutex::new(api_key),
         }
     }
@@ -317,6 +319,7 @@ pub fn run() {
             install_wake_word_events(app.handle().clone());
             install_macos_power_observers(app.handle().clone());
             schedule_wake_word_reconcile(app.handle(), std::time::Duration::from_millis(500));
+            schedule_aidoo_auto_reconnect(app.handle().clone(), false);
             storage::append_diagnostic("application started");
             Ok(())
         })
@@ -391,6 +394,7 @@ pub fn run() {
         tauri::RunEvent::Resumed => {
             stop_wake_word_listener(&app.state::<AppState>());
             schedule_wake_word_reconcile(app, std::time::Duration::from_secs(1));
+            schedule_aidoo_auto_reconnect(app.clone(), true);
         }
         _ => {}
     });

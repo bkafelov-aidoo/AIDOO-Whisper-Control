@@ -1,4 +1,5 @@
 pub mod client;
+pub mod clinic;
 pub mod commands;
 pub mod draft;
 pub mod runtime;

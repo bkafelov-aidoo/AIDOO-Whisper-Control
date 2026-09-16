@@ -5,7 +5,8 @@ use serde::de::DeserializeOwned;
 use std::fmt;
 use std::time::Duration;
 
-const PRODUCTION_API_BASE: &str = "https://aidoo-platform.on.dev-craft.tech/web";
+const PRODUCTION_API_BASE: &str = "https://app.aidoo.bg/web";
+const TEST_API_BASE: &str = "https://aidoo-platform.on.dev-craft.tech/web";
 const MAX_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,6 +58,13 @@ pub struct AidooClient {
 
 impl AidooClient {
     pub fn production() -> Result<Self, String> {
+        Self::for_api_base(PRODUCTION_API_BASE)
+    }
+
+    pub fn for_api_base(api_base: &str) -> Result<Self, String> {
+        if !matches!(api_base, PRODUCTION_API_BASE | TEST_API_BASE) {
+            return Err("Неразпозната AIDOO среда.".into());
+        }
         let http = reqwest::Client::builder()
             .https_only(true)
             .redirect(reqwest::redirect::Policy::none())
@@ -66,7 +74,7 @@ impl AidooClient {
             .map_err(|error| format!("AIDOO клиентът не можа да бъде подготвен: {error}"))?;
         Ok(Self {
             http,
-            api_base: PRODUCTION_API_BASE.into(),
+            api_base: api_base.into(),
         })
     }
 

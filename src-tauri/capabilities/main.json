@@ -52,6 +52,8 @@
       "identifier": "opener:allow-open-url",
       "allow": [
         { "url": "https://platform.openai.com/api-keys" },
+        { "url": "https://app.aidoo.bg/clinics/*/login" },
+        { "url": "https://aidoo-web.on.dev-craft.tech/clinics/*/login" },
         { "url": "mailto:support@aidoo.bg" }
       ]
     },

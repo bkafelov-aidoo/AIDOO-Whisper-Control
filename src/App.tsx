@@ -76,6 +76,9 @@ export default function App() {
       });
     });
     events.listen<string>("toast", ({ payload }) => showToast(errorMessage(payload, languageRef.current), "warning"));
+    events.listen<boolean>("aidoo:connection-changed", () => {
+      void refresh().catch(() => undefined);
+    });
     events.listen<FailedRecording | null>("failed-recording:changed", ({ payload }) => {
       setData((current) => current ? { ...current, failedRecording: payload } : current);
     });

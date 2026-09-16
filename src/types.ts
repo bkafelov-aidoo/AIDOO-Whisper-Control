@@ -16,6 +16,7 @@ export interface AppSettings {
   wakeWordEnabled: boolean;
   wakeWordAutoStop: boolean;
   aidooClinicSlug: string | null;
+  aidooClinicUrl: string | null;
   aidooEmail: string | null;
   dictationShortcut: ShortcutBinding;
 }
@@ -76,6 +77,7 @@ export interface BootstrapState {
   hasApiKey: boolean;
   hasAidooPassword: boolean;
   aidooConnected: boolean;
+  aidooConnectionError: string | null;
   accessibilityGranted: boolean;
   appVersion: string;
   defaultOutputDirectory: string;
