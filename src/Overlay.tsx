@@ -161,7 +161,7 @@ export default function Overlay() {
         </div>
         <div className="overlay-copy" role="status" aria-live="polite" aria-atomic="true">
           <strong>{assistantStatus}</strong>
-          <span>{language === "bg" ? "AI разговор · кажете „Започни транскрипция“ за запис" : "AI conversation · say “Start transcription” to record"}</span>
+          <span>{language === "bg" ? "„Започни транскрипция“ за запис · „Край“ за приключване" : "“Start transcription” to record · “End” to finish"}</span>
         </div>
         {(assistantPhase === "listening" || assistantPhase === "speaking") && <div className="overlay-wave assistant-wave" aria-hidden="true">{Array.from({ length: 7 }, (_, index) => <i key={index} style={{ animationDelay: `${index * -0.09}s` }} />)}</div>}
         <button className="overlay-stop assistant-stop" type="button" title={language === "bg" ? "Приключи AI разговора" : "End the AI conversation"} aria-label={language === "bg" ? "Приключи AI разговора" : "End the AI conversation"} onClick={() => void stopAssistant()}>

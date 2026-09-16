@@ -129,6 +129,11 @@ pub(super) fn request_live_stop(app: AppHandle) {
 }
 
 #[tauri::command]
+pub(super) fn take_assistant_request(state: State<'_, AppState>) -> bool {
+    state.assistant_start_request.take()
+}
+
+#[tauri::command]
 pub(super) fn start_voice_dictation(app: AppHandle) -> Result<audio::AudioStartInfo, String> {
     start_recording_inner(&app, "voice").inspect_err(|error| set_error(&app, error))
 }

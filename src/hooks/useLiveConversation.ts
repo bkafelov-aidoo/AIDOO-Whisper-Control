@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { AssistantCommandDetector } from "../lib/assistant-command";
+import { AssistantVoiceCommandDetector } from "../lib/assistant-command";
 
 export type LivePhase = "idle" | "preparing" | "connecting" | "listening" | "speaking" | "switching" | "closing" | "error";
 
@@ -33,6 +33,7 @@ export function useLiveConversation(
   microphoneName: string | null,
   onError: (reason: unknown) => void,
   onDictationStarted?: () => void,
+  onAssistantRequested?: () => void,
 ): LiveConversationState {
   const [phase, setPhase] = useState<LivePhase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +48,9 @@ export function useLiveConversation(
   const switchingRef = useRef(false);
   const mountedRef = useRef(true);
   const operationRef = useRef(0);
-  const commandDetectorRef = useRef(new AssistantCommandDetector());
+  const commandDetectorRef = useRef(new AssistantVoiceCommandDetector());
   const startRef = useRef<() => Promise<void>>(async () => undefined);
+  const stopRef = useRef<() => void>(() => undefined);
 
   const updatePhase = useCallback((next: LivePhase) => {
     if (mountedRef.current) setPhase(next);
@@ -120,21 +122,50 @@ export function useLiveConversation(
     }
   }, [fail, onDictationStarted, releaseBrowserMedia, updatePhase]);
 
+  const stop = useCallback(() => {
+    if (closingRef.current) return;
+    operationRef.current += 1;
+    closingRef.current = true;
+    updatePhase("closing");
+    const channel = channelRef.current;
+    if (readyRef.current && channel?.readyState === "open") {
+      channel.send(JSON.stringify({ type: "session.close" }));
+      clearTimer();
+      timeoutRef.current = window.setTimeout(() => finish("idle"), SESSION_CLOSE_TIMEOUT_MS);
+    } else {
+      finish("idle");
+    }
+  }, [clearTimer, finish, updatePhase]);
+  stopRef.current = stop;
+
   useEffect(() => {
     mountedRef.current = true;
     let unlistenForce: (() => void) | undefined;
     let unlistenRequest: (() => void) | undefined;
+    const consumeAssistantRequest = async () => {
+      try {
+        if (!await invoke<boolean>("take_assistant_request")) return;
+        onAssistantRequested?.();
+        await startRef.current();
+      } catch (reason) {
+        if (mountedRef.current) onError(reason);
+      }
+    };
+    const onFocus = () => { void consumeAssistantRequest(); };
     void listen<string>("live:force-close", () => finish("idle")).then((dispose) => { unlistenForce = dispose; });
-    void listen("assistant:requested", () => { void startRef.current(); }).then((dispose) => { unlistenRequest = dispose; });
+    void listen("assistant:requested", () => { void consumeAssistantRequest(); }).then((dispose) => { unlistenRequest = dispose; });
+    window.addEventListener("focus", onFocus);
+    void consumeAssistantRequest();
     return () => {
       mountedRef.current = false;
       unlistenForce?.();
       unlistenRequest?.();
+      window.removeEventListener("focus", onFocus);
       operationRef.current += 1;
       releaseBrowserMedia();
       void invoke("end_live_session").catch(() => undefined);
     };
-  }, [finish, releaseBrowserMedia]);
+  }, [finish, onAssistantRequested, onError, releaseBrowserMedia]);
 
   const start = useCallback(async () => {
     if (!["idle", "error"].includes(phase)) return;
@@ -191,7 +222,9 @@ export function useLiveConversation(
           readyRef.current = true;
           updatePhase("listening");
         } else if (event.type === "session.input_transcript.delta" && event.delta) {
-          if (commandDetectorRef.current.push(event.delta)) void switchToDictation();
+          const command = commandDetectorRef.current.push(event.delta);
+          if (command === "start-dictation") void switchToDictation();
+          if (command === "end-session") stopRef.current();
         } else if (event.type === "session.closed") {
           finish("idle");
         } else if (event.type === "error" || event.type === "session.failed") {
@@ -226,21 +259,6 @@ export function useLiveConversation(
     }
   }, [clearTimer, fail, finish, microphoneName, phase, switchToDictation, updatePhase]);
   startRef.current = start;
-
-  const stop = useCallback(() => {
-    if (["idle", "error", "closing"].includes(phase)) return;
-    operationRef.current += 1;
-    closingRef.current = true;
-    updatePhase("closing");
-    const channel = channelRef.current;
-    if (readyRef.current && channel?.readyState === "open") {
-      channel.send(JSON.stringify({ type: "session.close" }));
-      clearTimer();
-      timeoutRef.current = window.setTimeout(() => finish("idle"), SESSION_CLOSE_TIMEOUT_MS);
-    } else {
-      finish("idle");
-    }
-  }, [clearTimer, finish, phase, updatePhase]);
 
   return { phase, error, start, stop };
 }

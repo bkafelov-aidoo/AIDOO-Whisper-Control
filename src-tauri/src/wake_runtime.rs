@@ -68,6 +68,7 @@ pub(super) fn install_wake_word_events(app: AppHandle) {
                         storage::append_diagnostic(&format!(
                             "wake word detected; confidence={confidence:.3}"
                         ));
+                        state.assistant_start_request.request();
                         show_main_window(&app, false);
                         let _ = app.emit("assistant:requested", ());
                     }

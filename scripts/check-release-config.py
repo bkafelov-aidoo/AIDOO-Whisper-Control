@@ -319,6 +319,7 @@ def main() -> int:
         "allow-end-live-session",
         "allow-set-live-phase",
         "allow-request-live-stop",
+        "allow-take-assistant-request",
         "allow-start-voice-dictation",
         "allow-start-recording",
         "allow-stop-and-transcribe",

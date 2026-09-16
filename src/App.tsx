@@ -42,7 +42,8 @@ export default function App() {
     setPage("dictation");
     showToast(translator(languageRef.current)("assistantDictationStarted"));
   }, [showToast]);
-  const live = useLiveConversation(data?.settings.microphoneName ?? null, showLiveError, handleAssistantDictation);
+  const handleAssistantRequested = useCallback(() => setPage("assistant"), []);
+  const live = useLiveConversation(data?.settings.microphoneName ?? null, showLiveError, handleAssistantDictation, handleAssistantRequested);
 
   const refresh = useCallback(async () => {
     try {
@@ -85,7 +86,6 @@ export default function App() {
       setData((current) => current ? { ...current, recording: payload } : current);
     });
     events.listen<Page>("navigate", ({ payload }) => setPage(payload));
-    events.listen("assistant:requested", () => setPage("assistant"));
     return () => {
       events.dispose();
       if (toastTimer.current) window.clearTimeout(toastTimer.current);

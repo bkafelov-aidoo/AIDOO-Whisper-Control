@@ -20,24 +20,33 @@ const CONFIRMATION_HISTORY: usize = 3;
 
 struct ConfirmationState {
     recent_primary: VecDeque<bool>,
+    recent_confirmation: VecDeque<bool>,
 }
 
 impl ConfirmationState {
     fn new() -> Self {
         Self {
             recent_primary: VecDeque::with_capacity(CONFIRMATION_HISTORY),
+            recent_confirmation: VecDeque::with_capacity(CONFIRMATION_HISTORY),
         }
     }
 
     fn pending(&self) -> bool {
         self.recent_primary.iter().any(|detected| *detected)
+            || self.recent_confirmation.iter().any(|detected| *detected)
     }
 
     fn observe(&mut self, primary: bool, confirmation: bool) -> bool {
-        let confirmed = confirmation && self.pending();
+        let confirmed = (confirmation
+            && (primary || self.recent_primary.iter().any(|detected| *detected)))
+            || (primary && self.recent_confirmation.iter().any(|detected| *detected));
         self.recent_primary.push_back(primary);
+        self.recent_confirmation.push_back(confirmation);
         while self.recent_primary.len() > CONFIRMATION_HISTORY {
             self.recent_primary.pop_front();
+        }
+        while self.recent_confirmation.len() > CONFIRMATION_HISTORY {
+            self.recent_confirmation.pop_front();
         }
         confirmed
     }
@@ -475,16 +484,28 @@ mod confirmation_tests {
     }
 
     #[test]
-    fn confirmation_rejects_same_interval_and_expired_candidates() {
+    fn confirmation_accepts_same_interval_and_reverse_adjacent_order() {
         let mut same_interval = ConfirmationState::new();
-        assert!(!same_interval.observe(true, true));
+        assert!(same_interval.observe(true, true));
 
+        let mut reverse_order = ConfirmationState::new();
+        assert!(!reverse_order.observe(false, true));
+        assert!(reverse_order.observe(true, false));
+    }
+
+    #[test]
+    fn confirmation_rejects_expired_and_isolated_candidates() {
         let mut expired = ConfirmationState::new();
         assert!(!expired.observe(true, false));
         for _ in 0..3 {
             assert!(!expired.observe(false, false));
         }
         assert!(!expired.observe(false, true));
+
+        let mut isolated = ConfirmationState::new();
+        assert!(!isolated.observe(true, false));
+        let mut isolated = ConfirmationState::new();
+        assert!(!isolated.observe(false, true));
     }
 }
 

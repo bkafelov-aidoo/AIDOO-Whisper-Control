@@ -10,6 +10,21 @@ const DICTATION_COMMANDS = [
   "start dictation",
 ] as const;
 
+const END_SESSION_PATTERNS = [
+  /(?:^| )край$/u,
+  /(?:^| )край на (?:разговора|сесията)$/u,
+  /(?:^| )затвори(?: ми)?$/u,
+  /(?:^| )затвори (?:разговора|сесията|асистента)$/u,
+  /(?:^| )приключи(?: разговора| сесията)?$/u,
+  /(?:^| )прекрати (?:разговора|сесията)$/u,
+  /(?:^| )спри (?:разговора|сесията|асистента)$/u,
+  /(?:^| )довиждане$/u,
+  /(?:^| )(?:end|goodbye)$/u,
+  /(?:^| )(?:end|close|stop) (?:the )?(?:conversation|session|assistant)$/u,
+] as const;
+
+export type AssistantVoiceCommand = "start-dictation" | "end-session";
+
 export function normalizeAssistantCommand(value: string) {
   return value
     .toLocaleLowerCase("bg-BG")
@@ -21,6 +36,12 @@ export function normalizeAssistantCommand(value: string) {
 export function matchesDictationCommand(value: string) {
   const normalized = normalizeAssistantCommand(value);
   return DICTATION_COMMANDS.some((command) => normalized.includes(command));
+}
+
+export function detectAssistantVoiceCommand(value: string): AssistantVoiceCommand | null {
+  if (matchesDictationCommand(value)) return "start-dictation";
+  const normalized = normalizeAssistantCommand(value);
+  return END_SESSION_PATTERNS.some((pattern) => pattern.test(normalized)) ? "end-session" : null;
 }
 
 /**
@@ -38,6 +59,29 @@ export class AssistantCommandDetector {
     if (!matchesDictationCommand(this.transcript)) return false;
     this.triggered = true;
     return true;
+  }
+
+  reset() {
+    this.transcript = "";
+    this.triggered = false;
+  }
+
+  bufferedCharacterCount() {
+    return this.transcript.length;
+  }
+}
+
+export class AssistantVoiceCommandDetector {
+  private transcript = "";
+  private triggered = false;
+
+  push(delta: string): AssistantVoiceCommand | null {
+    if (this.triggered || !delta) return null;
+    this.transcript = `${this.transcript}${delta}`.slice(-MAX_ASSISTANT_TRANSCRIPT_CHARS);
+    const command = detectAssistantVoiceCommand(this.transcript);
+    if (!command) return null;
+    this.triggered = true;
+    return command;
   }
 
   reset() {

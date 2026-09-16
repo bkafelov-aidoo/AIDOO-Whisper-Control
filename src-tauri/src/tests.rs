@@ -6,11 +6,21 @@ use super::{
     recover_pending_history_deletion, recovery_plan, resolve_failed_recording_after_success_with,
     resolved_tray_state, restore_staged_history_files, save_local_transcription_files,
     save_local_transcription_files_with_stem, stage_history_files_for_deletion, tray_tooltip,
-    voice_watchdog_action, AppSettings, FailedRecording, PendingDiagnosticFile, RecoveryPlan,
-    TranscriptEntry, VoiceWatchdogAction, CHARGED_RECOVERY_ERROR,
+    voice_watchdog_action, AppSettings, AssistantStartRequest, FailedRecording,
+    PendingDiagnosticFile, RecoveryPlan, TranscriptEntry, VoiceWatchdogAction,
+    CHARGED_RECOVERY_ERROR,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+
+#[test]
+fn wake_request_survives_a_lost_ui_event_and_is_consumed_once() {
+    let request = AssistantStartRequest::default();
+    assert!(!request.take());
+    request.request();
+    assert!(request.take());
+    assert!(!request.take());
+}
 
 #[test]
 fn voice_watchdog_waits_for_speech_then_transcribes_after_the_pause() {

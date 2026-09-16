@@ -15,6 +15,7 @@ fn main() {
         "end_live_session",
         "set_live_phase",
         "request_live_stop",
+        "take_assistant_request",
         "start_voice_dictation",
         "start_recording",
         "stop_and_transcribe",

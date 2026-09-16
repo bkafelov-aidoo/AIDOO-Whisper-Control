@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   AssistantCommandDetector,
+  AssistantVoiceCommandDetector,
   MAX_ASSISTANT_TRANSCRIPT_CHARS,
+  detectAssistantVoiceCommand,
   matchesDictationCommand,
   normalizeAssistantCommand,
 } from "../src/lib/assistant-command.ts";
@@ -49,4 +51,34 @@ test("the in-memory transcript buffer remains bounded", () => {
 
 test("normalization preserves words and removes separator differences", () => {
   assert.equal(normalizeAssistantCommand("  Start—TRANSCRIPTION… "), "start transcription");
+});
+
+test("recognizes natural commands that end the AI conversation", () => {
+  for (const phrase of [
+    "Край",
+    "Затвори",
+    "Затвори ми",
+    "Приключи разговора",
+    "Спри асистента",
+    "Прекрати сесията",
+    "Довиждане",
+    "End conversation",
+    "Close the session",
+    "Goodbye",
+  ]) {
+    assert.equal(detectAssistantVoiceCommand(phrase), "end-session", phrase);
+  }
+});
+
+test("does not close on words that merely resemble an end command", () => {
+  assert.equal(detectAssistantVoiceCommand("В крайна сметка продължаваме"), null);
+  assert.equal(detectAssistantVoiceCommand("Спри да говориш толкова бързо"), null);
+  assert.equal(detectAssistantVoiceCommand("Затворих вратата"), null);
+});
+
+test("recognizes a fragmented end command once", () => {
+  const detector = new AssistantVoiceCommandDetector();
+  assert.equal(detector.push("Моля, приключи раз"), null);
+  assert.equal(detector.push("говора"), "end-session");
+  assert.equal(detector.push(" край"), null);
 });

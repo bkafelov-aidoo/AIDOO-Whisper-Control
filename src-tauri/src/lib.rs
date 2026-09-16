@@ -61,6 +61,19 @@ enum RecoveryPlan {
     Transcribe,
 }
 
+#[derive(Default)]
+struct AssistantStartRequest(AtomicBool);
+
+impl AssistantStartRequest {
+    fn request(&self) {
+        self.0.store(true, Ordering::Release);
+    }
+
+    fn take(&self) -> bool {
+        self.0.swap(false, Ordering::AcqRel)
+    }
+}
+
 fn recovery_plan(failed: &FailedRecording) -> Result<RecoveryPlan, String> {
     if let Some(text) = failed.completed_text.as_ref() {
         return Ok(RecoveryPlan::FinishLocally(text.clone()));
@@ -93,6 +106,7 @@ struct AppState {
     live_session_active: AtomicBool,
     live_session_generation: AtomicU64,
     live_phase: Mutex<String>,
+    assistant_start_request: AssistantStartRequest,
     api_key: Mutex<Option<Zeroizing<String>>>,
 }
 
@@ -136,6 +150,7 @@ impl AppState {
             live_session_active: AtomicBool::new(false),
             live_session_generation: AtomicU64::new(0),
             live_phase: Mutex::new("idle".into()),
+            assistant_start_request: AssistantStartRequest::default(),
             api_key: Mutex::new(api_key),
         }
     }
@@ -312,6 +327,7 @@ pub fn run() {
             end_live_session,
             set_live_phase,
             request_live_stop,
+            take_assistant_request,
             start_voice_dictation,
             start_recording,
             stop_and_transcribe,
