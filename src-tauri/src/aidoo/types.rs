@@ -7,10 +7,8 @@ pub const ALLOWED_REGIONS: &[&str] = &[
     "OCCLUSAL",
     "VESTIBULAR",
     "LINGUAL",
-    "PALATAL",
     "CERVICAL_LINGUAL",
     "CERVICAL_VESTIBULAR",
-    "CERVICAL_PALATAL",
 ];
 
 #[derive(Debug, Clone, Deserialize)]
@@ -86,6 +84,20 @@ pub struct StatusCatalogEntry {
     pub order: i64,
     #[serde(default)]
     pub diagnosis_id: Option<String>,
+    #[serde(default)]
+    pub can_have_regions: bool,
+    #[serde(default)]
+    pub regions: Vec<String>,
+    #[serde(default)]
+    pub incompatible_statuses: Vec<String>,
+    #[serde(default, skip_serializing)]
+    pub nzis_tooth_diagnosis_id: Option<String>,
+}
+
+impl StatusCatalogEntry {
+    pub fn is_editable_aidoo_status(&self) -> bool {
+        !self.can_have_regions || !self.regions.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

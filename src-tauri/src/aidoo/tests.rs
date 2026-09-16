@@ -1,5 +1,5 @@
 use super::client::AidooClient;
-use super::draft::{build_draft, verifies};
+use super::draft::{build_draft, editable_status_catalog, verifies};
 use super::treatment::{build_treatment_draft, same_treatment_snapshot, verifies_treatment};
 use super::types::*;
 use super::workflow::{
@@ -21,6 +21,18 @@ fn catalog() -> Vec<StatusCatalogEntry> {
             code: "C".into(),
             order: 1,
             diagnosis_id: None,
+            can_have_regions: true,
+            regions: vec![
+                "MESIAL".into(),
+                "DISTAL".into(),
+                "OCCLUSAL".into(),
+                "VESTIBULAR".into(),
+                "LINGUAL".into(),
+                "CERVICAL_LINGUAL".into(),
+                "CERVICAL_VESTIBULAR".into(),
+            ],
+            incompatible_statuses: vec![],
+            nzis_tooth_diagnosis_id: Some("nzis-caries".into()),
         },
         StatusCatalogEntry {
             id: "restoration-id".into(),
@@ -28,6 +40,18 @@ fn catalog() -> Vec<StatusCatalogEntry> {
             code: "O".into(),
             order: 2,
             diagnosis_id: None,
+            can_have_regions: true,
+            regions: vec![
+                "MESIAL".into(),
+                "DISTAL".into(),
+                "OCCLUSAL".into(),
+                "VESTIBULAR".into(),
+                "LINGUAL".into(),
+                "CERVICAL_LINGUAL".into(),
+                "CERVICAL_VESTIBULAR".into(),
+            ],
+            incompatible_statuses: vec![],
+            nzis_tooth_diagnosis_id: Some("nzis-restoration".into()),
         },
     ]
 }
@@ -86,6 +110,142 @@ fn surface_add_builds_the_observed_aidoo_payload() {
 }
 
 #[test]
+fn assistant_catalog_excludes_nzis_surface_mapping_entries() {
+    let entries = vec![
+        StatusCatalogEntry {
+            id: "caries-id".into(),
+            name: "Кариес".into(),
+            code: "C".into(),
+            order: 1,
+            diagnosis_id: None,
+            can_have_regions: true,
+            regions: vec!["MESIAL".into(), "OCCLUSAL".into()],
+            incompatible_statuses: vec![],
+            nzis_tooth_diagnosis_id: Some("nzis-caries".into()),
+        },
+        StatusCatalogEntry {
+            id: "nzis-occlusal-caries-id".into(),
+            name: "Кариес (Оклузално / Инцизално / Куспидално)".into(),
+            code: "Co".into(),
+            order: 30,
+            diagnosis_id: None,
+            can_have_regions: true,
+            regions: vec![],
+            incompatible_statuses: vec![],
+            nzis_tooth_diagnosis_id: Some("nzis-occlusal-caries".into()),
+        },
+    ];
+
+    let filtered = editable_status_catalog(entries);
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].id, "caries-id");
+}
+
+#[test]
+fn surface_protocol_requires_base_status_and_supported_regions() {
+    let catalog = vec![StatusCatalogEntry {
+        id: "caries-id".into(),
+        name: "Кариес".into(),
+        code: "C".into(),
+        order: 1,
+        diagnosis_id: None,
+        can_have_regions: true,
+        regions: vec!["MESIAL".into(), "OCCLUSAL".into(), "LINGUAL".into()],
+        incompatible_statuses: vec![],
+        nzis_tooth_diagnosis_id: Some("nzis-caries".into()),
+    }];
+
+    let no_surface = StatusChange {
+        operation: StatusOperation::Add,
+        tooth: "16".into(),
+        status_id: "caries-id".into(),
+        regions: vec![],
+        existing_status_id: None,
+        is_milk_tooth: false,
+        for_observation: false,
+        note: None,
+    };
+    assert!(build_draft(
+        "patient-id".into(),
+        &visit(true),
+        false,
+        vec![],
+        &catalog,
+        &[no_surface],
+    )
+    .unwrap_err()
+    .contains("повърхност"));
+
+    let unsupported = StatusChange {
+        operation: StatusOperation::Add,
+        tooth: "16".into(),
+        status_id: "caries-id".into(),
+        regions: vec!["CERVICAL_VESTIBULAR".into()],
+        existing_status_id: None,
+        is_milk_tooth: false,
+        for_observation: false,
+        note: None,
+    };
+    assert!(build_draft(
+        "patient-id".into(),
+        &visit(true),
+        false,
+        vec![],
+        &catalog,
+        &[unsupported],
+    )
+    .is_err());
+
+    let palatal = StatusChange {
+        operation: StatusOperation::Add,
+        tooth: "16".into(),
+        status_id: "caries-id".into(),
+        regions: vec!["PALATAL".into()],
+        existing_status_id: None,
+        is_milk_tooth: false,
+        for_observation: false,
+        note: None,
+    };
+    let draft = build_draft(
+        "patient-id".into(),
+        &visit(true),
+        false,
+        vec![],
+        &catalog,
+        &[palatal],
+    )
+    .unwrap();
+    assert_eq!(draft.writes[0].regions, ["LINGUAL"]);
+}
+
+#[test]
+fn incompatible_statuses_are_rejected_across_surface_rows_of_the_same_tooth() {
+    let mut catalog = catalog();
+    catalog[0].incompatible_statuses = vec!["restoration-id".into()];
+    let change = StatusChange {
+        operation: StatusOperation::Add,
+        tooth: "16".into(),
+        status_id: "caries-id".into(),
+        regions: vec!["OCCLUSAL".into()],
+        existing_status_id: None,
+        is_milk_tooth: false,
+        for_observation: false,
+        note: None,
+    };
+
+    let error = build_draft(
+        "patient-id".into(),
+        &visit(true),
+        false,
+        vec![status("16", &["restoration-id"], &["MESIAL"])],
+        &catalog,
+        &[change],
+    )
+    .unwrap_err();
+    assert!(error.contains("несъвместими"));
+}
+
+#[test]
 fn replace_and_multiple_changes_are_aggregated_without_losing_other_statuses() {
     let baseline = vec![
         status("32", &["restoration-id"], &["OCCLUSAL"]),
@@ -112,7 +272,7 @@ fn replace_and_multiple_changes_are_aggregated_without_losing_other_statuses() {
                 operation: StatusOperation::Add,
                 tooth: "31".into(),
                 status_id: "caries-id".into(),
-                regions: Vec::new(),
+                regions: vec!["MESIAL".into()],
                 existing_status_id: None,
                 is_milk_tooth: false,
                 for_observation: false,
@@ -129,6 +289,7 @@ fn replace_and_multiple_changes_are_aggregated_without_losing_other_statuses() {
     assert!(draft.writes.iter().any(|write| {
         write.tooth == "31"
             && write.statuses == ["caries-id"]
+            && write.regions == ["MESIAL"]
             && write.note.as_deref() == Some("контролен запис")
     }));
 }

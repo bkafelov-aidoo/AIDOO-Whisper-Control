@@ -225,6 +225,7 @@ pub(crate) async fn aidoo_status_catalog(
         .client()?
         .status_catalog(&session.token)
         .await
+        .map(draft::editable_status_catalog)
         .map_err(|error| error.message)
 }
 
@@ -330,6 +331,7 @@ pub(crate) async fn aidoo_prepare_status_draft(
     let catalog = client
         .status_catalog(&session.token)
         .await
+        .map(draft::editable_status_catalog)
         .map_err(|error| error.message)?;
     let draft = draft::build_draft(patient_id, &visit, is_nzok, baseline, &catalog, &changes)?;
     let preview = types::PreparedStatusDraft {
