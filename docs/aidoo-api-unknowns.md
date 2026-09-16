@@ -29,7 +29,8 @@ These questions must be answered from the browser discovery session before the A
 - Whether the observed per-visit teeth-status read is the canonical complete-status read in every workflow, including when no visit is active.
 - Semantics of the editable `GET .../teeth-status?visitId={visitId}&isNzok=false` response, especially why empty teeth have allocated record identifiers.
 - Whether the local signer/NHIF calls are mandatory for non-NZOK status entry or are incidental to the current web flow.
-- Add, replace, multiple-change, and observed delete methods and payloads.
+- The dedicated add-status request for a tooth-level change. A controlled `Липсващ зъб` change on tooth `23` persisted in the test record, but the status editor's own request was no longer in the retained Network log. The later `PUT .../patients/{patientId}/visits/{visitId}` only finalized the visit and is not the status-write contract.
+- Surface add, replacement, multiple-change, and observed delete methods and payloads.
 - Concurrency/version fields used to reject stale edits.
 - Idempotency support, if any. No idempotency behavior will be inferred.
 - Validation error schema and partial-success behavior.

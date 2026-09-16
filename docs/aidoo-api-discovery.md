@@ -8,7 +8,7 @@ This file records only facts observed in the browser session against the test cl
 - Environment: development test clinic
 - Web host: `aidoo-web.on.dev-craft.tech`
 - API host: `aidoo-platform.on.dev-craft.tech`
-- Status: read-only discovery in progress; no medical record has been changed
+- Status: controlled write discovery in progress against the designated test record
 - Code rule: no endpoint, payload, identifier, or retry behavior becomes production code before it is recorded and reproduced here.
 
 ## Session procedure
@@ -235,6 +235,33 @@ ToothStatus = {
 - Observed response enum values now include `OCCLUSAL`, `MESIAL`, and `DISTAL`. The exact enum mapping for the other localized surface choices remains unobserved.
 - Existing UI rows demonstrated one status, multiple statuses, one surface, and multiple surfaces on a tooth. This establishes display capability only; allowed write combinations still require controlled write evidence.
 - Closing the empty editor issued only `GET` refreshes in the captured network log. No status write was observed and no medical record value was changed.
+
+### First controlled tooth-level status result
+
+- A controlled UI test added the tooth-level label `Липсващ зъб` to tooth `23` in the designated test record.
+- The change remained visible in the status history for the same visit after the editor closed. The history row therefore proves that the user-visible change persisted.
+- The Network log had been cleared between the status editor action and the final visit action. The dedicated status-write request, if one was issued, is consequently not present in the retained capture. Its method, route, request body, response body, and failure behavior remain unobserved.
+- This is persistence evidence, but it does not yet satisfy the write-contract acceptance criteria below. The test must be repeated with the Network log cleared immediately before the status editor's own save action.
+
+### Visit finalization observed after the status change
+
+- The final action in the same UI flow issued:
+  `PUT https://aidoo-platform.on.dev-craft.tech/web/clinics/{clinicId}/patients/{patientId}/visits/{visitId}`
+- Response status: `200` with `Content-Type: application/json`.
+- Authentication header name: `X-Auth-Token`; its value is secret and is not recorded.
+- Sanitized request body:
+
+```text
+{
+  isFinished: true,
+  note: null,
+  nzokComplianceStatus: true
+}
+```
+
+- The response was the updated visit object. Its observed fields match the visit-list shape and confirmed `createdStatusUpdate: true`, `isFinished: true`, and `nzokCompliancePassed: true`.
+- This request finalizes the visit. It must not be treated as the contract for adding or replacing a dental status.
+- The surrounding flow also called a local signing helper and attempted `POST /web/clinics/{clinicId}/ambulatory-sheets/send-signed`; the latter returned `400` in this observation. Those signing/compliance calls are separate from the still-unobserved dental-status write and require their own investigation.
 
 ## Acceptance for an observed write
 
