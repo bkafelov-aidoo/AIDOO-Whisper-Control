@@ -57,6 +57,29 @@ pub fn present_patient(app: AppHandle, clinic_link: String, patient_id: String, 
             return;
         }
     };
+    present_target(
+        app,
+        target,
+        "AIDOO промяната е запазена, но пациентският екран не можа да бъде показан.",
+    );
+}
+
+pub fn present_schedule(app: AppHandle, clinic_link: String, date: String, doctor_id: String) {
+    let target = match schedule_view_url(&clinic_link, &date, &doctor_id, sync_nonce()) {
+        Ok(target) => target,
+        Err(error) => {
+            let _ = app.emit("toast", error);
+            return;
+        }
+    };
+    present_target(
+        app,
+        target,
+        "Графикът е обработен, но страницата му не можа да бъде показана.",
+    );
+}
+
+fn present_target(app: AppHandle, target: PatientViewTarget, failure_message: &'static str) {
     let thread_app = app.clone();
     let _ = std::thread::Builder::new()
         .name("aidoo-browser-presentation".into())
@@ -71,10 +94,7 @@ pub fn present_patient(app: AppHandle, clinic_link: String, patient_id: String, 
                 return;
             }
             crate::storage::append_diagnostic("AIDOO browser presentation failed");
-            let _ = thread_app.emit(
-                "toast",
-                "AIDOO промяната е запазена, но пациентският екран не можа да бъде показан.",
-            );
+            let _ = thread_app.emit("toast", failure_message);
         });
 }
 
@@ -108,6 +128,33 @@ fn patient_view_url(
         url: format!(
             "{record_base}/medical-record?patientid={patient_id}&tab=record&mode={}&selectedTeeth=&triggerNzokChecksProp=true&aidooControlSync={nonce}",
             view.mode()
+        ),
+    })
+}
+
+fn schedule_view_url(
+    clinic_link: &str,
+    date: &str,
+    doctor_id: &str,
+    nonce: u128,
+) -> Result<PatientViewTarget, String> {
+    if chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").is_err()
+        || doctor_id.is_empty()
+        || doctor_id.len() > 128
+        || !doctor_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    {
+        return Err("Графикът не може да бъде показан за невалидна дата или лекар.".into());
+    }
+    let clinic = parse_clinic_reference(clinic_link)?;
+    let record_base = clinic.url.strip_suffix("/login").ok_or_else(|| {
+        "Линкът към AIDOO клиниката не съдържа валиден входен маршрут.".to_string()
+    })?;
+    Ok(PatientViewTarget {
+        clinic_prefix: format!("{record_base}/"),
+        url: format!(
+            "{record_base}/schedule?mode=doctors&active-date={date}&selected-doctors=%5B%22{doctor_id}%22%5D&aidooControlSync={nonce}"
         ),
     })
 }
@@ -213,5 +260,23 @@ mod tests {
         assert!(
             patient_view_url(&clinic, "patient&mode=treatment", PatientView::Status, 1,).is_err()
         );
+    }
+
+    #[test]
+    fn builds_the_observed_schedule_route_for_the_exact_date_and_doctor() {
+        let scheme = ["https:", "//"].concat();
+        let clinic = format!("{scheme}app.aidoo.bg/clinics/demo/login");
+        let target = schedule_view_url(&clinic, "2026-09-21", "doctor-id", 44).unwrap();
+        assert_eq!(
+            target.url,
+            format!("{scheme}app.aidoo.bg/clinics/demo/schedule?mode=doctors&active-date=2026-09-21&selected-doctors=%5B%22doctor-id%22%5D&aidooControlSync=44")
+        );
+    }
+
+    #[test]
+    fn refuses_schedule_values_that_can_escape_the_query() {
+        let clinic = ["https:", "//app.aidoo.bg/clinics/demo/login"].concat();
+        assert!(schedule_view_url(&clinic, "2026-09-21&mode=x", "doctor-id", 1).is_err());
+        assert!(schedule_view_url(&clinic, "2026-09-21", "doctor&id", 1).is_err());
     }
 }

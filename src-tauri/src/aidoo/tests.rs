@@ -12,6 +12,7 @@ use std::thread;
 use std::time::Duration;
 
 mod edge_cases;
+mod schedule_contract;
 
 fn catalog() -> Vec<StatusCatalogEntry> {
     vec![

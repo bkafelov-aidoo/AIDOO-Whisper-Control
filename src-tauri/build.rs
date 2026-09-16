@@ -18,6 +18,8 @@ fn main() {
         "aidoo_add_procedure",
         "aidoo_write_diagnosis",
         "aidoo_write_official_note",
+        "aidoo_find_schedule_slot",
+        "aidoo_book_schedule_slot",
         "aidoo_status_catalog",
         "aidoo_diagnosis_catalog",
         "aidoo_procedure_catalog",

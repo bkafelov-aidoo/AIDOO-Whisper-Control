@@ -42,6 +42,13 @@ The deployed frontend contract now supports an isolated pilot client and voice t
 - Whether one treatment row can be selected reliably from speech when multiple active rows use the same tooth. The assistant currently requires the opaque existing row ID after a disambiguating read; it must not guess.
 - Transactionality across the treatment write and one or more procedure writes. The Lite client does not retry and reports a partial/uncertain result when read-back does not confirm the complete intended state.
 
+## Schedule
+
+- Controlled live evidence for a successful appointment POST and its independent search read-back. The deployed frontend route and payload are extracted and locally contract-tested, but implementation work did not create a real appointment.
+- Server-side conflict semantics when two clients book the same doctor or room concurrently. The Lite client performs an immediate preflight but still treats a rejected or unverified write conservatively.
+- Clinic-specific rules beyond doctor work intervals, room occupancy and 15-minute granularity, such as holidays, appointment-type duration rules or hidden buffers.
+- Whether an idempotency key is supported for appointment creation. The Lite client does not infer one and never retries an ambiguous POST.
+
 ## Browser training exit criteria
 
 The production-readiness session is complete when sanitized evidence covers login expiration, catalogs, private and НЗОК status visits, tooth add, surface add, replacement, multiple change, diagnosis, procedure, official treatment note, server validation failure, ambiguous or partial write outcome, and independent read-back. The fixed-host client, strict semantic tools, confirmation flow, and mock contract tests are implemented on the isolated pilot branch; they do not by themselves prove the live clinical workflow.

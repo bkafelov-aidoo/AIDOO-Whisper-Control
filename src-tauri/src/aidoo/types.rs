@@ -47,6 +47,8 @@ pub struct PatientSummary {
     #[serde(default)]
     pub middle_name: Option<String>,
     pub last_name: String,
+    #[serde(default, skip_serializing)]
+    pub mobile_phone: Option<String>,
     #[serde(default)]
     pub birthdate: Option<String>,
 }
@@ -376,6 +378,111 @@ pub struct TreatmentChange {
     pub note: Option<String>,
     #[serde(default)]
     pub procedure_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleDoctor {
+    pub id: String,
+    pub first_name: String,
+    pub last_name: String,
+    #[serde(default)]
+    pub doctor: bool,
+    #[serde(default)]
+    pub schedules: Vec<DoctorSchedule>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DoctorSchedule {
+    pub treatment_room_id: String,
+    pub weekday: String,
+    pub start_time: String,
+    pub end_time: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppointmentSearchRequest<'a> {
+    pub doctor_ids: Option<&'a [String]>,
+    pub treatment_room_ids: Option<&'a [String]>,
+    pub from_date: &'a str,
+    pub to_date: &'a str,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleAppointment {
+    pub id: String,
+    pub doctor: AppointmentDoctor,
+    pub treatment_room_id: String,
+    pub start_time: String,
+    pub end_time: String,
+    #[serde(default)]
+    pub patient_appointment: Option<AppointmentPatient>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AppointmentDoctor {
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AppointmentPatient {
+    #[serde(default)]
+    pub patient_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateAppointmentRequest<'a> {
+    pub appointment_type: &'static str,
+    pub doctor_id: &'a str,
+    pub treatment_room_id: &'a str,
+    pub start_time: &'a str,
+    pub end_time: &'a str,
+    pub patient_appointment: CreateAppointmentPatient<'a>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateAppointmentPatient<'a> {
+    pub patient_id: &'a str,
+    pub first_name: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub middle_name: Option<&'a str>,
+    pub last_name: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mobile_phone: Option<&'a str>,
+    pub status: &'static str,
+    pub dental_technology_readiness: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleSlot {
+    pub id: String,
+    pub doctor_id: String,
+    pub doctor_name: String,
+    pub treatment_room_id: String,
+    pub start_time: String,
+    pub end_time: String,
+    pub local_date: String,
+    pub local_time: String,
+    pub duration_minutes: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleBookingResult {
+    pub booked: bool,
+    pub needs_patient_selection: bool,
+    pub matches: Vec<PatientSummary>,
+    pub slot: ScheduleSlot,
+    pub verification: Option<VerificationResult>,
+    pub spoken_summary: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

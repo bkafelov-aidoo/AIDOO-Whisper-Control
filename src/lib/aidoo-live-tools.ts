@@ -82,6 +82,14 @@ const COMMANDS: Record<string, { command: string; map: (value: Record<string, un
     command: "aidoo_write_official_note",
     map: ({ patientId, tooth, note, existingTreatmentId }) => ({ patientId, tooth, note, existingTreatmentId }),
   },
+  find_aidoo_schedule_slot: {
+    command: "aidoo_find_schedule_slot",
+    map: ({ date, afterTime, durationMinutes, doctor }) => ({ date, afterTime, durationMinutes, doctor }),
+  },
+  book_aidoo_schedule_slot: {
+    command: "aidoo_book_schedule_slot",
+    map: ({ slotId, patientQuery, patientId }) => ({ slotId, patientQuery, patientId }),
+  },
   get_aidoo_status_catalog: {
     command: "aidoo_status_catalog",
     map: () => ({}),

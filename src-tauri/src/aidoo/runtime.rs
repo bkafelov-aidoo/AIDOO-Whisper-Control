@@ -1,5 +1,7 @@
 use super::client::AidooClient;
-use super::types::{PatientSearchResult, PatientSummary, StatusDraft, TreatmentDraft};
+use super::types::{
+    PatientSearchResult, PatientSummary, ScheduleSlot, StatusDraft, TreatmentDraft,
+};
 use std::sync::Mutex;
 use zeroize::Zeroizing;
 
@@ -8,6 +10,7 @@ pub struct AidooRuntime {
     session: Mutex<Option<AidooSession>>,
     pending_draft: Mutex<Option<StatusDraft>>,
     pending_treatment_draft: Mutex<Option<TreatmentDraft>>,
+    pending_schedule_slot: Mutex<Option<ScheduleSlot>>,
     patient_cursor: Mutex<PatientCursor>,
 }
 
@@ -40,6 +43,7 @@ impl AidooRuntime {
             session: Mutex::new(None),
             pending_draft: Mutex::new(None),
             pending_treatment_draft: Mutex::new(None),
+            pending_schedule_slot: Mutex::new(None),
             patient_cursor: Mutex::new(PatientCursor::default()),
         }
     }
@@ -114,6 +118,7 @@ impl AidooRuntime {
         }
         self.cancel_draft();
         self.cancel_treatment_draft();
+        self.clear_schedule_slot();
         if let Ok(mut cursor) = self.patient_cursor.lock() {
             *cursor = PatientCursor::default();
         }
@@ -173,6 +178,31 @@ impl AidooRuntime {
         }
     }
 
+    pub fn store_schedule_slot(&self, slot: ScheduleSlot) -> Result<(), String> {
+        *self
+            .pending_schedule_slot
+            .lock()
+            .map_err(|_| "Предложеният час е заключен.")? = Some(slot);
+        Ok(())
+    }
+
+    pub fn schedule_slot(&self, slot_id: &str) -> Result<ScheduleSlot, String> {
+        let pending = self
+            .pending_schedule_slot
+            .lock()
+            .map_err(|_| "Предложеният час е заключен.")?;
+        match pending.as_ref() {
+            Some(slot) if slot.id == slot_id => Ok(slot.clone()),
+            _ => Err("Предложеният час вече не е активен. Потърсете свободен час отново.".into()),
+        }
+    }
+
+    pub fn clear_schedule_slot(&self) {
+        if let Ok(mut pending) = self.pending_schedule_slot.lock() {
+            *pending = None;
+        }
+    }
+
     pub fn remember_patient_search(
         &self,
         results: &[PatientSearchResult],
@@ -201,6 +231,19 @@ impl AidooRuntime {
             .ok_or_else(|| "Пациентът не е сред последните резултати от търсенето.".to_string())?;
         cursor.selected = Some(index);
         Ok(cursor.recent[index].clone())
+    }
+
+    pub fn recent_patient(&self, patient_id: &str) -> Result<PatientSummary, String> {
+        let cursor = self
+            .patient_cursor
+            .lock()
+            .map_err(|_| "Изборът на пациент е заключен.")?;
+        cursor
+            .recent
+            .iter()
+            .find(|patient| patient.id == patient_id)
+            .cloned()
+            .ok_or_else(|| "Пациентът не е сред последните резултати. Потърсете го отново.".into())
     }
 
     pub fn select_next_patient(&self) -> Result<PatientSummary, String> {
@@ -232,6 +275,7 @@ mod tests {
                 first_name: first_name.into(),
                 middle_name: None,
                 last_name: "Тестов".into(),
+                mobile_phone: None,
                 birthdate: None,
             },
         }

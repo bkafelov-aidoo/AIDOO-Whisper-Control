@@ -330,6 +330,8 @@ def main() -> int:
         "allow-aidoo-add-procedure",
         "allow-aidoo-write-diagnosis",
         "allow-aidoo-write-official-note",
+        "allow-aidoo-find-schedule-slot",
+        "allow-aidoo-book-schedule-slot",
         "allow-aidoo-status-catalog",
         "allow-aidoo-diagnosis-catalog",
         "allow-aidoo-procedure-catalog",

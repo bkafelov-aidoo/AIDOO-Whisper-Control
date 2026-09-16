@@ -394,6 +394,64 @@ impl AidooClient {
         .await
     }
 
+    pub async fn schedule_doctors(
+        &self,
+        session: &str,
+        clinic_id: &str,
+    ) -> Result<Vec<ScheduleDoctor>, AidooError> {
+        validate_id(clinic_id, "клиника")?;
+        self.send_json(self.authorized(
+            Method::GET,
+            session,
+            &format!("/clinics/{clinic_id}/users"),
+        ))
+        .await
+    }
+
+    pub async fn search_appointments(
+        &self,
+        session: &str,
+        clinic_id: &str,
+        doctor_ids: Option<&[String]>,
+        treatment_room_ids: Option<&[String]>,
+        from_date: &str,
+        to_date: &str,
+    ) -> Result<Vec<ScheduleAppointment>, AidooError> {
+        validate_id(clinic_id, "клиника")?;
+        self.send_json(
+            self.authorized(
+                Method::POST,
+                session,
+                &format!("/clinics/{clinic_id}/appointments/search"),
+            )
+            .json(&AppointmentSearchRequest {
+                doctor_ids,
+                treatment_room_ids,
+                from_date,
+                to_date,
+            }),
+        )
+        .await
+    }
+
+    pub async fn create_appointment(
+        &self,
+        session: &str,
+        clinic_id: &str,
+        request: &CreateAppointmentRequest<'_>,
+    ) -> Result<(), AidooError> {
+        validate_id(clinic_id, "клиника")?;
+        self.send_without_response(
+            self.authorized(
+                Method::POST,
+                session,
+                &format!("/clinics/{clinic_id}/appointments"),
+            )
+            .json(request),
+        )
+        .await
+    }
+
     fn authorized(&self, method: Method, session: &str, path: &str) -> RequestBuilder {
         self.http
             .request(method, self.url(path))
@@ -431,6 +489,29 @@ impl AidooClient {
             kind: AidooErrorKind::Protocol,
             message: "AIDOO върна неочакван отговор.".into(),
         })
+    }
+
+    async fn send_without_response(&self, request: RequestBuilder) -> Result<(), AidooError> {
+        let response = request.send().await.map_err(|error| AidooError {
+            kind: AidooErrorKind::Transport,
+            message: format!("AIDOO не отговори: {error}"),
+        })?;
+        let status = response.status();
+        let _ = read_limited(response).await?;
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(AidooError::authentication());
+        }
+        if !status.is_success() {
+            return Err(AidooError {
+                kind: if status == StatusCode::NOT_FOUND {
+                    AidooErrorKind::NotFound
+                } else {
+                    AidooErrorKind::Http
+                },
+                message: public_http_error(status),
+            });
+        }
+        Ok(())
     }
 }
 

@@ -5,6 +5,7 @@ pub mod draft;
 pub mod presentation;
 pub mod protocol;
 pub mod runtime;
+pub mod schedule;
 pub mod treatment;
 pub mod types;
 pub mod workflow;

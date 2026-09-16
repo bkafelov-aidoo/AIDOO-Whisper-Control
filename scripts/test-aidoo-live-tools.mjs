@@ -166,6 +166,45 @@ test("returns command failures to the model without retrying", async () => {
   assert.deepEqual(JSON.parse(result.output), { ok: false, error: "Записът не можа да бъде потвърден." });
 });
 
+test("maps visible schedule discovery and the explicit booking command", async () => {
+  const calls = [];
+  const invoke = async (command, args) => {
+    calls.push({ command, args });
+    return { ok: true };
+  };
+  await executeAidooLiveTool({
+    type: "function_call",
+    call_id: "call-find-slot",
+    name: "find_aidoo_schedule_slot",
+    arguments: JSON.stringify({
+      date: null,
+      afterTime: "12:00",
+      durationMinutes: 30,
+      doctor: null,
+    }),
+  }, invoke);
+  await executeAidooLiveTool({
+    type: "function_call",
+    call_id: "call-book-slot",
+    name: "book_aidoo_schedule_slot",
+    arguments: JSON.stringify({
+      slotId: "slot-test",
+      patientQuery: "Тест Пациент",
+      patientId: null,
+    }),
+  }, invoke);
+  assert.deepEqual(calls, [
+    {
+      command: "aidoo_find_schedule_slot",
+      args: { date: null, afterTime: "12:00", durationMinutes: 30, doctor: null },
+    },
+    {
+      command: "aidoo_book_schedule_slot",
+      args: { slotId: "slot-test", patientQuery: "Тест Пациент", patientId: null },
+    },
+  ]);
+});
+
 test("maps an NZOK status visit with spoken confirmation", async () => {
   const calls = [];
   await executeAidooLiveTool({
