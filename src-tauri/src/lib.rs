@@ -6,6 +6,7 @@ mod audio;
 mod commands;
 mod dictation;
 mod feedback_sound;
+mod live;
 mod recovery;
 mod wake_runtime;
 mod wake_word;
@@ -89,6 +90,9 @@ struct AppState {
     wake_word_error: Mutex<Option<String>>,
     wake_word_listening: AtomicBool,
     wake_word_calibrating: AtomicBool,
+    live_session_active: AtomicBool,
+    live_session_generation: AtomicU64,
+    live_phase: Mutex<String>,
     api_key: Mutex<Option<Zeroizing<String>>>,
 }
 
@@ -129,6 +133,9 @@ impl AppState {
             wake_word_error: Mutex::new(None),
             wake_word_listening: AtomicBool::new(false),
             wake_word_calibrating: AtomicBool::new(false),
+            live_session_active: AtomicBool::new(false),
+            live_session_generation: AtomicU64::new(0),
+            live_phase: Mutex::new("idle".into()),
             api_key: Mutex::new(api_key),
         }
     }
@@ -199,7 +206,19 @@ fn install_tray(app: &tauri::App) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => show_main_window(app, false),
             "settings" => show_main_window(app, true),
-            "stop" => request_dictation_stop(app),
+            "stop" => {
+                if app
+                    .state::<AppState>()
+                    .live_session_active
+                    .load(Ordering::Acquire)
+                {
+                    if release_live_session(app, None) {
+                        let _ = app.emit("live:force-close", "tray-stop");
+                    }
+                } else {
+                    request_dictation_stop(app);
+                }
+            }
             "copy-error" => {
                 let state = app.state::<AppState>();
                 let error = state
@@ -288,6 +307,12 @@ pub fn run() {
             test_microphone,
             start_wake_word_calibration,
             stop_wake_word_calibration,
+            prepare_live_session,
+            create_live_session,
+            end_live_session,
+            set_live_phase,
+            request_live_stop,
+            start_voice_dictation,
             start_recording,
             stop_and_transcribe,
             retry_failed_transcription,

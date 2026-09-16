@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { createEventScope } from "./lib/event-scope";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
-import { Check, CircleAlert, LoaderCircle, Mic, Square } from "lucide-react";
+import { Check, CircleAlert, LoaderCircle, MessageCircle, Mic, Square } from "lucide-react";
 import type { AppSettings, OverlayBootstrapState, RecordingProgress, RecordingSnapshot } from "./types";
 import { errorMessage, progressLabel, resolveLanguage } from "./i18n";
 
@@ -46,6 +46,7 @@ const stateText = {
 
 export default function Overlay() {
   const [snapshot, setSnapshot] = useState(initial);
+  const [assistantPhase, setAssistantPhase] = useState<OverlayBootstrapState["assistantPhase"]>("idle");
   const [language, setLanguage] = useState<"bg" | "en">("bg");
   const [notice, setNotice] = useState<string | null>(null);
   const card = useRef<HTMLDivElement>(null);
@@ -56,12 +57,14 @@ export default function Overlay() {
     void invoke<OverlayBootstrapState>("overlay_bootstrap").then((state) => {
       if (!disposed) {
         setSnapshot(state.recording);
+        setAssistantPhase(state.assistantPhase);
         setLanguage(resolveLanguage(state.uiLanguage));
       }
     }).catch((reason: unknown) => {
       if (!disposed) setNotice(String(reason));
     });
     events.listen<RecordingSnapshot>("recording:snapshot", ({ payload }) => setSnapshot(payload));
+    events.listen<OverlayBootstrapState["assistantPhase"]>("assistant:phase", ({ payload }) => setAssistantPhase(payload));
     events.listen<string>("recording:state", ({ payload }) => {
       if (payload === "starting" || payload === "idle") setNotice(null);
       setSnapshot((current) => ({ ...current, state: payload as RecordingSnapshot["state"] }));
@@ -115,13 +118,20 @@ export default function Overlay() {
     void getCurrentWindow().setSize(new LogicalSize(552, height)).then(() => invoke("reposition_overlay")).catch(() => {
       // Keep the previous size if the native window is closing or temporarily unavailable.
     });
-  }, [snapshot.state, snapshot.error, snapshot.progress.stage, notice]);
+  }, [snapshot.state, snapshot.error, snapshot.progress.stage, assistantPhase, notice]);
 
   const label = stateText[language];
   const stage = progressLabel(snapshot.progress.stage, language);
   const stopRecording = async () => {
     try {
       await invoke("stop_and_transcribe");
+    } catch (reason) {
+      setNotice(errorMessage(reason, language));
+    }
+  };
+  const stopAssistant = async () => {
+    try {
+      await invoke("request_live_stop");
     } catch (reason) {
       setNotice(errorMessage(reason, language));
     }
@@ -133,9 +143,28 @@ export default function Overlay() {
     return <Mic />;
   }, [snapshot.state]);
 
+  const assistantActive = assistantPhase !== "idle" && snapshot.state === "idle";
+  const assistantStatus = assistantPhase === "preparing" ? (language === "bg" ? "Подготвям микрофона…" : "Preparing the microphone…")
+    : assistantPhase === "connecting" ? (language === "bg" ? "Свързвам се с AIDOO…" : "Connecting to AIDOO…")
+      : assistantPhase === "listening" ? (language === "bg" ? "AIDOO ви слуша" : "AIDOO is listening")
+        : assistantPhase === "speaking" ? (language === "bg" ? "AIDOO говори" : "AIDOO is speaking")
+          : assistantPhase === "switching" ? (language === "bg" ? "Стартирам транскрипция…" : "Starting dictation…")
+            : assistantPhase === "closing" ? (language === "bg" ? "Приключвам разговора…" : "Ending the conversation…")
+              : language === "bg" ? "AI разговорът е прекъснат" : "AI conversation interrupted";
+
   return (
     <main className="overlay-shell">
-      <div ref={card} className={`overlay-card ${snapshot.state}`}>
+      {assistantActive ? <div ref={card} className={`overlay-card assistant ${assistantPhase}`}>
+        <div className="overlay-state-icon assistant" aria-hidden="true">{assistantPhase === "preparing" || assistantPhase === "connecting" || assistantPhase === "switching" || assistantPhase === "closing" ? <LoaderCircle className="spin" /> : <MessageCircle />}</div>
+        <div className="overlay-copy" role="status" aria-live="polite" aria-atomic="true">
+          <strong>{assistantStatus}</strong>
+          <span>{language === "bg" ? "AI разговор · кажете „Започни транскрипция“ за запис" : "AI conversation · say “Start transcription” to record"}</span>
+        </div>
+        {(assistantPhase === "listening" || assistantPhase === "speaking") && <div className="overlay-wave assistant-wave" aria-hidden="true">{Array.from({ length: 9 }, (_, index) => <i key={index} style={{ animationDelay: `${index * -0.09}s` }} />)}</div>}
+        <button className="overlay-stop assistant-stop" type="button" title={language === "bg" ? "Приключи AI разговора" : "End the AI conversation"} aria-label={language === "bg" ? "Приключи AI разговора" : "End the AI conversation"} onClick={() => void stopAssistant()}>
+          <Square aria-hidden="true" /><span>{language === "bg" ? "Край" : "End"}</span>
+        </button>
+      </div> : <div ref={card} className={`overlay-card ${snapshot.state}`}>
         <div className={`overlay-state-icon ${snapshot.state}`} aria-hidden="true">{icon}</div>
         <div className="overlay-copy" role={snapshot.state === "error" ? "alert" : "status"} aria-live={snapshot.state === "error" ? "assertive" : "polite"} aria-atomic="true">
           <strong>{label[snapshot.state]}</strong>
@@ -167,7 +196,7 @@ export default function Overlay() {
             <i style={{ width: snapshot.progress.determinate ? `${snapshot.progress.percent}%` : "38%" }} />
           </div>
         )}
-      </div>
+      </div>}
     </main>
   );
 }

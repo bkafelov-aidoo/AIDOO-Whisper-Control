@@ -260,15 +260,16 @@ def main() -> int:
     expected_runtime_https_urls = {
         "https://api.openai.com/v1/models",
         "https://api.openai.com/v1/audio/transcriptions",
+        "https://api.openai.com/v1/live/sessions",
     }
     if runtime_https_urls != expected_runtime_https_urls:
         errors.append(
             f"Native runtime HTTPS destinations differ: {sorted(runtime_https_urls)}"
         )
-    if runtime_sources.count(".https_only(true)") != 2:
-        errors.append("Both OpenAI clients must reject non-HTTPS requests")
-    if runtime_sources.count(".redirect(reqwest::redirect::Policy::none())") != 2:
-        errors.append("Both OpenAI clients must reject HTTP redirects")
+    if runtime_sources.count(".https_only(true)") != 3:
+        errors.append("All OpenAI clients must reject non-HTTPS requests")
+    if runtime_sources.count(".redirect(reqwest::redirect::Policy::none())") != 3:
+        errors.append("All OpenAI clients must reject HTTP redirects")
     javascript_dependencies = {
         **package.get("dependencies", {}),
         **package.get("devDependencies", {}),
@@ -313,6 +314,12 @@ def main() -> int:
         "allow-test-microphone",
         "allow-start-wake-word-calibration",
         "allow-stop-wake-word-calibration",
+        "allow-prepare-live-session",
+        "allow-create-live-session",
+        "allow-end-live-session",
+        "allow-set-live-phase",
+        "allow-request-live-stop",
+        "allow-start-voice-dictation",
         "allow-start-recording",
         "allow-stop-and-transcribe",
         "allow-retry-failed-transcription",
@@ -340,6 +347,7 @@ def main() -> int:
         "allow-overlay-bootstrap",
         "allow-current-recording-snapshot",
         "allow-stop-and-transcribe",
+        "allow-request-live-stop",
         "allow-reposition-overlay",
     }
     overlay_permissions = set(overlay_capabilities.get("permissions", []))

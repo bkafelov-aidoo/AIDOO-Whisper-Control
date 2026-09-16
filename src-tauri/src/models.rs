@@ -221,6 +221,7 @@ pub struct BootstrapState {
 pub struct OverlayBootstrapState {
     pub ui_language: String,
     pub recording: RecordingSnapshot,
+    pub assistant_phase: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

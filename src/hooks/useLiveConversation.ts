@@ -1,0 +1,350 @@
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+
+export type LivePhase = "idle" | "preparing" | "connecting" | "listening" | "speaking" | "switching" | "closing" | "error";
+
+export interface LiveConversationState {
+  phase: LivePhase;
+  error: string | null;
+  start: () => Promise<void>;
+  stop: () => void;
+}
+
+interface LiveSessionAnswer {
+  sessionId: string;
+  sdp: string;
+}
+
+interface LiveEvent {
+  type?: string;
+  delta?: string;
+  error?: { message?: string };
+}
+
+const MICROPHONE_TIMEOUT_MS = 12_000;
+const ICE_GATHERING_TIMEOUT_MS = 10_000;
+const LIVE_CREATE_TIMEOUT_MS = 50_000;
+const SESSION_START_TIMEOUT_MS = 20_000;
+const SESSION_CLOSE_TIMEOUT_MS = 15_000;
+
+export function useLiveConversation(
+  microphoneName: string | null,
+  onError: (reason: unknown) => void,
+  onDictationStarted?: () => void,
+): LiveConversationState {
+  const [phase, setPhase] = useState<LivePhase>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const peerRef = useRef<RTCPeerConnection | null>(null);
+  const channelRef = useRef<RTCDataChannel | null>(null);
+  const microphoneRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const monitorFrameRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
+  const readyRef = useRef(false);
+  const closingRef = useRef(false);
+  const switchingRef = useRef(false);
+  const mountedRef = useRef(true);
+  const operationRef = useRef(0);
+  const transcriptRef = useRef("");
+  const startRef = useRef<() => Promise<void>>(async () => undefined);
+
+  const updatePhase = useCallback((next: LivePhase) => {
+    if (mountedRef.current) setPhase(next);
+  }, []);
+
+  useEffect(() => {
+    void invoke("set_live_phase", { phase }).catch(() => undefined);
+  }, [phase]);
+
+  const clearTimer = useCallback(() => {
+    if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+  }, []);
+
+  const releaseBrowserMedia = useCallback(() => {
+    clearTimer();
+    readyRef.current = false;
+    if (monitorFrameRef.current !== null) cancelAnimationFrame(monitorFrameRef.current);
+    monitorFrameRef.current = null;
+    microphoneRef.current?.getTracks().forEach((track) => track.stop());
+    microphoneRef.current = null;
+    channelRef.current?.close();
+    channelRef.current = null;
+    peerRef.current?.close();
+    peerRef.current = null;
+    void audioContextRef.current?.close().catch(() => undefined);
+    audioContextRef.current = null;
+    transcriptRef.current = "";
+  }, [clearTimer]);
+
+  const finish = useCallback((nextPhase: LivePhase = "idle") => {
+    operationRef.current += 1;
+    closingRef.current = true;
+    switchingRef.current = false;
+    releaseBrowserMedia();
+    void invoke("end_live_session").catch(() => undefined);
+    updatePhase(nextPhase);
+  }, [releaseBrowserMedia, updatePhase]);
+
+  const fail = useCallback((reason: unknown) => {
+    const message = String(reason).replace(/^Error:\s*/, "");
+    operationRef.current += 1;
+    closingRef.current = true;
+    switchingRef.current = false;
+    releaseBrowserMedia();
+    void invoke("end_live_session").catch(() => undefined);
+    if (mountedRef.current) {
+      setError(message);
+      setPhase("error");
+      onError(reason);
+    }
+  }, [onError, releaseBrowserMedia]);
+
+  const switchToDictation = useCallback(async () => {
+    if (switchingRef.current) return;
+    switchingRef.current = true;
+    closingRef.current = true;
+    operationRef.current += 1;
+    updatePhase("switching");
+    releaseBrowserMedia();
+    try {
+      await invoke("end_live_session");
+      await invoke("start_voice_dictation");
+      switchingRef.current = false;
+      updatePhase("idle");
+      onDictationStarted?.();
+    } catch (reason) {
+      fail(reason);
+    }
+  }, [fail, onDictationStarted, releaseBrowserMedia, updatePhase]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    let unlistenForce: (() => void) | undefined;
+    let unlistenRequest: (() => void) | undefined;
+    void listen<string>("live:force-close", () => finish("idle")).then((dispose) => { unlistenForce = dispose; });
+    void listen("assistant:requested", () => { void startRef.current(); }).then((dispose) => { unlistenRequest = dispose; });
+    return () => {
+      mountedRef.current = false;
+      unlistenForce?.();
+      unlistenRequest?.();
+      operationRef.current += 1;
+      releaseBrowserMedia();
+      void invoke("end_live_session").catch(() => undefined);
+    };
+  }, [finish, releaseBrowserMedia]);
+
+  const start = useCallback(async () => {
+    if (!["idle", "error"].includes(phase)) return;
+    const operation = operationRef.current + 1;
+    operationRef.current = operation;
+    const stillCurrent = () => operationRef.current === operation && mountedRef.current;
+    setError(null);
+    updatePhase("preparing");
+    closingRef.current = false;
+    switchingRef.current = false;
+    transcriptRef.current = "";
+    try {
+      await invoke("prepare_live_session");
+      if (!stillCurrent()) return;
+      await delay(180);
+      if (!stillCurrent()) return;
+
+      const peer = new RTCPeerConnection();
+      peerRef.current = peer;
+      let microphone = await withTimeout(
+        navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        }),
+        MICROPHONE_TIMEOUT_MS,
+        "Микрофонът не отговори навреме.",
+      );
+      if (!stillCurrent()) {
+        microphone.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      if (microphoneName) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const selected = devices.find((device) => device.kind === "audioinput" && device.label === microphoneName)
+          ?? devices.find((device) => device.kind === "audioinput" && device.label.includes(microphoneName));
+        const currentDevice = microphone.getAudioTracks()[0]?.getSettings().deviceId;
+        if (selected?.deviceId && selected.deviceId !== currentDevice) {
+          microphone.getTracks().forEach((track) => track.stop());
+          microphone = await withTimeout(
+            navigator.mediaDevices.getUserMedia({
+              audio: {
+                deviceId: { exact: selected.deviceId },
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              },
+            }),
+            MICROPHONE_TIMEOUT_MS,
+            "Избраният микрофон не отговори навреме.",
+          );
+        }
+      }
+      if (!stillCurrent()) {
+        microphone.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      microphoneRef.current = microphone;
+      for (const track of microphone.getAudioTracks()) peer.addTrack(track, microphone);
+      updatePhase("connecting");
+
+      peer.addEventListener("track", ({ track }) => monitorRemoteAudio(track, audioContextRef, monitorFrameRef, readyRef, closingRef, mountedRef, updatePhase));
+
+      const channel = peer.createDataChannel("oai-events");
+      channelRef.current = channel;
+      channel.addEventListener("message", ({ data }) => {
+        if (typeof data !== "string") return;
+        let event: LiveEvent;
+        try { event = JSON.parse(data) as LiveEvent; } catch { return; }
+        if (event.type === "session.started") {
+          clearTimer();
+          readyRef.current = true;
+          updatePhase("listening");
+        } else if (event.type === "session.input_transcript.delta" && event.delta) {
+          transcriptRef.current = `${transcriptRef.current}${event.delta}`.slice(-320);
+          if (matchesDictationCommand(transcriptRef.current)) void switchToDictation();
+        } else if (event.type === "session.closed") {
+          finish("idle");
+        } else if (event.type === "error" || event.type === "session.failed") {
+          fail(event.error?.message ?? "GPT-Live прекъсна разговора.");
+        }
+      });
+      channel.addEventListener("close", () => {
+        if (readyRef.current && !closingRef.current) fail("GPT-Live връзката беше прекъсната.");
+      });
+      peer.addEventListener("connectionstatechange", () => {
+        if (peer.connectionState === "failed" && !closingRef.current) fail("WebRTC връзката с GPT-Live беше прекъсната.");
+      });
+
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      await waitForIceGathering(peer);
+      if (!stillCurrent()) return;
+      const sdp = peer.localDescription?.sdp;
+      if (!sdp) throw new Error("WebRTC не създаде заявка за разговор.");
+      const answer = await withTimeout(
+        invoke<LiveSessionAnswer>("create_live_session", { sdp }),
+        LIVE_CREATE_TIMEOUT_MS,
+        "OpenAI не отговори навреме.",
+      );
+      if (!stillCurrent()) return;
+      await peer.setRemoteDescription({ type: "answer", sdp: answer.sdp });
+      if (!readyRef.current) {
+        timeoutRef.current = window.setTimeout(() => fail("GPT-Live не потвърди старта на разговора."), SESSION_START_TIMEOUT_MS);
+      }
+    } catch (reason) {
+      if (stillCurrent()) fail(reason);
+    }
+  }, [clearTimer, fail, finish, microphoneName, phase, switchToDictation, updatePhase]);
+  startRef.current = start;
+
+  const stop = useCallback(() => {
+    if (["idle", "error", "closing"].includes(phase)) return;
+    operationRef.current += 1;
+    closingRef.current = true;
+    updatePhase("closing");
+    const channel = channelRef.current;
+    if (readyRef.current && channel?.readyState === "open") {
+      channel.send(JSON.stringify({ type: "session.close" }));
+      clearTimer();
+      timeoutRef.current = window.setTimeout(() => finish("idle"), SESSION_CLOSE_TIMEOUT_MS);
+    } else {
+      finish("idle");
+    }
+  }, [clearTimer, finish, phase, updatePhase]);
+
+  return { phase, error, start, stop };
+}
+
+function monitorRemoteAudio(
+  track: MediaStreamTrack,
+  audioContextRef: MutableRefObject<AudioContext | null>,
+  monitorFrameRef: MutableRefObject<number | null>,
+  readyRef: MutableRefObject<boolean>,
+  closingRef: MutableRefObject<boolean>,
+  mountedRef: MutableRefObject<boolean>,
+  updatePhase: (phase: LivePhase) => void,
+) {
+  try {
+    const context = new AudioContext();
+    audioContextRef.current = context;
+    const source = context.createMediaStreamSource(new MediaStream([track]));
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    analyser.connect(context.destination);
+    void context.resume();
+    const samples = new Uint8Array(analyser.fftSize);
+    let lastSpeechAt = 0;
+    const monitor = () => {
+      analyser.getByteTimeDomainData(samples);
+      let energy = 0;
+      for (const sample of samples) {
+        const centered = (sample - 128) / 128;
+        energy += centered * centered;
+      }
+      if (Math.sqrt(energy / samples.length) > 0.025) lastSpeechAt = performance.now();
+      if (readyRef.current && !closingRef.current && mountedRef.current) {
+        updatePhase(performance.now() - lastSpeechAt < 280 ? "speaking" : "listening");
+      }
+      monitorFrameRef.current = requestAnimationFrame(monitor);
+    };
+    monitor();
+  } catch {
+    // The conversation stays usable even if the visual audio meter is unavailable.
+  }
+}
+
+function waitForIceGathering(peer: RTCPeerConnection) {
+  if (peer.iceGatheringState === "complete") return Promise.resolve();
+  return new Promise<void>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      peer.removeEventListener("icegatheringstatechange", onState);
+      reject(new Error("WebRTC не успя да подготви мрежовата връзка."));
+    }, ICE_GATHERING_TIMEOUT_MS);
+    function onState() {
+      if (peer.iceGatheringState !== "complete") return;
+      window.clearTimeout(timeout);
+      peer.removeEventListener("icegatheringstatechange", onState);
+      resolve();
+    }
+    peer.addEventListener("icegatheringstatechange", onState);
+    onState();
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      (value) => { window.clearTimeout(timeout); resolve(value); },
+      (reason) => { window.clearTimeout(timeout); reject(reason); },
+    );
+  });
+}
+
+function delay(milliseconds: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+export function matchesDictationCommand(value: string) {
+  const normalized = value
+    .toLocaleLowerCase("bg-BG")
+    .normalize("NFKD")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+  return [
+    "започни транскрипция",
+    "стартирай транскрипция",
+    "започни да записваш",
+    "стартирай запис",
+    "запиши транскрипция",
+    "start transcription",
+    "start dictation",
+  ].some((command) => normalized.includes(command));
+}

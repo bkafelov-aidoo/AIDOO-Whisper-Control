@@ -10,6 +10,7 @@
     "allow-overlay-bootstrap",
     "allow-current-recording-snapshot",
     "allow-stop-and-transcribe",
+    "allow-request-live-stop",
     "allow-reposition-overlay"
   ]
 }

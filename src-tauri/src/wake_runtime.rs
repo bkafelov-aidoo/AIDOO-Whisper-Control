@@ -68,9 +68,8 @@ pub(super) fn install_wake_word_events(app: AppHandle) {
                         storage::append_diagnostic(&format!(
                             "wake word detected; confidence={confidence:.3}"
                         ));
-                        if let Err(error) = start_recording_inner(&app, "voice") {
-                            set_error(&app, &error);
-                        }
+                        show_main_window(&app, false);
+                        let _ = app.emit("assistant:requested", ());
                     }
                     wake_word::WakeWordEvent::Scores {
                         rms,

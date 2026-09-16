@@ -71,6 +71,7 @@ fn status_label(state: &str, english: bool) -> &'static str {
         (true, "permission") => "Status: permission required",
         (true, "wake-listening") => "Status: listening for “Hey, AIDOO”",
         (true, "wake-error") => "Status: voice activation needs attention",
+        (true, "live") => "Status: AIDOO voice conversation is active",
         (true, _) => "Status: ready for dictation",
         (false, "starting") => "Състояние: стартирам микрофона",
         (false, "recording") => "Състояние: записвам · отпуснете shortcut-а за край",
@@ -82,6 +83,7 @@ fn status_label(state: &str, english: bool) -> &'static str {
         (false, "permission") => "Състояние: нужно е разрешение",
         (false, "wake-listening") => "Състояние: слушам за „Hey, AIDOO“",
         (false, "wake-error") => "Състояние: проблем с гласовото активиране",
+        (false, "live") => "Състояние: активен гласов разговор с AIDOO",
         (false, _) => "Състояние: готов за диктовка",
     }
 }
@@ -440,15 +442,23 @@ pub(super) fn build_tray_menu(app: &AppHandle, current: &str) -> tauri::Result<M
         true,
         None::<&str>,
     )?;
+    let live_session_active = app
+        .state::<AppState>()
+        .live_session_active
+        .load(Ordering::Acquire);
     let stop = MenuItem::with_id(
         app,
         "stop",
-        if english {
+        if english && live_session_active {
+            "End AIDOO conversation"
+        } else if !english && live_session_active {
+            "Приключи разговора с AIDOO"
+        } else if english {
             "Stop and transcribe"
         } else {
             "Спри и транскрибирай"
         },
-        matches!(current, "starting" | "recording"),
+        live_session_active || matches!(current, "starting" | "recording"),
         None::<&str>,
     )?;
     let settings = MenuItem::with_id(
@@ -706,6 +716,7 @@ pub(super) fn tray_tooltip(current: &str, english: bool) -> &'static str {
         (true, "permission") => "AIDOO Whisper Lite — permission required",
         (true, "wake-listening") => "AIDOO Whisper Lite — listening for Hey, AIDOO",
         (true, "wake-error") => "AIDOO Whisper Lite — voice activation needs attention",
+        (true, "live") => "AIDOO Whisper Lite — voice conversation active",
         (true, _) => "AIDOO Whisper Lite — ready",
         (false, "starting") => "AIDOO Whisper Lite — стартирам микрофона",
         (false, "recording") => "AIDOO Whisper Lite — записвам",
@@ -717,6 +728,7 @@ pub(super) fn tray_tooltip(current: &str, english: bool) -> &'static str {
         (false, "permission") => "AIDOO Whisper Lite — нужно е разрешение",
         (false, "wake-listening") => "AIDOO Whisper Lite — слушам за Hey, AIDOO",
         (false, "wake-error") => "AIDOO Whisper Lite — проблем с гласовото активиране",
+        (false, "live") => "AIDOO Whisper Lite — активен гласов разговор",
         (false, _) => "AIDOO Whisper Lite — готов",
     }
 }
@@ -740,7 +752,9 @@ pub(super) fn refresh_tray_menu(app: &AppHandle) {
         true
     };
     let mut tray_state = resolved_tray_state(&current, granted, setup_ready, has_recovery);
-    if tray_state == "idle" && state.wake_word_listening.load(Ordering::Acquire) {
+    if state.live_session_active.load(Ordering::Acquire) {
+        tray_state = "live";
+    } else if tray_state == "idle" && state.wake_word_listening.load(Ordering::Acquire) {
         tray_state = "wake-listening";
     } else if tray_state == "idle"
         && state

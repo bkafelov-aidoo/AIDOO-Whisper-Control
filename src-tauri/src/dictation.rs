@@ -193,6 +193,7 @@ pub(super) fn wake_word_should_listen(state: &AppState) -> bool {
         && (calibrating || idle)
         && !state.operation_active.load(Ordering::Acquire)
         && !state.recording_active.load(Ordering::Acquire)
+        && !state.live_session_active.load(Ordering::Acquire)
 }
 
 pub(super) fn stop_wake_word_listener(state: &AppState) {

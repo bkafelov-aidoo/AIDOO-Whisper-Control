@@ -81,6 +81,7 @@ export interface BootstrapState {
 export interface OverlayBootstrapState {
   uiLanguage: "auto" | "bg" | "en";
   recording: RecordingSnapshot;
+  assistantPhase: "idle" | "preparing" | "connecting" | "listening" | "speaking" | "switching" | "closing" | "error";
 }
 
 export interface TranscriptionCompleted {
