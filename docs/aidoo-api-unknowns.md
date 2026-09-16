@@ -14,6 +14,8 @@ These questions must be answered from the browser discovery session before the A
 - Server-side handling below four characters, pagination, zero-result and multiple-result behavior, and the `nextAppointment` object schema. The endpoint, one-result schema, and observed four-character client minimum are recorded.
 - Patient response schema and the source of the opaque patient identifier. The canonical medical-record browser route is observed.
 - Business rule for when a visit becomes active or finished, and whether the dedicated active-visit endpoint is always authoritative. The read endpoint, success shape, and no-active-visit `400` are observed.
+- Full contract for creating an `НЗОК` visit. Private-visit creation is observed as `POST .../patients/{patientId}/visits` with `{ doctorId }`, followed by the editable status read with `isNzok=false`.
+- Whether the voice confirmation for `НЗОК` or `Частен прием` needs any additional server-side preflight before visit creation.
 - Whether a separate canonical visit route exists. The status view is currently represented by `mode=status` in the patient medical-record route.
 
 ## Dental status catalog
@@ -30,7 +32,7 @@ These questions must be answered from the browser discovery session before the A
 - Semantics of the editable `GET .../teeth-status?visitId={visitId}&isNzok=false` response, especially why empty teeth have allocated record identifiers.
 - Whether the local signer/NHIF calls are mandatory for non-NZOK status entry or are incidental to the current web flow.
 - The dedicated add-status request for a tooth-level change. A controlled `Липсващ зъб` change on tooth `23` persisted in the test record, but the status editor's own request was no longer in the retained Network log. The later `PUT .../patients/{patientId}/visits/{visitId}` only finalized the visit and is not the status-write contract.
-- Surface add, replacement, multiple-change, and observed delete methods and payloads.
+- Surface add, replacement, multiple-change, and observed delete methods and payloads. A controlled attempt to add an occlusal caries to tooth `32` did not survive read-back and therefore supplies no write-contract evidence.
 - Concurrency/version fields used to reject stale edits.
 - Idempotency support, if any. No idempotency behavior will be inferred.
 - Validation error schema and partial-success behavior.

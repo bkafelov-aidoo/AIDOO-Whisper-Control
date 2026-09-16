@@ -236,6 +236,41 @@ ToothStatus = {
 - Existing UI rows demonstrated one status, multiple statuses, one surface, and multiple surfaces on a tooth. This establishes display capability only; allowed write combinations still require controlled write evidence.
 - Closing the empty editor issued only `GET` refreshes in the captured network log. No status write was observed and no medical record value was changed.
 
+### Creating a private visit from the status flow
+
+- When no visit was active, opening `Нов статус` first asked how the procedure would be funded: `НЗОК` or `Частен прием`.
+- Choosing `Частен прием` issued:
+  `POST https://aidoo-platform.on.dev-craft.tech/web/clinics/{clinicId}/patients/{patientId}/visits`
+- Response status: `200` with `Content-Type: application/json`.
+- Authentication header name: `X-Auth-Token`; its value is secret and is not recorded.
+- Sanitized request body:
+
+```text
+{
+  doctorId: string
+}
+```
+
+- The response is a visit object with the same shape as the visit-list item. The newly created private visit had `createdStatusUpdate: false`, `isFinished: false`, `nzokCompliancePassed: null`, `payments: null`, and `price: null`.
+- The returned `id` was immediately used as `{visitId}` in `GET .../teeth-status?visitId={visitId}&isNzok=false`, after which the status editor became available.
+- Product requirement: this funding choice must be a spoken clarification in AIDOO Control. The assistant asks whether the visit is `НЗОК` or `Частен прием`, accepts only an unambiguous spoken answer, repeats the interpreted choice, and proceeds only after the user confirms it. It must not infer funding from the requested dental status.
+
+### Spoken confirmation before every write
+
+- Before any AIDOO write, the assistant must say aloud exactly what it is about to do and show the same short summary in the assistant overlay.
+- The assistant then enters an `awaitingConfirmation` state. It may execute the prepared action only after an unambiguous spoken confirmation such as `Да` or `Потвърждавам`.
+- A negative or cancelling answer such as `Не`, `Откажи`, or `Отмени` discards the prepared action without issuing the write request.
+- Silence, a new clinical instruction, or an ambiguous answer is not confirmation. The assistant asks again or cancels the draft; it must never treat ordinary conversation as permission to write.
+- The spoken summary must contain the material clinical context needed to assess the action. For example: `Ще добавя оклузален кариес на зъб 32 в частен прием. Да го запиша ли?`
+- Funding selection is part of the confirmed action. Creating a private visit therefore requires the assistant to say that it will create a private visit before it sends the observed `POST .../visits` request.
+
+### Controlled surface-status attempt that did not persist
+
+- A controlled UI attempt selected `Кариес (Оклузално / Инцизално / Куспидално)` for tooth `32` and used the editor's save flow.
+- The subsequent status read-back in the UI still showed an empty current-status cell for tooth `32`. The editor remained active, so this attempt is not evidence of a successful surface-status write.
+- No dedicated status-write request was retained in the Network log for this attempt. The exact interaction required by the current UI and the underlying surface-write contract both remain unknown.
+- AIDOO Control must report success only after the independent teeth-status read contains the expected status and region. A navigation to the treatment view or a newly created visit is not sufficient verification.
+
 ### First controlled tooth-level status result
 
 - A controlled UI test added the tooth-level label `Липсващ зъб` to tooth `23` in the designated test record.
