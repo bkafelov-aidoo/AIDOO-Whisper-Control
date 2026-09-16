@@ -102,6 +102,7 @@ export function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToas
         {data.settings.aidooClinicUrl && <button className="secondary-button" disabled={controlsDisabled} onClick={async () => { try { await openUrl(data.settings.aidooClinicUrl!); } catch (reason) { onToast(errorMessage(reason, language), "error"); } }}><ExternalLink />{t("aidooOpenClinic")}</button>}
         {data.hasAidooPassword && <button className="text-button danger" disabled={controlsDisabled} onClick={async () => { setAidooBusy(true); try { await invoke("disconnect_aidoo"); setAidooPassword(""); await onRefresh(); onToast(t("aidooDisconnectedToast")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setAidooBusy(false); } }}><Unplug />{t("aidooDisconnect")}</button>}
       </div>
+      <SettingRow title={t("aidooBrowserSync")} detail={t("aidooBrowserSyncHelp")}><Toggle label={t("aidooBrowserSync")} checked={draft.aidooBrowserSyncEnabled} disabled={controlsDisabled} onChange={(aidooBrowserSyncEnabled) => setDraft({ ...draft, aidooBrowserSyncEnabled })} /></SettingRow>
     </SettingsSection>
     <SettingsSection icon={<Languages />} title={t("modelLanguage")}>
       <ModelPicker settings={draft} language={language} disabled={controlsDisabled} onChange={setDraft} />

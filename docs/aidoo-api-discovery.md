@@ -86,6 +86,7 @@ All identifiers below are route placeholders. No observed patient, visit, clinic
   `/clinics/{clinicSlug}/medical-record?patientid={patientId}&tab=record&mode={treatment|status}&selectedTeeth=&triggerNzokChecksProp=true`
 - Switching between `mode=treatment` and `mode=status` changed the visible table without issuing another API request once the page data was loaded.
 - A clean reload of `mode=status` issued the patient, visits, and teeth-status reads described below.
+- AIDOO Control presents this route before confirmation and navigates it again after each write attempt. It appends an `aidooControlSync` cache-busting query value so the frontend performs a fresh load while preserving the observed route parameters.
 
 ### Patient search
 

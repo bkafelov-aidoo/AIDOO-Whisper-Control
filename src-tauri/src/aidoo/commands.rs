@@ -1,4 +1,9 @@
-use super::{clinic::parse_clinic_reference, draft, treatment, types, workflow};
+use super::{
+    clinic::parse_clinic_reference,
+    draft,
+    presentation::{self, PatientView},
+    treatment, types, workflow,
+};
 use crate::{acquire_operation, aidoo_keyring_entry, stop_wake_word_listener, storage, AppState};
 use tauri::{AppHandle, Emitter, Manager, State};
 use zeroize::Zeroizing;
@@ -6,6 +11,21 @@ use zeroize::Zeroizing;
 fn set_connection_error(state: &AppState, error: Option<String>) {
     if let Ok(mut current) = state.aidoo_connection_error.lock() {
         *current = error;
+    }
+}
+
+fn show_patient_view(app: &AppHandle, state: &AppState, patient_id: &str, view: PatientView) {
+    let clinic_link = state.settings.lock().ok().and_then(|settings| {
+        if !settings.aidoo_browser_sync_enabled {
+            return None;
+        }
+        settings
+            .aidoo_clinic_url
+            .clone()
+            .or_else(|| settings.aidoo_clinic_slug.clone())
+    });
+    if let Some(clinic_link) = clinic_link {
+        presentation::present_patient(app.clone(), clinic_link, patient_id.to_string(), view);
     }
 }
 
@@ -262,6 +282,7 @@ pub(crate) async fn aidoo_procedure_catalog(
 #[tauri::command]
 pub(crate) async fn aidoo_active_treatments(
     patient_id: String,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Vec<types::VisitTreatment>, String> {
     let session = state.aidoo.session()?;
@@ -273,10 +294,12 @@ pub(crate) async fn aidoo_active_treatments(
     if visit.is_finished || visit.cancelled {
         return Err("Няма активно посещение за прочит на леченията.".into());
     }
-    client
+    let treatments = client
         .visit_treatments(&session.token, &session.clinic_id, &patient_id, &visit.id)
         .await
-        .map_err(|error| error.message)
+        .map_err(|error| error.message)?;
+    show_patient_view(&app, &state, &patient_id, PatientView::Treatment);
+    Ok(treatments)
 }
 
 #[tauri::command]
@@ -284,12 +307,13 @@ pub(crate) async fn aidoo_create_status_visit(
     patient_id: String,
     is_nzok: bool,
     confirmation: String,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::StatusVisitResult, String> {
     require_spoken_confirmation(&confirmation)?;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
-    workflow::create_status_visit(
+    let result = workflow::create_status_visit(
         &client,
         &session.token,
         &session.clinic_id,
@@ -297,8 +321,9 @@ pub(crate) async fn aidoo_create_status_visit(
         &session.doctor_id,
         is_nzok,
     )
-    .await
-    .map_err(|error| error.message)
+    .await;
+    show_patient_view(&app, &state, &patient_id, PatientView::Status);
+    result.map_err(|error| error.message)
 }
 
 #[tauri::command]
@@ -306,6 +331,7 @@ pub(crate) async fn aidoo_prepare_status_draft(
     patient_id: String,
     is_nzok: bool,
     changes: Vec<types::StatusChange>,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::PreparedStatusDraft, String> {
     let session = state.aidoo.session()?;
@@ -339,7 +365,9 @@ pub(crate) async fn aidoo_prepare_status_draft(
         spoken_summary: draft.spoken_summary.clone(),
         change_count: draft.writes.len(),
     };
+    let view_patient_id = draft.patient_id.clone();
     state.aidoo.store_draft(draft)?;
+    show_patient_view(&app, &state, &view_patient_id, PatientView::Status);
     Ok(preview)
 }
 
@@ -347,15 +375,17 @@ pub(crate) async fn aidoo_prepare_status_draft(
 pub(crate) async fn aidoo_confirm_status_draft(
     draft_id: String,
     confirmation: String,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::VerificationResult, String> {
     require_spoken_confirmation(&confirmation)?;
     let draft = state.aidoo.take_draft(&draft_id)?;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
-    workflow::apply_confirmed_draft(&client, &session.token, &session.clinic_id, &draft)
-        .await
-        .map_err(|error| error.message)
+    let result =
+        workflow::apply_confirmed_draft(&client, &session.token, &session.clinic_id, &draft).await;
+    show_patient_view(&app, &state, &draft.patient_id, PatientView::Status);
+    result.map_err(|error| error.message)
 }
 
 #[tauri::command]
@@ -367,6 +397,7 @@ pub(crate) fn aidoo_cancel_status_draft(state: State<'_, AppState>) {
 pub(crate) async fn aidoo_prepare_treatment_draft(
     patient_id: String,
     change: types::TreatmentChange,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::PreparedTreatmentDraft, String> {
     let session = state.aidoo.session()?;
@@ -415,7 +446,9 @@ pub(crate) async fn aidoo_prepare_treatment_draft(
         spoken_summary: draft.spoken_summary.clone(),
         procedure_count: draft.procedures.len(),
     };
+    let view_patient_id = draft.patient_id.clone();
     state.aidoo.store_treatment_draft(draft)?;
+    show_patient_view(&app, &state, &view_patient_id, PatientView::Treatment);
     Ok(preview)
 }
 
@@ -423,15 +456,22 @@ pub(crate) async fn aidoo_prepare_treatment_draft(
 pub(crate) async fn aidoo_confirm_treatment_draft(
     draft_id: String,
     confirmation: String,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::VerificationResult, String> {
     require_spoken_confirmation(&confirmation)?;
     let draft = state.aidoo.take_treatment_draft(&draft_id)?;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
-    workflow::apply_confirmed_treatment_draft(&client, &session.token, &session.clinic_id, &draft)
-        .await
-        .map_err(|error| error.message)
+    let result = workflow::apply_confirmed_treatment_draft(
+        &client,
+        &session.token,
+        &session.clinic_id,
+        &draft,
+    )
+    .await;
+    show_patient_view(&app, &state, &draft.patient_id, PatientView::Treatment);
+    result.map_err(|error| error.message)
 }
 
 #[tauri::command]

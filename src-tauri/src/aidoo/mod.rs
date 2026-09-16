@@ -2,6 +2,7 @@ pub mod client;
 pub mod clinic;
 pub mod commands;
 pub mod draft;
+pub mod presentation;
 pub mod runtime;
 pub mod treatment;
 pub mod types;

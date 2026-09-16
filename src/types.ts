@@ -18,6 +18,7 @@ export interface AppSettings {
   aidooClinicSlug: string | null;
   aidooClinicUrl: string | null;
   aidooEmail: string | null;
+  aidooBrowserSyncEnabled: boolean;
   dictationShortcut: ShortcutBinding;
 }
 

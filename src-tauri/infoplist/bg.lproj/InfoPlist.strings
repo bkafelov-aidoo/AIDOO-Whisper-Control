@@ -1,1 +1,2 @@
 NSMicrophoneUsageDescription = "AIDOO Whisper Lite използва избрания микрофон за диктовка и тест. Ако включите Hey, AIDOO, разпознаването на фразата остава локално на този Mac.";
+NSAppleEventsUsageDescription = "AIDOO Whisper Lite използва автоматизация на браузъра, за да показва и обновява правилния пациентски екран в AIDOO Kontrol след потвърдени промени.";

@@ -149,6 +149,7 @@ def main() -> int:
     for entitlement in (
         "com.apple.security.device.audio-input",
         "com.apple.security.network.client",
+        "com.apple.security.automation.apple-events",
     ):
         if entitlements.get(entitlement) is not True:
             errors.append(f"Required entitlement is missing: {entitlement}")

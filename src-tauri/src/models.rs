@@ -48,6 +48,7 @@ pub struct AppSettings {
     pub aidoo_clinic_slug: Option<String>,
     pub aidoo_clinic_url: Option<String>,
     pub aidoo_email: Option<String>,
+    pub aidoo_browser_sync_enabled: bool,
     pub dictation_shortcut: ShortcutBinding,
 }
 
@@ -71,6 +72,7 @@ impl Default for AppSettings {
             aidoo_clinic_slug: None,
             aidoo_clinic_url: None,
             aidoo_email: None,
+            aidoo_browser_sync_enabled: true,
             dictation_shortcut: ShortcutBinding::key("alt_gr", &[]),
         }
     }

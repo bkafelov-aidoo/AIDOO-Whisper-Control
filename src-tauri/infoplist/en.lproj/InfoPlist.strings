@@ -1,1 +1,2 @@
 NSMicrophoneUsageDescription = "AIDOO Whisper Lite uses your selected microphone for dictation and testing. If you enable Hey, AIDOO, wake-phrase detection stays local on this Mac.";
+NSAppleEventsUsageDescription = "AIDOO Whisper Lite uses browser automation to show and refresh the relevant AIDOO Kontrol patient screen after confirmed changes.";
