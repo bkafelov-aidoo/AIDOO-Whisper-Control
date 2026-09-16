@@ -4,28 +4,31 @@ These questions must be answered from the browser discovery session before the A
 
 ## Authentication and tenancy
 
-- Login method, endpoint, request shape, cookie or token lifetime, and logout behavior.
-- How the demo clinic is identified in requests and whether a clinic UUID is separate from the `demo` slug.
+- Sanitized login request and response shapes, token lifetime, expiration behavior, and logout behavior. The session endpoint and `X-Auth-Token` header name are observed.
+- How the clinic UUID returned/used by the authenticated application maps to the `demo` route slug.
 - Exact behavior after an expired session and whether one safe reauthentication attempt is supported.
 - Production hostname and whether it differs from the development test host.
 
 ## Patients and visits
 
-- Patient search endpoint, minimum query length, pagination, and zero/one/multiple-result schemas.
-- Opaque patient identifier and canonical patient browser route.
-- Definition of an active visit, its identifier, and the no-active-visit response.
-- Canonical visit and dental-status browser routes.
+- Server-side handling below four characters, pagination, zero-result and multiple-result behavior, and the `nextAppointment` object schema. The endpoint, one-result schema, and observed four-character client minimum are recorded.
+- Patient response schema and the source of the opaque patient identifier. The canonical medical-record browser route is observed.
+- Business rule for when a visit becomes active or finished, and whether the dedicated active-visit endpoint is always authoritative. The read endpoint, success shape, and no-active-visit `400` are observed.
+- Whether a separate canonical visit route exists. The status view is currently represented by `mode=status` in the patient medical-record route.
 
 ## Dental status catalog
 
-- Source and schema for the complete status catalog.
-- Stable opaque identifiers for statuses, surfaces, teeth, and existing status records.
-- Allowed tooth-level and surface-level combinations.
+- Authoritative source and identifier schema for the complete status catalog. The current dropdown labels are observed, but opening it did not issue a catalog request.
+- Stable opaque identifiers for catalog statuses and existing status records. Teeth are observed as strings and regions as uppercase strings, but their complete allowed sets are unknown.
+- Allowed tooth-level and surface-level combinations. The current UI displays single and multiple values, but writes are not yet proven.
 - Localized labels and whether identifiers remain stable when labels change.
+- Exact enum mapping for buccal/labial, lingual/palatal, and cervical surface labels.
 
 ## Read, write, and verification
 
-- Full read endpoint and response schema for the current teeth status.
+- Whether the observed per-visit teeth-status read is the canonical complete-status read in every workflow, including when no visit is active.
+- Semantics of the editable `GET .../teeth-status?visitId={visitId}&isNzok=false` response, especially why empty teeth have allocated record identifiers.
+- Whether the local signer/NHIF calls are mandatory for non-NZOK status entry or are incidental to the current web flow.
 - Add, replace, multiple-change, and observed delete methods and payloads.
 - Concurrency/version fields used to reject stale edits.
 - Idempotency support, if any. No idempotency behavior will be inferred.
