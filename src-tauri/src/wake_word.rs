@@ -304,7 +304,7 @@ fn start(
 fn start_on_device(
     device: cpal::Device,
     primary_model_path: &std::path::Path,
-    _confirmation_model_path: &std::path::Path,
+    confirmation_model_path: &std::path::Path,
     primary_threshold: f32,
     confirmation_threshold: f32,
     events: mpsc::Sender<WakeWordEvent>,
@@ -316,8 +316,7 @@ fn start_on_device(
     let config: StreamConfig = supported.into();
     let sample_rate = config.sample_rate.0;
     let channels = config.channels;
-    let model = WakeWordModel::new(&[primary_model_path], sample_rate)
-        .map_err(|error| format!("Wake-word моделът не може да се зареди: {error}"))?;
+    let model = load_wake_word_model(primary_model_path, confirmation_model_path, sample_rate)?;
     let audio_buffer = Arc::new(Mutex::new(VecDeque::<i16>::with_capacity(
         sample_rate as usize * 3,
     )));
@@ -447,6 +446,15 @@ fn start_on_device(
         stop,
         worker: Some(worker),
     })
+}
+
+fn load_wake_word_model(
+    primary_model_path: &std::path::Path,
+    confirmation_model_path: &std::path::Path,
+    sample_rate: u32,
+) -> Result<WakeWordModel, String> {
+    WakeWordModel::new(&[primary_model_path, confirmation_model_path], sample_rate)
+        .map_err(|error| format!("Wake-word моделът не може да се зареди: {error}"))
 }
 
 fn push_audio(
@@ -705,6 +713,24 @@ fn microphone_plan(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bundled_detector_exposes_both_required_classifier_scores() {
+        let resource_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join("wakeword");
+        let primary = resource_dir.join("hey_aidoo.onnx");
+        let confirmation = resource_dir.join("hey_aidoo_confirmation.onnx");
+        let mut model = load_wake_word_model(&primary, &confirmation, 16_000).unwrap();
+
+        let scores = model.predict(&vec![0; 32_000]).unwrap();
+
+        assert!(scores.contains_key(PRIMARY_MODEL_NAME));
+        assert!(
+            scores.contains_key(CONFIRMATION_MODEL_NAME),
+            "the temporal detector cannot recognize any phrase without its confirmation classifier"
+        );
+    }
 
     #[test]
     fn downmix_preserves_mono_and_averages_channels() {
