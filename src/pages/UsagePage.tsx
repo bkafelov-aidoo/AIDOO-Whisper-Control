@@ -1,4 +1,4 @@
-import { AudioLines, BrainCircuit, CircleDollarSign, Clock3, Info, MessageCircle, ReceiptText } from "lucide-react";
+import { AudioLines, CircleDollarSign, Clock3, Info, MessageCircle, ReceiptText, Server } from "lucide-react";
 import { translator } from "../i18n";
 import type { AppLanguage, UsageEntry, UsageLedger } from "../types";
 
@@ -81,7 +81,7 @@ function UsageRow({ entry, language }: { entry: UsageEntry; language: AppLanguag
   return (
     <article className="usage-row">
       <div className={`usage-row-icon ${entry.kind}`}>
-        {entry.kind === "live" ? <MessageCircle /> : entry.kind === "liveBackend" ? <BrainCircuit /> : <AudioLines />}
+        {entry.kind === "live" ? <MessageCircle /> : entry.kind === "liveBackend" ? <Server /> : <AudioLines />}
       </div>
       <div className="usage-row-copy">
         <strong>{entry.kind === "live" ? t("usageAiSession") : entry.kind === "liveBackend" ? t("usageBackendResponse") : t("usageTranscription")}</strong>
