@@ -12,7 +12,9 @@ use std::time::{Duration, Instant};
 
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 const INFERENCE_INTERVAL: Duration = Duration::from_millis(250);
-const DETECTION_DEBOUNCE: Duration = Duration::from_secs(3);
+// The model produces a short cluster of high scores for one spoken phrase. A 1.2 s guard
+// suppresses that cluster without swallowing the next deliberate calibration attempt.
+const DETECTION_DEBOUNCE: Duration = Duration::from_millis(1_200);
 const VOICE_RMS_GATE: f32 = 0.006;
 const AUDIO_LEVEL_INTERVAL: Duration = Duration::from_millis(100);
 const TRAILING_INFERENCE_COUNT: usize = 4;
