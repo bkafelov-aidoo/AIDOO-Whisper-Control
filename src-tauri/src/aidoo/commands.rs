@@ -14,7 +14,12 @@ fn set_connection_error(state: &AppState, error: Option<String>) {
     }
 }
 
-fn show_patient_view(app: &AppHandle, state: &AppState, patient_id: &str, view: PatientView) {
+pub(super) fn show_patient_view(
+    app: &AppHandle,
+    state: &AppState,
+    patient_id: &str,
+    view: PatientView,
+) {
     let clinic_link = state.settings.lock().ok().and_then(|settings| {
         if !settings.aidoo_browser_sync_enabled {
             return None;
@@ -224,15 +229,20 @@ pub(crate) async fn reconnect_aidoo(
 #[tauri::command]
 pub(crate) async fn aidoo_search_patients(
     query: String,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Vec<types::PatientSearchResult>, String> {
     let session = state.aidoo.session()?;
-    state
+    let results = state
         .aidoo
         .client()?
         .search_patients(&session.token, &session.clinic_id, &query)
         .await
-        .map_err(|error| error.message)
+        .map_err(|error| error.message)?;
+    if let Some(patient) = state.aidoo.remember_patient_search(&results)? {
+        show_patient_view(&app, &state, &patient.id, PatientView::Status);
+    }
+    Ok(results)
 }
 
 #[tauri::command]

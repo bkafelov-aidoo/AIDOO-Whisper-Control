@@ -13,6 +13,7 @@ const MAX_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
 pub enum AidooErrorKind {
     Authentication,
     Validation,
+    NotFound,
     Http,
     Transport,
     Protocol,
@@ -41,6 +42,10 @@ impl AidooError {
 
     pub fn is_ambiguous_write(&self) -> bool {
         self.kind == AidooErrorKind::Transport
+    }
+
+    pub fn is_not_found(&self) -> bool {
+        self.kind == AidooErrorKind::NotFound
     }
 }
 
@@ -414,7 +419,11 @@ impl AidooClient {
         }
         if !status.is_success() {
             return Err(AidooError {
-                kind: AidooErrorKind::Http,
+                kind: if status == StatusCode::NOT_FOUND {
+                    AidooErrorKind::NotFound
+                } else {
+                    AidooErrorKind::Http
+                },
                 message: public_http_error(status),
             });
         }

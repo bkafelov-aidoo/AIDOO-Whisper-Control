@@ -46,6 +46,42 @@ const COMMANDS: Record<string, { command: string; map: (value: Record<string, un
     command: "aidoo_search_patients",
     map: ({ query }) => ({ query }),
   },
+  select_aidoo_patient: {
+    command: "aidoo_select_patient",
+    map: ({ patientId }) => ({ patientId }),
+  },
+  load_next_aidoo_patient: {
+    command: "aidoo_next_patient",
+    map: () => ({}),
+  },
+  begin_aidoo_status: {
+    command: "aidoo_begin_status",
+    map: ({ patientId }) => ({ patientId }),
+  },
+  start_aidoo_status_visit: {
+    command: "aidoo_start_status_visit",
+    map: ({ patientId, isNzok }) => ({ patientId, isNzok }),
+  },
+  apply_aidoo_status: {
+    command: "aidoo_apply_status",
+    map: ({ patientId, isNzok, change }) => ({ patientId, isNzok, change }),
+  },
+  finish_aidoo_status: {
+    command: "aidoo_finish_status",
+    map: ({ patientId }) => ({ patientId }),
+  },
+  add_aidoo_procedure: {
+    command: "aidoo_add_procedure",
+    map: ({ patientId, tooth, procedure, existingTreatmentId }) => ({ patientId, tooth, procedure, existingTreatmentId }),
+  },
+  write_aidoo_diagnosis: {
+    command: "aidoo_write_diagnosis",
+    map: ({ patientId, tooth, diagnosis, existingTreatmentId }) => ({ patientId, tooth, diagnosis, existingTreatmentId }),
+  },
+  write_aidoo_official_note: {
+    command: "aidoo_write_official_note",
+    map: ({ patientId, tooth, note, existingTreatmentId }) => ({ patientId, tooth, note, existingTreatmentId }),
+  },
   get_aidoo_status_catalog: {
     command: "aidoo_status_catalog",
     map: () => ({}),

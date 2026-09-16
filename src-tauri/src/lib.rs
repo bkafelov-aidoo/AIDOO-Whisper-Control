@@ -13,6 +13,7 @@ mod wake_runtime;
 mod wake_word;
 
 use aidoo::commands::*;
+use aidoo::protocol::*;
 use app_ui::*;
 use commands::*;
 use dictation::*;
@@ -343,6 +344,15 @@ pub fn run() {
             reconnect_aidoo,
             disconnect_aidoo,
             aidoo_search_patients,
+            aidoo_select_patient,
+            aidoo_next_patient,
+            aidoo_begin_status,
+            aidoo_start_status_visit,
+            aidoo_apply_status,
+            aidoo_finish_status,
+            aidoo_add_procedure,
+            aidoo_write_diagnosis,
+            aidoo_write_official_note,
             aidoo_status_catalog,
             aidoo_diagnosis_catalog,
             aidoo_procedure_catalog,

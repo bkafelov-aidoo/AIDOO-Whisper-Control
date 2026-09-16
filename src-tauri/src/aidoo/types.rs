@@ -246,6 +246,38 @@ pub struct PreparedStatusDraft {
     pub change_count: usize,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatusEntryState {
+    pub ready: bool,
+    pub needs_visit: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SpokenStatusChange {
+    pub tooth: String,
+    pub status: String,
+    #[serde(default)]
+    pub regions: Vec<String>,
+    #[serde(default)]
+    pub replace_status: Option<String>,
+    #[serde(default)]
+    pub is_milk_tooth: bool,
+    #[serde(default)]
+    pub for_observation: bool,
+    #[serde(default)]
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClinicalWriteResult {
+    pub spoken_summary: String,
+    pub verification: VerificationResult,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DiagnosisCatalogEntry {
     pub id: String,

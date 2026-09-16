@@ -277,7 +277,7 @@ ToothStatus = {
 
 - The response is a visit object with the same shape as the visit-list item. The newly created private visit had `createdStatusUpdate: false`, `isFinished: false`, `nzokCompliancePassed: null`, `payments: null`, and `price: null`.
 - The returned `id` was immediately used as `{visitId}` in `GET .../teeth-status?visitId={visitId}&isNzok=false`, after which the status editor became available.
-- Product requirement: this funding choice must be a spoken clarification in AIDOO Control. The assistant asks whether the visit is `НЗОК` or `Частен прием`, accepts only an unambiguous spoken answer, repeats the interpreted choice, and proceeds only after the user confirms it. It must not infer funding from the requested dental status.
+- Product requirement: when a new visit is required, AIDOO Control asks once whether it is `НЗОК` or `Частен прием` and treats the unambiguous answer as the choice. It does not add a second confirmation step and must not infer funding from the requested dental status.
 
 ### Spoken confirmation before every write
 

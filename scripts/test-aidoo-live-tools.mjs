@@ -79,6 +79,78 @@ test("maps a surface status draft to the protected Tauri command", async () => {
   });
 });
 
+test("maps the direct clinical protocol without confirmation round trips", async () => {
+  const calls = [];
+  const invoke = async (command, args) => {
+    calls.push({ command, args });
+    return { verification: { outcome: "verified" } };
+  };
+  await executeAidooLiveTool({
+    type: "function_call",
+    call_id: "call-direct-status",
+    name: "apply_aidoo_status",
+    arguments: JSON.stringify({
+      patientId: "patient-test",
+      isNzok: false,
+      change: {
+        tooth: "16",
+        status: "Кариес",
+        regions: ["OCCLUSAL"],
+        replaceStatus: null,
+        isMilkTooth: false,
+        forObservation: false,
+        note: null,
+      },
+    }),
+  }, invoke);
+  await executeAidooLiveTool({
+    type: "function_call",
+    call_id: "call-finish-status",
+    name: "finish_aidoo_status",
+    arguments: JSON.stringify({ patientId: "patient-test" }),
+  }, invoke);
+  await executeAidooLiveTool({
+    type: "function_call",
+    call_id: "call-direct-note",
+    name: "write_aidoo_official_note",
+    arguments: JSON.stringify({
+      patientId: "patient-test",
+      tooth: "*",
+      note: "Пациентът е информиран.",
+      existingTreatmentId: null,
+    }),
+  }, invoke);
+
+  assert.deepEqual(calls, [
+    {
+      command: "aidoo_apply_status",
+      args: {
+        patientId: "patient-test",
+        isNzok: false,
+        change: {
+          tooth: "16",
+          status: "Кариес",
+          regions: ["OCCLUSAL"],
+          replaceStatus: null,
+          isMilkTooth: false,
+          forObservation: false,
+          note: null,
+        },
+      },
+    },
+    { command: "aidoo_finish_status", args: { patientId: "patient-test" } },
+    {
+      command: "aidoo_write_official_note",
+      args: {
+        patientId: "patient-test",
+        tooth: "*",
+        note: "Пациентът е информиран.",
+        existingTreatmentId: null,
+      },
+    },
+  ]);
+});
+
 test("returns command failures to the model without retrying", async () => {
   let attempts = 0;
   const result = await executeAidooLiveTool({

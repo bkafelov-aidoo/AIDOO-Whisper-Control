@@ -1,5 +1,5 @@
 use super::client::AidooClient;
-use super::types::{StatusDraft, TreatmentDraft};
+use super::types::{PatientSearchResult, PatientSummary, StatusDraft, TreatmentDraft};
 use std::sync::Mutex;
 use zeroize::Zeroizing;
 
@@ -8,6 +8,13 @@ pub struct AidooRuntime {
     session: Mutex<Option<AidooSession>>,
     pending_draft: Mutex<Option<StatusDraft>>,
     pending_treatment_draft: Mutex<Option<TreatmentDraft>>,
+    patient_cursor: Mutex<PatientCursor>,
+}
+
+#[derive(Default)]
+struct PatientCursor {
+    recent: Vec<PatientSummary>,
+    selected: Option<usize>,
 }
 
 struct AidooSession {
@@ -33,6 +40,7 @@ impl AidooRuntime {
             session: Mutex::new(None),
             pending_draft: Mutex::new(None),
             pending_treatment_draft: Mutex::new(None),
+            patient_cursor: Mutex::new(PatientCursor::default()),
         }
     }
 
@@ -106,6 +114,9 @@ impl AidooRuntime {
         }
         self.cancel_draft();
         self.cancel_treatment_draft();
+        if let Ok(mut cursor) = self.patient_cursor.lock() {
+            *cursor = PatientCursor::default();
+        }
     }
 
     pub fn store_draft(&self, draft: StatusDraft) -> Result<(), String> {
@@ -160,5 +171,85 @@ impl AidooRuntime {
         if let Ok(mut pending) = self.pending_treatment_draft.lock() {
             *pending = None;
         }
+    }
+
+    pub fn remember_patient_search(
+        &self,
+        results: &[PatientSearchResult],
+    ) -> Result<Option<PatientSummary>, String> {
+        let mut cursor = self
+            .patient_cursor
+            .lock()
+            .map_err(|_| "Изборът на пациент е заключен.")?;
+        cursor.recent = results
+            .iter()
+            .map(|result| result.patient.clone())
+            .collect();
+        cursor.selected = (cursor.recent.len() == 1).then_some(0);
+        Ok(cursor.selected.map(|index| cursor.recent[index].clone()))
+    }
+
+    pub fn select_patient(&self, patient_id: &str) -> Result<PatientSummary, String> {
+        let mut cursor = self
+            .patient_cursor
+            .lock()
+            .map_err(|_| "Изборът на пациент е заключен.")?;
+        let index = cursor
+            .recent
+            .iter()
+            .position(|patient| patient.id == patient_id)
+            .ok_or_else(|| "Пациентът не е сред последните резултати от търсенето.".to_string())?;
+        cursor.selected = Some(index);
+        Ok(cursor.recent[index].clone())
+    }
+
+    pub fn select_next_patient(&self) -> Result<PatientSummary, String> {
+        let mut cursor = self
+            .patient_cursor
+            .lock()
+            .map_err(|_| "Изборът на пациент е заключен.")?;
+        if cursor.recent.is_empty() {
+            return Err("Първо намерете пациент, за да заредите следващ резултат.".into());
+        }
+        let index = match cursor.selected {
+            Some(index) if index + 1 < cursor.recent.len() => index + 1,
+            Some(_) => return Err("Няма следващ пациент в последното търсене.".into()),
+            None => 0,
+        };
+        cursor.selected = Some(index);
+        Ok(cursor.recent[index].clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn result(id: &str, first_name: &str) -> PatientSearchResult {
+        PatientSearchResult {
+            patient: PatientSummary {
+                id: id.into(),
+                first_name: first_name.into(),
+                middle_name: None,
+                last_name: "Тестов".into(),
+                birthdate: None,
+            },
+        }
+    }
+
+    #[test]
+    fn unique_search_selects_patient_and_next_walks_recent_results() {
+        let runtime = AidooRuntime::new();
+        let unique = runtime
+            .remember_patient_search(&[result("one", "Първи")])
+            .unwrap();
+        assert_eq!(unique.unwrap().id, "one");
+
+        runtime
+            .remember_patient_search(&[result("one", "Първи"), result("two", "Втори")])
+            .unwrap();
+        assert_eq!(runtime.select_next_patient().unwrap().id, "one");
+        assert_eq!(runtime.select_next_patient().unwrap().id, "two");
+        assert!(runtime.select_next_patient().is_err());
     }
 }

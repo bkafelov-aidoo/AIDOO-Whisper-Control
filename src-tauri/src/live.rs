@@ -9,8 +9,8 @@ const MAX_SDP_BYTES: usize = 128 * 1024;
 const MAX_LIVE_RESPONSE_BYTES: usize = 512 * 1024;
 const MAX_API_ERROR_BYTES: usize = 64 * 1024;
 
-const LIVE_INSTRUCTIONS: &str = "Говори на български, освен ако потребителят не поиска друг език. Бъди кратък, естествен и ясен. Това е разговор с AIDOO асистента, а не диктовка. Когато потребителят каже „Започни транскрипция“, приложението ще премине към отделния режим за запис. Когато каже „Край“, „Затвори“, „Приключи разговора“, „Приключваме“, „Спри асистента“ или „Довиждане“, приложението ще затвори сесията. Приемай FDI номер на зъб, изговорен като две отделни цифри: „едно шест“ означава 16, „две шест“ означава 26, „три шест“ означава 36 и „четири шест“ означава 46; прилагай същото правило за всички валидни FDI номера. Делегирай всяка задача за AIDOO Kontrol към backend модела. Не твърди, че действие е извършено, преди инструментът да върне успех. Преди създаване на посещение или клиничен запис кажи с глас точно какво ще направиш и поискай ясно „Да“ или „Потвърждавам“. При „Запиши официална забележка“ изслушай текста, уточни зъба или реда за лечение и го подготви като забележка до процедурите.";
-const BACKEND_INSTRUCTIONS: &str = "Управляваш AIDOO Kontrol чрез предоставените инструменти. Отговаряй на български, кратко и проверимо. Никога не измисляй пациент, ID, статус, диагноза, лечение, процедура, повърхност или резултат. Нормализирай FDI номер, изговорен като две отделни цифри: „едно шест“ е 16, „две шест“ е 26, „три шест“ е 36 и „четири шест“ е 46; подавай към инструментите двуцифрения низ. При избор на пациент първо търси и при повече от един резултат поискай уточнение. За посещение за статус уточни дали е по НЗОК или частно, опиши действието и поискай гласово потвърждение; извикай create_aidoo_status_visit едва след ясно „Да“, „Потвърждавам“ или „Потвърди“. За статус първо вземи актуалния каталог, после подготви чернова. За статус с повърхности използвай основния AIDOO statusId, например „Кариес“, и подай повърхностите отделно в regions. Не използвай НЗИС mapping статуси като „Кариес (Оклузално)“; AIDOO ги мапва по-късно. Обедини няколко повърхности за един и същ статус и зъб в една промяна. За палатинална повърхност подай LINGUAL, а за цервикално-палатинална CERVICAL_LINGUAL, защото това е вътрешният AIDOO протокол. Прочети дословно spokenSummary и изчакай отделно гласово потвърждение. Едва тогава извикай confirm_aidoo_status. За корекция използвай operation=replace и existingStatusId. За няколко промени ги подай заедно. Преди диагноза, процедура или официална забележка извикай get_aidoo_active_treatments. При повече от един подходящ ред за същия зъб опиши ги кратко и поискай избор; не избирай сам. Вземи каталога за диагнози само при диагноза и каталога за процедури само при процедури. Не задавай нов treatmentId, защото няма проверим каталог за съвместимост; използвай null и точния existingTreatmentId. При фразата „Запиши официална забележка“ поискай текста и точния зъб или ред за лечение; note е точният продиктуван текст. Прочети дословно spokenSummary и потвърди чрез confirm_aidoo_treatment само след отделно гласово потвърждение. Ако процедура вече съществува или AIDOO отхвърли несъвместима комбинация, съобщи резултата и не повтаряй автоматично. Инструментите автоматично показват правилния пациентски таб в Chrome и го обновяват след потвърдена промяна; не карай потребителя да навигира ръчно. Ако проверката върне uncertain, rejected или staleDraft, съобщи ясно, че записът не е потвърден, и не повтаряй автоматично.";
+const LIVE_INSTRUCTIONS: &str = "Говори на български, освен ако потребителят не поиска друг език. Бъди кратък, естествен и ясен. Това е разговор с AIDOO асистента, а не диктовка. Когато потребителят каже „Започни транскрипция“, приложението ще премине към отделния режим за запис. Когато каже „Край“, „Затвори“, „Приключи разговора“, „Приключваме“, „Спри асистента“ или „Довиждане“, приложението ще затвори сесията. Приемай FDI номер на зъб, изговорен като две отделни цифри: „едно шест“ означава 16, „две шест“ означава 26, „три шест“ означава 36 и „четири шест“ означава 46; прилагай същото правило за всички валидни FDI номера. Делегирай всяка задача за AIDOO Control към backend модела. Не твърди, че действие е извършено, преди инструментът да върне резултат. В клиничния режим не искай „Да“ или „Потвърждавам“ за всеки статус, диагноза, процедура или забележка. След успешен запис повтори накратко какво е разпознато и записано; потребителят ще прекъсне и ще коригира, ако не е съгласен. Питай само когато пациентът, видът на новото посещение, зъбът, процедурата или treatment редът са действително двусмислени. При „Добави официална забележка“ покани потребителя да продиктува текста, изслушай го дословно и го изпрати за директен запис.";
+const BACKEND_INSTRUCTIONS: &str = "Управляваш AIDOO Control чрез предоставените инструменти. Отговаряй на български, възможно най-кратко и проверимо. Никога не измисляй пациент, ID, статус, диагноза, процедура, повърхност или резултат. Нормализирай FDI номер, изговорен като две отделни цифри: „едно шест“ е 16, „две шест“ е 26, „три шест“ е 36 и „четири шест“ е 46. Протокол: 1) При „Намери пациент X“ извикай search_aidoo_patients. Единственият резултат се избира и показва автоматично; при няколко резултата поискай едно кратко уточнение и извикай select_aidoo_patient. При „Зареди следващ пациент“ извикай load_next_aidoo_patient. Запомни избрания patientId за следващите действия. 2) При „Попълни статус“, „Отвори статус“ и сходни фрази извикай begin_aidoo_status. Ако резултатът needsVisit=true, попитай само „Частен прием или НЗОК?“ и след отговора извикай start_aidoo_status_visit без допълнително потвърждение. За всяка продиктувана статусна промяна веднага извикай apply_aidoo_status. Не подготвяй чернова и не искай „Да“. За статус с повърхности подай основното име, например „Кариес“, и regions отделно; OCCLUSAL е оклузално, LINGUAL е палатинално/лингвално, CERVICAL_LINGUAL е цервикално-палатинално. За корекция подай стария статус в replaceStatus. След резултата кажи само краткото spokenSummary; при verified или verifiedAfterAmbiguousWrite промяната е записана и екранът вече е обновен. При uncertain, rejected или staleDraft кажи ясно, че записът не е потвърден, и не повтаряй автоматично. 3) При „Запиши статуса“ извикай finish_aidoo_status; това приключва статусния режим и показва Лечение, защото отделните статуси вече са записани и проверени. 4) При „Запиши процедура X“ използвай add_aidoo_procedure. Ако липсва зъб, попитай само „Кой зъб или звездичка?“. Подай името или кода на процедурата; каталогът и цената се проверяват автоматично. Ако има няколко treatment реда за зъба, извикай get_aidoo_active_treatments, опиши ги кратко и поискай избор. Не искай потвърждение след избора. 5) При „Добави официална забележка“ поискай зъб или звездичка, ако липсва, после кажи „Диктувайте забележката“. Изпрати точния продиктуван текст чрез write_aidoo_official_note и след успех кажи само „Официалната забележка е записана.“ 6) При диагноза използвай write_aidoo_diagnosis по същия директен протокол. Всички write инструменти правят независимо read-back и обновяват правилния пациентски екран в Chrome. Не карай потребителя да навигира ръчно и не добавяй междинни потвърждения.";
 
 #[derive(Debug, Serialize)]
 struct LiveCreateRequest<'a> {
@@ -172,7 +172,7 @@ fn aidoo_tools() -> Vec<serde_json::Value> {
     vec![
         function_tool(
             "search_aidoo_patients",
-            "Търси пациент в AIDOO. Използвай поне четири знака и не избирай при двусмислен резултат.",
+            "Търси пациент. При един резултат го избира и показва автоматично; при повече резултати върни списъка за уточнение.",
             serde_json::json!({
                 "type": "object",
                 "properties": { "query": { "type": "string", "minLength": 4 } },
@@ -181,87 +181,8 @@ fn aidoo_tools() -> Vec<serde_json::Value> {
             }),
         ),
         function_tool(
-            "get_aidoo_status_catalog",
-            "Връща само основните AIDOO статуси за директен запис, позволените им regions и несъвместимостите. НЗИС surface mapping записите са изключени.",
-            empty_object_schema(),
-        ),
-        function_tool(
-            "create_aidoo_status_visit",
-            "Създава посещение за статус по НЗОК или частно и създава статусния запис, само след отделно ясно гласово потвърждение.",
-            serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "patientId": { "type": "string" },
-                    "isNzok": { "type": "boolean" },
-                    "confirmation": { "type": "string", "description": "Точната потвърждаваща фраза на потребителя." }
-                },
-                "required": ["patientId", "isNzok", "confirmation"],
-                "additionalProperties": false
-            }),
-        ),
-        function_tool(
-            "prepare_aidoo_status",
-            "Чете актуалното посещение и статус, проверява каталога и подготвя чернова без запис.",
-            serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "patientId": { "type": "string" },
-                    "isNzok": { "type": "boolean" },
-                    "changes": {
-                        "type": "array",
-                        "minItems": 1,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "operation": { "type": "string", "enum": ["add", "replace"] },
-                                "tooth": { "type": "string" },
-                                "statusId": { "type": "string" },
-                                "regions": { "type": "array", "items": { "type": "string", "enum": ["MESIAL", "DISTAL", "OCCLUSAL", "VESTIBULAR", "LINGUAL", "CERVICAL_LINGUAL", "CERVICAL_VESTIBULAR"] } },
-                                "existingStatusId": { "type": ["string", "null"] },
-                                "isMilkTooth": { "type": "boolean" },
-                                "forObservation": { "type": "boolean" },
-                                "note": { "type": ["string", "null"] }
-                            },
-                            "required": ["operation", "tooth", "statusId", "regions", "existingStatusId", "isMilkTooth", "forObservation", "note"],
-                            "additionalProperties": false
-                        }
-                    }
-                },
-                "required": ["patientId", "isNzok", "changes"],
-                "additionalProperties": false
-            }),
-        ),
-        function_tool(
-            "confirm_aidoo_status",
-            "Записва подготвената чернова и прави независимо read-back потвърждение. Използвай само след гласово потвърждение.",
-            serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "draftId": { "type": "string" },
-                    "confirmation": { "type": "string", "description": "Точната потвърждаваща фраза на потребителя." }
-                },
-                "required": ["draftId", "confirmation"],
-                "additionalProperties": false
-            }),
-        ),
-        function_tool(
-            "cancel_aidoo_status",
-            "Изтрива само локалната непотвърдена чернова. Не променя AIDOO.",
-            empty_object_schema(),
-        ),
-        function_tool(
-            "get_aidoo_diagnosis_catalog",
-            "Връща актуалния каталог от диагнози и ID.",
-            empty_object_schema(),
-        ),
-        function_tool(
-            "get_aidoo_procedure_catalog",
-            "Връща актуалния каталог от процедури, ID и цени.",
-            empty_object_schema(),
-        ),
-        function_tool(
-            "get_aidoo_active_treatments",
-            "Връща treatment редовете от активното посещение. Използвай преди диагноза, процедура или официална забележка и поискай уточнение при повече от един ред за зъба.",
+            "select_aidoo_patient",
+            "Избира един пациент от последното търсене и показва картона му.",
             serde_json::json!({
                 "type": "object",
                 "properties": { "patientId": { "type": "string" } },
@@ -270,47 +191,124 @@ fn aidoo_tools() -> Vec<serde_json::Value> {
             }),
         ),
         function_tool(
-            "prepare_aidoo_treatment",
-            "Подготвя без запис диагноза, процедури и/или официална забележка в реда до процедурите.",
+            "load_next_aidoo_patient",
+            "Избира и показва следващия пациент от последните резултати от търсенето.",
+            empty_object_schema(),
+        ),
+        function_tool(
+            "begin_aidoo_status",
+            "Показва Status за пациента и проверява дали има активно посещение. Не записва клинична промяна.",
+            serde_json::json!({
+                "type": "object",
+                "properties": { "patientId": { "type": "string" } },
+                "required": ["patientId"],
+                "additionalProperties": false
+            }),
+        ),
+        function_tool(
+            "start_aidoo_status_visit",
+            "Създава липсващо посещение за статус веднага след избора Частен прием или НЗОК. Не изисква второ потвърждение.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
                     "patientId": { "type": "string" },
-                    "change": {
-                        "type": "object",
-                        "properties": {
-                            "tooth": { "type": "string" },
-                            "existingTreatmentId": { "type": ["string", "null"] },
-                            "diagnosisId": { "type": ["string", "null"] },
-                            "treatmentId": { "type": ["string", "null"] },
-                            "note": { "type": ["string", "null"], "description": "Точният продиктуван текст на официалната забележка." },
-                            "procedureIds": { "type": "array", "items": { "type": "string" } }
-                        },
-                        "required": ["tooth", "existingTreatmentId", "diagnosisId", "treatmentId", "note", "procedureIds"],
-                        "additionalProperties": false
-                    }
+                    "isNzok": { "type": "boolean" }
                 },
-                "required": ["patientId", "change"],
+                "required": ["patientId", "isNzok"],
                 "additionalProperties": false
             }),
         ),
         function_tool(
-            "confirm_aidoo_treatment",
-            "Записва подготвените диагноза, процедури и официална забележка и прави независимо read-back потвърждение.",
+            "apply_aidoo_status",
+            "Незабавно проверява, записва и прочита обратно една статусна промяна, след което обновява Status в Chrome. Не изисква потвърждение.",
             serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "draftId": { "type": "string" },
-                    "confirmation": { "type": "string" }
+                    "patientId": { "type": "string" },
+                    "isNzok": { "type": "boolean" },
+                    "change": {
+                        "type": "object",
+                        "properties": {
+                            "tooth": { "type": "string", "description": "Двуцифрен FDI номер." },
+                            "status": { "type": "string", "description": "Основното име или код на AIDOO статуса, без surface mapping суфикс." },
+                            "regions": { "type": "array", "items": { "type": "string", "enum": ["MESIAL", "DISTAL", "OCCLUSAL", "VESTIBULAR", "LINGUAL", "CERVICAL_LINGUAL", "CERVICAL_VESTIBULAR"] } },
+                            "replaceStatus": { "type": ["string", "null"], "description": "Старият статус при корекция; null при добавяне." },
+                            "isMilkTooth": { "type": "boolean" },
+                            "forObservation": { "type": "boolean" },
+                            "note": { "type": ["string", "null"] }
+                        },
+                        "required": ["tooth", "status", "regions", "replaceStatus", "isMilkTooth", "forObservation", "note"],
+                        "additionalProperties": false
+                    }
                 },
-                "required": ["draftId", "confirmation"],
+                "required": ["patientId", "isNzok", "change"],
                 "additionalProperties": false
             }),
         ),
         function_tool(
-            "cancel_aidoo_treatment",
-            "Изтрива локалната непотвърдена чернова за диагноза, процедури и забележка.",
-            empty_object_schema(),
+            "finish_aidoo_status",
+            "Приключва статусния режим и показва Лечение. Предишните статусни промени вече са записани отделно.",
+            serde_json::json!({
+                "type": "object",
+                "properties": { "patientId": { "type": "string" } },
+                "required": ["patientId"],
+                "additionalProperties": false
+            }),
+        ),
+        function_tool(
+            "get_aidoo_active_treatments",
+            "Връща редовете в активното Лечение за уточнение само когато няколко реда съвпадат със същия зъб или звездичка.",
+            serde_json::json!({
+                "type": "object",
+                "properties": { "patientId": { "type": "string" } },
+                "required": ["patientId"],
+                "additionalProperties": false
+            }),
+        ),
+        function_tool(
+            "add_aidoo_procedure",
+            "Намира процедурата в актуалния каталог, добавя я директно към единствения ред за зъба или създава ред, проверява записа и обновява Лечение.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "patientId": { "type": "string" },
+                    "tooth": { "type": "string", "description": "FDI номер или * за общ ред." },
+                    "procedure": { "type": "string", "description": "Име или код на процедурата." },
+                    "existingTreatmentId": { "type": ["string", "null"] }
+                },
+                "required": ["patientId", "tooth", "procedure", "existingTreatmentId"],
+                "additionalProperties": false
+            }),
+        ),
+        function_tool(
+            "write_aidoo_diagnosis",
+            "Намира диагнозата в актуалния каталог, записва я директно, проверява резултата и обновява Лечение.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "patientId": { "type": "string" },
+                    "tooth": { "type": "string", "description": "FDI номер или * за общ ред." },
+                    "diagnosis": { "type": "string", "description": "Име или код на диагнозата." },
+                    "existingTreatmentId": { "type": ["string", "null"] }
+                },
+                "required": ["patientId", "tooth", "diagnosis", "existingTreatmentId"],
+                "additionalProperties": false
+            }),
+        ),
+        function_tool(
+            "write_aidoo_official_note",
+            "Записва дословно продиктуваната официална забележка в реда до процедурите, проверява резултата и обновява Лечение.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "patientId": { "type": "string" },
+                    "tooth": { "type": "string", "description": "FDI номер или * за общ ред." },
+                    "note": { "type": "string", "minLength": 1, "description": "Точният продиктуван текст без преразказ." },
+                    "existingTreatmentId": { "type": ["string", "null"] }
+                },
+                "required": ["patientId", "tooth", "note", "existingTreatmentId"],
+                "additionalProperties": false
+            }),
         ),
     ]
 }
@@ -453,23 +451,26 @@ mod tests {
         let tools = value["session"]["delegation"]["responses"]["tools"]
             .as_array()
             .unwrap();
-        assert_eq!(tools.len(), 12);
+        assert_eq!(tools.len(), 11);
         assert!(tools.iter().all(|tool| tool["strict"] == true));
         assert!(tools
             .iter()
-            .any(|tool| tool["name"] == "prepare_aidoo_status"));
+            .any(|tool| tool["name"] == "begin_aidoo_status"));
         assert!(tools
             .iter()
-            .any(|tool| tool["name"] == "confirm_aidoo_status"));
+            .any(|tool| tool["name"] == "apply_aidoo_status"));
         assert!(tools
             .iter()
-            .any(|tool| tool["name"] == "create_aidoo_status_visit"));
+            .any(|tool| tool["name"] == "start_aidoo_status_visit"));
         assert!(tools
             .iter()
-            .any(|tool| tool["name"] == "prepare_aidoo_treatment"));
+            .any(|tool| tool["name"] == "add_aidoo_procedure"));
         assert!(tools
             .iter()
             .any(|tool| tool["name"] == "get_aidoo_active_treatments"));
+        assert!(tools
+            .iter()
+            .any(|tool| tool["name"] == "write_aidoo_official_note"));
         assert_eq!(value["transport"]["type"], "webrtc");
         assert_eq!(value["transport"]["sdp"], "v=0\r\ns=test\r\n");
     }
@@ -489,7 +490,11 @@ mod tests {
         assert!(value["session"]["delegation"]["responses"]["instructions"]
             .as_str()
             .unwrap()
-            .contains("основния AIDOO statusId"));
+            .contains("apply_aidoo_status"));
+        assert!(value["session"]["delegation"]["responses"]["instructions"]
+            .as_str()
+            .unwrap()
+            .contains("не искай „Да“"));
     }
 
     #[test]
