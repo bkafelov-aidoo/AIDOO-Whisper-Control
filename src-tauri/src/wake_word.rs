@@ -18,6 +18,7 @@ const DETECTION_DEBOUNCE: Duration = Duration::from_millis(1_200);
 const VOICE_RMS_GATE: f32 = 0.006;
 const AUDIO_LEVEL_INTERVAL: Duration = Duration::from_millis(100);
 const TRAILING_INFERENCE_COUNT: usize = 4;
+const STRONG_PRIMARY_THRESHOLD: f32 = 0.94;
 const PRIMARY_MODEL_NAME: &str = "hey_aidoo";
 const CONFIRMATION_MODEL_NAME: &str = "hey_aidoo_confirmation";
 const CONFIRMATION_HISTORY: usize = 3;
@@ -96,7 +97,7 @@ fn wake_phrase_detected(
     let primary = primary_score >= primary_threshold;
     let confirmation = confirmation_score >= confirmation_threshold;
     let corroborated = state.observe(primary, confirmation);
-    primary || corroborated
+    primary_score >= STRONG_PRIMARY_THRESHOLD || corroborated
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -597,9 +598,22 @@ mod confirmation_tests {
     }
 
     #[test]
-    fn primary_model_can_activate_without_confirmation() {
+    fn strong_primary_detection_can_activate_without_confirmation() {
         let mut state = ConfirmationState::new();
-        assert!(wake_phrase_detected(&mut state, 0.74, 0.01, 0.68, 0.76));
+        assert!(wake_phrase_detected(&mut state, 0.96, 0.01, 0.68, 0.76));
+    }
+
+    #[test]
+    fn isolated_medium_primary_score_is_rejected_as_a_false_positive() {
+        let mut state = ConfirmationState::new();
+        assert!(!wake_phrase_detected(&mut state, 0.84, 0.01, 0.68, 0.76));
+    }
+
+    #[test]
+    fn repeated_medium_primary_scores_are_accepted() {
+        let mut state = ConfirmationState::new();
+        assert!(!wake_phrase_detected(&mut state, 0.84, 0.01, 0.68, 0.76));
+        assert!(wake_phrase_detected(&mut state, 0.84, 0.01, 0.68, 0.76));
     }
 
     #[test]

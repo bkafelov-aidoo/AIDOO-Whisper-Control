@@ -15,6 +15,16 @@ pub(super) fn for_recording_transition(previous: &str, next: &str) -> Option<Fee
     }
 }
 
+pub(super) fn for_live_transition(previous: &str, next: &str) -> Option<FeedbackSound> {
+    match (previous, next) {
+        ("idle" | "error", "preparing") => Some(FeedbackSound::Start),
+        ("switching", "idle") => None,
+        ("idle" | "error", _) => None,
+        (_, "idle" | "error") => Some(FeedbackSound::Stop),
+        _ => None,
+    }
+}
+
 pub(super) fn play(app: &AppHandle, sound: FeedbackSound) {
     #[cfg(target_os = "macos")]
     macos::play(app, sound);
@@ -82,7 +92,7 @@ mod macos {
 
 #[cfg(test)]
 mod tests {
-    use super::{for_recording_transition, FeedbackSound};
+    use super::{for_live_transition, for_recording_transition, FeedbackSound};
 
     #[test]
     fn feedback_tracks_real_recording_boundaries_only() {
@@ -100,5 +110,20 @@ mod tests {
         );
         assert_eq!(for_recording_transition("starting", "error"), None);
         assert_eq!(for_recording_transition("recording", "recording"), None);
+    }
+
+    #[test]
+    fn feedback_tracks_live_conversation_boundaries() {
+        assert_eq!(
+            for_live_transition("idle", "preparing"),
+            Some(FeedbackSound::Start)
+        );
+        assert_eq!(for_live_transition("preparing", "connecting"), None);
+        assert_eq!(for_live_transition("listening", "speaking"), None);
+        assert_eq!(
+            for_live_transition("closing", "idle"),
+            Some(FeedbackSound::Stop)
+        );
+        assert_eq!(for_live_transition("switching", "idle"), None);
     }
 }

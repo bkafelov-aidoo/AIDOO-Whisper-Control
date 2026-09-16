@@ -99,8 +99,16 @@ pub(super) fn set_live_phase(
     if !ALLOWED.contains(&phase.as_str()) {
         return Err("Невалидно състояние на AIDOO асистента.".into());
     }
-    if let Ok(mut current) = state.live_phase.lock() {
+    let previous = state.live_phase.lock().ok().map(|mut current| {
+        let previous = current.clone();
         *current = phase.clone();
+        previous
+    });
+    if let Some(sound) = previous
+        .as_deref()
+        .and_then(|previous| feedback_sound::for_live_transition(previous, &phase))
+    {
+        feedback_sound::play(&app, sound);
     }
     let _ = app.emit("assistant:phase", &phase);
     if phase == "idle" {
