@@ -1,4 +1,5 @@
 export const MAX_ASSISTANT_TRANSCRIPT_CHARS = 320;
+export const ASSISTANT_CLOSE_GRACE_MS = 1_200;
 
 const DICTATION_COMMANDS = [
   "започни транскрипция",
@@ -92,4 +93,17 @@ export class AssistantVoiceCommandDetector {
   bufferedCharacterCount() {
     return this.transcript.length;
   }
+}
+
+export interface LiveInputTranscriptEvent {
+  type?: string;
+  delta?: string;
+}
+
+export function detectAssistantVoiceCommandFromLiveEvent(
+  event: LiveInputTranscriptEvent,
+  detector: AssistantVoiceCommandDetector,
+) {
+  if (event.type !== "session.input_transcript.delta" || !event.delta) return null;
+  return detector.push(event.delta);
 }

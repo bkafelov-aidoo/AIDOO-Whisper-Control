@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { AssistantVoiceCommandDetector } from "../lib/assistant-command";
+import {
+  ASSISTANT_CLOSE_GRACE_MS,
+  AssistantVoiceCommandDetector,
+  detectAssistantVoiceCommandFromLiveEvent,
+} from "../lib/assistant-command";
 
 export type LivePhase = "idle" | "preparing" | "connecting" | "listening" | "speaking" | "switching" | "closing" | "error";
 
@@ -27,7 +31,6 @@ const MICROPHONE_TIMEOUT_MS = 12_000;
 const ICE_GATHERING_TIMEOUT_MS = 10_000;
 const LIVE_CREATE_TIMEOUT_MS = 50_000;
 const SESSION_START_TIMEOUT_MS = 20_000;
-const SESSION_CLOSE_TIMEOUT_MS = 15_000;
 
 export function useLiveConversation(
   microphoneName: string | null,
@@ -127,11 +130,18 @@ export function useLiveConversation(
     operationRef.current += 1;
     closingRef.current = true;
     updatePhase("closing");
+    microphoneRef.current?.getTracks().forEach((track) => track.stop());
+    microphoneRef.current = null;
     const channel = channelRef.current;
     if (readyRef.current && channel?.readyState === "open") {
-      channel.send(JSON.stringify({ type: "session.close" }));
+      try {
+        channel.send(JSON.stringify({ type: "session.close" }));
+      } catch {
+        finish("idle");
+        return;
+      }
       clearTimer();
-      timeoutRef.current = window.setTimeout(() => finish("idle"), SESSION_CLOSE_TIMEOUT_MS);
+      timeoutRef.current = window.setTimeout(() => finish("idle"), ASSISTANT_CLOSE_GRACE_MS);
     } else {
       finish("idle");
     }
@@ -222,7 +232,7 @@ export function useLiveConversation(
           readyRef.current = true;
           updatePhase("listening");
         } else if (event.type === "session.input_transcript.delta" && event.delta) {
-          const command = commandDetectorRef.current.push(event.delta);
+          const command = detectAssistantVoiceCommandFromLiveEvent(event, commandDetectorRef.current);
           if (command === "start-dictation") void switchToDictation();
           if (command === "end-session") stopRef.current();
         } else if (event.type === "session.closed") {

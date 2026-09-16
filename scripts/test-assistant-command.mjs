@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  ASSISTANT_CLOSE_GRACE_MS,
   AssistantCommandDetector,
   AssistantVoiceCommandDetector,
   MAX_ASSISTANT_TRANSCRIPT_CHARS,
   detectAssistantVoiceCommand,
+  detectAssistantVoiceCommandFromLiveEvent,
   matchesDictationCommand,
   normalizeAssistantCommand,
 } from "../src/lib/assistant-command.ts";
@@ -81,4 +83,16 @@ test("recognizes a fragmented end command once", () => {
   assert.equal(detector.push("Моля, приключи раз"), null);
   assert.equal(detector.push("говора"), "end-session");
   assert.equal(detector.push(" край"), null);
+});
+
+test("maps a real Live input-transcript event to the end-session command", () => {
+  const detector = new AssistantVoiceCommandDetector();
+  assert.equal(detectAssistantVoiceCommandFromLiveEvent({
+    type: "session.input_transcript.delta",
+    delta: "Край.",
+  }, detector), "end-session");
+});
+
+test("voice-requested close has a short bounded fallback", () => {
+  assert.ok(ASSISTANT_CLOSE_GRACE_MS <= 1_500, `close fallback was ${ASSISTANT_CLOSE_GRACE_MS} ms`);
 });
