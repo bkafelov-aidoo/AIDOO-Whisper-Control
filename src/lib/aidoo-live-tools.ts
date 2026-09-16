@@ -50,6 +50,10 @@ const COMMANDS: Record<string, { command: string; map: (value: Record<string, un
     command: "aidoo_procedure_catalog",
     map: () => ({}),
   },
+  get_aidoo_active_treatments: {
+    command: "aidoo_active_treatments",
+    map: ({ patientId }) => ({ patientId }),
+  },
   prepare_aidoo_treatment: {
     command: "aidoo_prepare_treatment_draft",
     map: ({ patientId, change }) => ({ patientId, change }),

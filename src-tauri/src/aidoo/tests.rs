@@ -1,6 +1,6 @@
 use super::client::AidooClient;
 use super::draft::{build_draft, verifies};
-use super::treatment::{build_treatment_draft, verifies_treatment};
+use super::treatment::{build_treatment_draft, same_treatment_snapshot, verifies_treatment};
 use super::types::*;
 use super::workflow::{
     apply_confirmed_draft, apply_confirmed_treatment_draft, create_status_visit,
@@ -10,6 +10,8 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+
+mod edge_cases;
 
 fn catalog() -> Vec<StatusCatalogEntry> {
     vec![

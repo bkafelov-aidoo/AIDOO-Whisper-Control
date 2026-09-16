@@ -131,8 +131,32 @@ pub async fn apply_confirmed_treatment_draft(
         });
     }
 
-    let write = match &draft.existing_treatment_id {
-        Some(id) => {
+    let existing = draft
+        .existing_treatment_id
+        .as_deref()
+        .and_then(|id| draft.baseline.iter().find(|treatment| treatment.id == id));
+    let row_needs_write = existing.is_none_or(|entry| {
+        entry.tooth != draft.treatment.tooth
+            || entry.diagnosis_id != draft.treatment.diagnosis_id
+            || entry.treatment_id != draft.treatment.treatment_id
+            || entry.note != draft.treatment.note
+            || entry.status != draft.treatment.status
+            || entry.is_milk_tooth != draft.treatment.is_milk_tooth
+    });
+    let write = match (&draft.existing_treatment_id, row_needs_write) {
+        (Some(id), false) => Ok(super::types::VisitTreatment {
+            id: id.clone(),
+            tooth: draft.treatment.tooth.clone(),
+            diagnosis_id: draft.treatment.diagnosis_id.clone(),
+            treatment_id: draft.treatment.treatment_id.clone(),
+            note: draft.treatment.note.clone(),
+            status: draft.treatment.status.clone(),
+            is_milk_tooth: draft.treatment.is_milk_tooth,
+            procedures: existing
+                .map(|entry| entry.procedures.clone())
+                .unwrap_or_default(),
+        }),
+        (Some(id), true) => {
             client
                 .update_treatment(
                     session,
@@ -144,7 +168,7 @@ pub async fn apply_confirmed_treatment_draft(
                 )
                 .await
         }
-        None => {
+        (None, _) => {
             client
                 .create_treatment(
                     session,
@@ -168,9 +192,10 @@ pub async fn apply_confirmed_treatment_draft(
             });
         }
     };
+    let mut completed_write = row_needs_write;
 
     for procedure in &draft.procedures {
-        if let Err(error) = client
+        match client
             .add_procedure(
                 session,
                 clinic_id,
@@ -180,16 +205,40 @@ pub async fn apply_confirmed_treatment_draft(
             )
             .await
         {
-            if error.is_ambiguous_write() {
+            Ok(_) => completed_write = true,
+            Err(error) if error.is_ambiguous_write() => {
                 return verify_treatment(client, session, clinic_id, draft, true).await;
             }
-            return Ok(VerificationResult {
-                outcome: VerificationOutcome::Uncertain,
-                message: format!(
-                    "Редът за лечение е записан, но не всички процедури са добавени: {}. Проверете записа преди повторение.",
-                    error.message
-                ),
-            });
+            Err(error) if !completed_write => {
+                return Ok(VerificationResult {
+                    outcome: VerificationOutcome::Rejected,
+                    message: format!(
+                        "AIDOO не прие процедурата и не е направена промяна: {}",
+                        error.message
+                    ),
+                });
+            }
+            Err(error) => {
+                let verification = verify_treatment(client, session, clinic_id, draft, false).await;
+                if let Ok(result) = &verification {
+                    if result.outcome == VerificationOutcome::Verified {
+                        return verification;
+                    }
+                }
+                let read_back = match verification {
+                    Ok(result) => result.message,
+                    Err(read_error) => {
+                        format!("Независимата проверка също не успя: {}", read_error.message)
+                    }
+                };
+                return Ok(VerificationResult {
+                    outcome: VerificationOutcome::Uncertain,
+                    message: format!(
+                        "Част от промените е записана, но не всички процедури са добавени: {}. {} Не повтаряйте автоматично.",
+                        error.message, read_back
+                    ),
+                });
+            }
         }
     }
     verify_treatment(client, session, clinic_id, draft, false).await

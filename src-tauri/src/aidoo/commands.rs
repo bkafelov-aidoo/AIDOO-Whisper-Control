@@ -259,6 +259,26 @@ pub(crate) async fn aidoo_procedure_catalog(
 }
 
 #[tauri::command]
+pub(crate) async fn aidoo_active_treatments(
+    patient_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<types::VisitTreatment>, String> {
+    let session = state.aidoo.session()?;
+    let client = state.aidoo.client()?;
+    let visit = client
+        .active_visit(&session.token, &session.clinic_id, &patient_id)
+        .await
+        .map_err(|error| error.message)?;
+    if visit.is_finished || visit.cancelled {
+        return Err("Няма активно посещение за прочит на леченията.".into());
+    }
+    client
+        .visit_treatments(&session.token, &session.clinic_id, &patient_id, &visit.id)
+        .await
+        .map_err(|error| error.message)
+}
+
+#[tauri::command]
 pub(crate) async fn aidoo_create_status_visit(
     patient_id: String,
     is_nzok: bool,
@@ -360,18 +380,26 @@ pub(crate) async fn aidoo_prepare_treatment_draft(
         .visit_treatments(&session.token, &session.clinic_id, &patient_id, &visit.id)
         .await
         .map_err(|error| error.message)?;
-    let diagnoses = client
-        .diagnosis_catalog(&session.token, &session.clinic_id)
-        .await
-        .map_err(|error| error.message)?;
-    let procedures = client
-        .procedure_catalog(
-            &session.token,
-            &session.clinic_id,
-            session.current_currency.as_deref(),
-        )
-        .await
-        .map_err(|error| error.message)?;
+    let diagnoses = if change.diagnosis_id.is_some() {
+        client
+            .diagnosis_catalog(&session.token, &session.clinic_id)
+            .await
+            .map_err(|error| error.message)?
+    } else {
+        Vec::new()
+    };
+    let procedures = if change.procedure_ids.is_empty() {
+        Vec::new()
+    } else {
+        client
+            .procedure_catalog(
+                &session.token,
+                &session.clinic_id,
+                session.current_currency.as_deref(),
+            )
+            .await
+            .map_err(|error| error.message)?
+    };
     let draft = treatment::build_treatment_draft(
         patient_id,
         &visit,

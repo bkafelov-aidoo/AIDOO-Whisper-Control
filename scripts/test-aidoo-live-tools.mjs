@@ -103,6 +103,23 @@ test("maps diagnosis, procedures and dictated official note as one draft", async
   }]);
 });
 
+test("reads active treatment rows before selecting one", async () => {
+  const calls = [];
+  await executeAidooLiveTool({
+    type: "function_call",
+    call_id: "call-active-treatments",
+    name: "get_aidoo_active_treatments",
+    arguments: JSON.stringify({ patientId: "patient-test" }),
+  }, async (command, args) => {
+    calls.push({ command, args });
+    return [{ id: "row-a", tooth: "26" }, { id: "row-b", tooth: "26" }];
+  });
+  assert.deepEqual(calls, [{
+    command: "aidoo_active_treatments",
+    args: { patientId: "patient-test" },
+  }]);
+});
+
 test("rejects unknown tools and malformed arguments before invoking native code", async () => {
   let attempts = 0;
   const fakeInvoke = async () => { attempts += 1; };

@@ -62,6 +62,32 @@ pub fn build_treatment_draft(
     if existing.is_some_and(|entry| entry.tooth != change.tooth) {
         return Err("Избраният ред за лечение е за друг зъб.".into());
     }
+    if change
+        .note
+        .as_ref()
+        .is_some_and(|note| note.trim().is_empty())
+    {
+        return Err("Официалната забележка е празна.".into());
+    }
+    if let Some(requested_treatment_id) = change.treatment_id.as_deref() {
+        let existing_treatment_id = existing.and_then(|entry| entry.treatment_id.as_deref());
+        if existing_treatment_id != Some(requested_treatment_id) {
+            return Err(
+                "Избраното лечение не може да бъде проверено спрямо актуален AIDOO каталог. Изберете съществуващ ред или уточнете процедурата."
+                    .into(),
+            );
+        }
+    }
+    if change.diagnosis_id.as_ref().is_some_and(|diagnosis_id| {
+        existing.is_some_and(|entry| {
+            entry.treatment_id.is_some() && entry.diagnosis_id.as_ref() != Some(diagnosis_id)
+        })
+    }) {
+        return Err(
+            "Диагнозата не може да бъде сменена автоматично, защото редът има свързано лечение. Проверете съвместимостта в AIDOO."
+                .into(),
+        );
+    }
     if change.diagnosis_id.is_none() && change.note.is_none() && change.procedure_ids.is_empty() {
         return Err("Липсват диагноза, процедура или официална забележка за запис.".into());
     }
@@ -109,6 +135,21 @@ pub fn build_treatment_draft(
             }
         })
         .collect::<Vec<_>>();
+
+    let changes_treatment = existing.is_none_or(|entry| {
+        entry.diagnosis_id != treatment.diagnosis_id
+            || entry.treatment_id != treatment.treatment_id
+            || entry.note != treatment.note
+            || entry.status != treatment.status
+            || entry.is_milk_tooth != treatment.is_milk_tooth
+    });
+    if !changes_treatment && procedure_writes.is_empty() {
+        return Err(if change.procedure_ids.is_empty() {
+            "Няма промяна за запис в избрания ред за лечение.".into()
+        } else {
+            "Избраната процедура вече съществува в реда за лечение.".into()
+        });
+    }
 
     let mut summary = vec![format!("реда за зъб {}", change.tooth)];
     if let Some(id) = &change.diagnosis_id {

@@ -323,6 +323,7 @@ def main() -> int:
         "allow-aidoo-status-catalog",
         "allow-aidoo-diagnosis-catalog",
         "allow-aidoo-procedure-catalog",
+        "allow-aidoo-active-treatments",
         "allow-aidoo-create-status-visit",
         "allow-aidoo-prepare-status-draft",
         "allow-aidoo-confirm-status-draft",

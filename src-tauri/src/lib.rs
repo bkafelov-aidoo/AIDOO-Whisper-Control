@@ -336,6 +336,7 @@ pub fn run() {
             aidoo_status_catalog,
             aidoo_diagnosis_catalog,
             aidoo_procedure_catalog,
+            aidoo_active_treatments,
             aidoo_create_status_visit,
             aidoo_prepare_status_draft,
             aidoo_confirm_status_draft,
