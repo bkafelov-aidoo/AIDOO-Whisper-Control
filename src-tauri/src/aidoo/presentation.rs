@@ -190,7 +190,8 @@ mod tests {
         let scheme = ["https:", "//"].concat();
         let clinic = format!("{scheme}aidoo-web.on.dev-craft.tech/clinics/demo/login");
         let status = patient_view_url(&clinic, "patient-id", PatientView::Status, 42).unwrap();
-        let treatment = patient_view_url(&clinic, "patient-id", PatientView::Treatment, 43).unwrap();
+        let treatment =
+            patient_view_url(&clinic, "patient-id", PatientView::Treatment, 43).unwrap();
 
         assert_eq!(
             status.clinic_prefix,
@@ -209,12 +210,8 @@ mod tests {
     #[test]
     fn refuses_patient_ids_that_could_escape_the_query_value() {
         let clinic = ["https:", "//app.aidoo.bg/clinics/demo/login"].concat();
-        assert!(patient_view_url(
-            &clinic,
-            "patient&mode=treatment",
-            PatientView::Status,
-            1,
-        )
-        .is_err());
+        assert!(
+            patient_view_url(&clinic, "patient&mode=treatment", PatientView::Status, 1,).is_err()
+        );
     }
 }

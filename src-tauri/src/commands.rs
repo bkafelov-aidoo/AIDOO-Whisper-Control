@@ -33,6 +33,11 @@ pub(super) fn prepare_live_session(
     let operation = acquire_operation(&app, &state)?;
     stop_wake_word_listener(&state);
     api_key_from_state(&state)?;
+    state
+        .live_backend_response_ids
+        .lock()
+        .map_err(|_| "Локалният отчет за разходите е заключен.")?
+        .clear();
     state.live_session_active.store(true, Ordering::Release);
     let generation = state
         .live_session_generation
@@ -82,6 +87,44 @@ pub(super) fn end_live_session(app: AppHandle) {
     if release_live_session(&app, None) {
         storage::append_diagnostic("GPT-Live session ended");
     }
+}
+
+#[tauri::command]
+pub(super) fn record_live_backend_usage(
+    response_id: String,
+    model: String,
+    usage: models::LiveBackendUsage,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    const MAX_TOKENS_PER_RESPONSE: u64 = 10_000_000;
+    let valid_response_id = !response_id.is_empty()
+        && response_id.len() <= 160
+        && response_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'));
+    let valid_usage = usage.input_tokens <= MAX_TOKENS_PER_RESPONSE
+        && usage.output_tokens <= MAX_TOKENS_PER_RESPONSE
+        && usage.cached_input_tokens <= MAX_TOKENS_PER_RESPONSE
+        && usage.cache_write_tokens <= MAX_TOKENS_PER_RESPONSE
+        && usage
+            .cached_input_tokens
+            .checked_add(usage.cache_write_tokens)
+            .is_some_and(|discounted| discounted <= usage.input_tokens);
+    if !valid_response_id || !models::is_live_backend_model(&model) || !valid_usage {
+        return Err("OpenAI върна невалидни backend usage данни.".into());
+    }
+
+    let mut recorded = state
+        .live_backend_response_ids
+        .lock()
+        .map_err(|_| "Локалният отчет за разходите е заключен.")?;
+    if recorded.contains(&response_id) {
+        return Ok(());
+    }
+    persist_live_backend_usage(&app, &model, &usage)?;
+    recorded.insert(response_id);
+    Ok(())
 }
 
 #[tauri::command]

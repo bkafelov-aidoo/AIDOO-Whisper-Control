@@ -35,12 +35,16 @@ export interface TranscriptEntry {
 
 export interface UsageEntry {
   id: string;
-  kind: "live" | "transcription";
+  kind: "live" | "liveBackend" | "transcription";
   createdAt: string;
   durationMillis: number;
   model: string;
   rateNanoUsdPerMinute: number;
   costNanoUsd: number;
+  inputTokens: number;
+  cachedInputTokens: number;
+  cacheWriteTokens: number;
+  outputTokens: number;
   importedFromHistory: boolean;
 }
 
@@ -49,8 +53,12 @@ export interface UsageLedger {
   liveDurationMillis: number;
   transcriptionDurationMillis: number;
   liveCostNanoUsd: number;
+  liveBackendCostNanoUsd: number;
   transcriptionCostNanoUsd: number;
   liveSessionCount: number;
+  liveBackendResponseCount: number;
+  liveBackendInputTokens: number;
+  liveBackendOutputTokens: number;
   transcriptionCount: number;
 }
 

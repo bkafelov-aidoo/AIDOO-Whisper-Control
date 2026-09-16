@@ -28,6 +28,7 @@ fn main() {
         "prepare_live_session",
         "create_live_session",
         "end_live_session",
+        "record_live_backend_usage",
         "set_live_phase",
         "request_live_stop",
         "take_assistant_request",

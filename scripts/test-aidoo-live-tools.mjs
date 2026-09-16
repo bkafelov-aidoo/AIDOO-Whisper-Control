@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { executeAidooLiveTool, functionCallFromLiveEvent } from "../src/lib/aidoo-live-tools.ts";
+import { backendUsageFromLiveEvent, executeAidooLiveTool, functionCallFromLiveEvent } from "../src/lib/aidoo-live-tools.ts";
 
 test("extracts only completed delegated function calls", () => {
   assert.equal(functionCallFromLiveEvent({ type: "response.event", event: { type: "response.output_text.delta" } }), null);
@@ -11,6 +11,39 @@ test("extracts only completed delegated function calls", () => {
       item: { type: "function_call", call_id: "call-1", name: "prepare_aidoo_status", arguments: "{}" },
     },
   }), { type: "function_call", call_id: "call-1", name: "prepare_aidoo_status", arguments: "{}" });
+});
+
+test("extracts backend token usage from final delegated responses", () => {
+  assert.deepEqual(backendUsageFromLiveEvent({
+    type: "response.event",
+    event: {
+      type: "response.completed",
+      response: {
+        id: "resp_1",
+        model: "gpt-5.6-terra",
+        usage: {
+          input_tokens: 1_000,
+          input_tokens_details: { cached_tokens: 200, cache_write_tokens: 100 },
+          output_tokens: 50,
+        },
+      },
+    },
+  }), {
+    responseId: "resp_1",
+    model: "gpt-5.6-terra",
+    usage: { inputTokens: 1_000, cachedInputTokens: 200, cacheWriteTokens: 100, outputTokens: 50 },
+  });
+  assert.equal(backendUsageFromLiveEvent({
+    type: "response.event",
+    event: {
+      type: "response.completed",
+      response: {
+        id: "resp_invalid",
+        model: "gpt-5.6-terra",
+        usage: { input_tokens: 10, input_tokens_details: { cached_tokens: 11 }, output_tokens: 1 },
+      },
+    },
+  }), null);
 });
 
 test("maps a surface status draft to the protected Tauri command", async () => {

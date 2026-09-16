@@ -6,7 +6,7 @@ import {
   AssistantVoiceCommandDetector,
   detectAssistantVoiceCommandFromLiveEvent,
 } from "../lib/assistant-command";
-import { executeAidooLiveTool, functionCallFromLiveEvent, sendAidooToolOutput } from "../lib/aidoo-live-tools";
+import { backendUsageFromLiveEvent, executeAidooLiveTool, functionCallFromLiveEvent, sendAidooToolOutput } from "../lib/aidoo-live-tools";
 import { acquireMicrophone } from "../lib/live-microphone";
 
 export type LivePhase = "idle" | "preparing" | "connecting" | "listening" | "speaking" | "working" | "switching" | "closing" | "error";
@@ -27,7 +27,19 @@ interface LiveEvent {
   type?: string;
   delta?: string;
   error?: { message?: string };
-  event?: { type?: string; item?: { type?: string; call_id?: string; name?: string; arguments?: string } };
+  event?: {
+    type?: string;
+    item?: { type?: string; call_id?: string; name?: string; arguments?: string };
+    response?: {
+      id?: string;
+      model?: string;
+      usage?: {
+        input_tokens?: number;
+        input_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
+        output_tokens?: number;
+      };
+    };
+  };
 }
 
 const MICROPHONE_ATTEMPT_TIMEOUT_MS = 7_000;
@@ -247,6 +259,14 @@ export function useLiveConversation(
           if (command === "start-dictation") void switchToDictation();
           if (command === "end-session") stopRef.current();
         } else if (event.type === "response.event") {
+          const backendUsage = backendUsageFromLiveEvent(event);
+          if (backendUsage) {
+            void invoke("record_live_backend_usage", {
+              responseId: backendUsage.responseId,
+              model: backendUsage.model,
+              usage: backendUsage.usage,
+            }).catch(() => undefined);
+          }
           const call = functionCallFromLiveEvent(event);
           if (!call?.call_id || handledToolCallsRef.current.has(call.call_id)) return;
           handledToolCallsRef.current.add(call.call_id);

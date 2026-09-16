@@ -7,11 +7,35 @@ interface FunctionCallItem {
   arguments?: string;
 }
 
+interface ResponseUsage {
+  input_tokens?: number;
+  input_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
+  output_tokens?: number;
+}
+
+interface DelegatedResponse {
+  id?: string;
+  model?: string;
+  usage?: ResponseUsage;
+}
+
 export interface LiveResponseEvent {
   type?: string;
   event?: {
     type?: string;
     item?: FunctionCallItem;
+    response?: DelegatedResponse;
+  };
+}
+
+export interface LiveBackendUsageEvent {
+  responseId: string;
+  model: string;
+  usage: {
+    inputTokens: number;
+    cachedInputTokens: number;
+    cacheWriteTokens: number;
+    outputTokens: number;
   };
 }
 
@@ -73,6 +97,26 @@ export function functionCallFromLiveEvent(event: LiveResponseEvent): FunctionCal
   const item = event.event.item;
   if (item?.type !== "function_call" || !item.call_id || !item.name || typeof item.arguments !== "string") return null;
   return item;
+}
+
+export function backendUsageFromLiveEvent(event: LiveResponseEvent): LiveBackendUsageEvent | null {
+  if (event.type !== "response.event" || !["response.completed", "response.incomplete", "response.failed"].includes(event.event?.type ?? "")) return null;
+  const response = event.event?.response;
+  const usage = response?.usage;
+  const values = [
+    usage?.input_tokens,
+    usage?.input_tokens_details?.cached_tokens ?? 0,
+    usage?.input_tokens_details?.cache_write_tokens ?? 0,
+    usage?.output_tokens,
+  ];
+  if (!response?.id || !response.model || values.some((value) => !Number.isSafeInteger(value) || Number(value) < 0)) return null;
+  const [inputTokens, cachedInputTokens, cacheWriteTokens, outputTokens] = values as number[];
+  if (cachedInputTokens + cacheWriteTokens > inputTokens) return null;
+  return {
+    responseId: response.id,
+    model: response.model,
+    usage: { inputTokens, cachedInputTokens, cacheWriteTokens, outputTokens },
+  };
 }
 
 export async function executeAidooLiveTool(

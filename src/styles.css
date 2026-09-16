@@ -180,6 +180,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .usage-row:first-of-type { border-top: 0; }
 .usage-row-icon { width: 39px; height: 39px; border-radius: 11px; background: #e8f3ff; color: #176dcc; display: grid; place-items: center; }
 .usage-row-icon.transcription { background: #e8f6f1; color: #177357; }
+.usage-row-icon.liveBackend { background: #f0eafd; color: #6945b8; }
 .usage-row-icon svg { width: 17px; }
 .usage-row-copy { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .usage-row-copy strong { color: #293f54; font-size: 12px; }

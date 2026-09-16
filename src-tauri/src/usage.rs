@@ -42,6 +42,33 @@ pub(super) fn record_transcription_usage(app: &AppHandle, duration_seconds: f64,
     );
 }
 
+pub(super) fn persist_live_backend_usage(
+    app: &AppHandle,
+    model: &str,
+    backend_usage: &models::LiveBackendUsage,
+) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    let mut usage = state
+        .usage
+        .lock()
+        .map_err(|_| "Локалният отчет за разходите е заключен.".to_string())?;
+    let mut next = usage.clone();
+    if next
+        .record_live_backend(Utc::now().to_rfc3339(), model, backend_usage)
+        .is_none()
+    {
+        return Err("OpenAI върна невалидни backend usage данни.".into());
+    }
+    if let Err(error) = storage::save_usage(&next) {
+        storage::append_diagnostic("live backend usage save failed");
+        return Err(error);
+    }
+    *usage = next.clone();
+    drop(usage);
+    let _ = app.emit("usage:changed", next);
+    Ok(())
+}
+
 fn record_usage(
     app: &AppHandle,
     kind: &str,

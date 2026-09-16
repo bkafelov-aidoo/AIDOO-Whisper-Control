@@ -2,9 +2,8 @@ use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-use crate::models::LIVE_MODEL;
+use crate::models::{LIVE_BACKEND_MODEL, LIVE_MODEL};
 
-pub const LIVE_BACKEND_MODEL: &str = "gpt-5.6-terra";
 const LIVE_SESSION_ENDPOINT: &str = "https://api.openai.com/v1/live/sessions";
 const MAX_SDP_BYTES: usize = 128 * 1024;
 const MAX_LIVE_RESPONSE_BYTES: usize = 512 * 1024;
@@ -134,6 +133,18 @@ fn create_request(sdp: &str) -> Result<LiveCreateRequest<'_>, String> {
                         LiveServerEventSelector {
                             r#type: "response.event",
                             response_event: Some("response.output_item.done"),
+                        },
+                        LiveServerEventSelector {
+                            r#type: "response.event",
+                            response_event: Some("response.completed"),
+                        },
+                        LiveServerEventSelector {
+                            r#type: "response.event",
+                            response_event: Some("response.incomplete"),
+                        },
+                        LiveServerEventSelector {
+                            r#type: "response.event",
+                            response_event: Some("response.failed"),
                         },
                     ],
                 },
@@ -428,7 +439,10 @@ mod tests {
                 {"type": "session.input_transcript.delta"},
                 {"type": "session.closed"},
                 {"type": "error"},
-                {"type": "response.event", "response_event": "response.output_item.done"}
+                {"type": "response.event", "response_event": "response.output_item.done"},
+                {"type": "response.event", "response_event": "response.completed"},
+                {"type": "response.event", "response_event": "response.incomplete"},
+                {"type": "response.event", "response_event": "response.failed"}
             ])
         );
         assert_eq!(value["session"]["delegation"]["type"], "responses");

@@ -34,6 +34,7 @@ use models::{
     AppSettings, BootstrapState, FailedRecording, OverlayBootstrapState, RecordingProgress,
     RecordingSnapshot, TranscriptEntry, TranscriptionCompleted, UsageLedger,
 };
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{Read, Write};
 #[cfg(unix)]
@@ -112,6 +113,7 @@ struct AppState {
     live_session_active: AtomicBool,
     live_session_generation: AtomicU64,
     live_usage_timing: Mutex<Option<usage::LiveUsageTiming>>,
+    live_backend_response_ids: Mutex<HashSet<String>>,
     live_phase: Mutex<String>,
     assistant_start_request: AssistantStartRequest,
     aidoo: aidoo::runtime::AidooRuntime,
@@ -161,6 +163,7 @@ impl AppState {
             live_session_active: AtomicBool::new(false),
             live_session_generation: AtomicU64::new(0),
             live_usage_timing: Mutex::new(None),
+            live_backend_response_ids: Mutex::new(HashSet::new()),
             live_phase: Mutex::new("idle".into()),
             assistant_start_request: AssistantStartRequest::default(),
             aidoo: aidoo::runtime::AidooRuntime::new(),
@@ -359,6 +362,7 @@ pub fn run() {
             prepare_live_session,
             create_live_session,
             end_live_session,
+            record_live_backend_usage,
             set_live_phase,
             request_live_stop,
             take_assistant_request,

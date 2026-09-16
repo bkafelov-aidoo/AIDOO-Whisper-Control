@@ -1,10 +1,11 @@
-import { AudioLines, CircleDollarSign, Clock3, Info, MessageCircle, ReceiptText } from "lucide-react";
+import { AudioLines, BrainCircuit, CircleDollarSign, Clock3, Info, MessageCircle, ReceiptText } from "lucide-react";
 import { translator } from "../i18n";
 import type { AppLanguage, UsageEntry, UsageLedger } from "../types";
 
 export function UsagePage({ usage, language }: { usage: UsageLedger; language: AppLanguage }) {
   const t = translator(language);
-  const totalCost = usage.liveCostNanoUsd + usage.transcriptionCostNanoUsd;
+  const aiCost = usage.liveCostNanoUsd + usage.liveBackendCostNanoUsd;
+  const totalCost = aiCost + usage.transcriptionCostNanoUsd;
   const totalDuration = usage.liveDurationMillis + usage.transcriptionDurationMillis;
 
   return (
@@ -25,7 +26,8 @@ export function UsagePage({ usage, language }: { usage: UsageLedger; language: A
           title={t("usageAiSessions")}
           duration={formatDuration(usage.liveDurationMillis, language)}
           count={formatCount(usage.liveSessionCount, language, "session")}
-          cost={formatUsd(usage.liveCostNanoUsd)}
+          cost={formatUsd(aiCost)}
+          detail={`${t("usageLiveBase")} ${formatUsd(usage.liveCostNanoUsd)} · ${t("usageBackend")} ${formatUsd(usage.liveBackendCostNanoUsd)}`}
         />
         <UsageCard
           className="transcription"
@@ -65,11 +67,11 @@ export function UsagePage({ usage, language }: { usage: UsageLedger; language: A
   );
 }
 
-function UsageCard({ className, icon, title, duration, count, cost }: { className: string; icon: React.ReactNode; title: string; duration: string; count: string; cost: string }) {
+function UsageCard({ className, icon, title, duration, count, cost, detail }: { className: string; icon: React.ReactNode; title: string; duration: string; count: string; cost: string; detail?: string }) {
   return (
     <article className={`usage-card ${className}`}>
       <div className="usage-card-icon">{icon}</div>
-      <div><span>{title}</span><strong>{cost}</strong><small>{duration} · {count}</small></div>
+      <div><span>{title}</span><strong>{cost}</strong><small>{duration} · {count}{detail && <><br />{detail}</>}</small></div>
     </article>
   );
 }
@@ -79,19 +81,26 @@ function UsageRow({ entry, language }: { entry: UsageEntry; language: AppLanguag
   return (
     <article className="usage-row">
       <div className={`usage-row-icon ${entry.kind}`}>
-        {entry.kind === "live" ? <MessageCircle /> : <AudioLines />}
+        {entry.kind === "live" ? <MessageCircle /> : entry.kind === "liveBackend" ? <BrainCircuit /> : <AudioLines />}
       </div>
       <div className="usage-row-copy">
-        <strong>{entry.kind === "live" ? t("usageAiSession") : t("usageTranscription")}</strong>
+        <strong>{entry.kind === "live" ? t("usageAiSession") : entry.kind === "liveBackend" ? t("usageBackendResponse") : t("usageTranscription")}</strong>
         <span>{formatDate(entry.createdAt, language)} · {entry.model}</span>
       </div>
       {entry.importedFromHistory && <span className="usage-imported">{t("usageImported")}</span>}
       <div className="usage-row-values">
         <strong>{formatUsd(entry.costNanoUsd)}</strong>
-        <span>{formatDuration(entry.durationMillis, language)}</span>
+        <span>{entry.kind === "liveBackend" ? formatTokenUsage(entry, language) : formatDuration(entry.durationMillis, language)}</span>
       </div>
     </article>
   );
+}
+
+function formatTokenUsage(entry: UsageEntry, language: AppLanguage) {
+  const formatter = new Intl.NumberFormat(language === "bg" ? "bg-BG" : "en-GB");
+  const input = formatter.format(entry.inputTokens);
+  const output = formatter.format(entry.outputTokens);
+  return language === "bg" ? `${input} входни · ${output} изходни токена` : `${input} input · ${output} output tokens`;
 }
 
 function formatUsd(nanoUsd: number) {

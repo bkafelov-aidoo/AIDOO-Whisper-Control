@@ -340,6 +340,7 @@ def main() -> int:
         "allow-prepare-live-session",
         "allow-create-live-session",
         "allow-end-live-session",
+        "allow-record-live-backend-usage",
         "allow-set-live-phase",
         "allow-request-live-stop",
         "allow-take-assistant-request",
