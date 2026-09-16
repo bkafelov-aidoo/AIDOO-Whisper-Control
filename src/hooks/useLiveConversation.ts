@@ -7,6 +7,7 @@ import {
   detectAssistantVoiceCommandFromLiveEvent,
 } from "../lib/assistant-command";
 import { executeAidooLiveTool, functionCallFromLiveEvent, sendAidooToolOutput } from "../lib/aidoo-live-tools";
+import { acquireMicrophone } from "../lib/live-microphone";
 
 export type LivePhase = "idle" | "preparing" | "connecting" | "listening" | "speaking" | "working" | "switching" | "closing" | "error";
 
@@ -29,7 +30,8 @@ interface LiveEvent {
   event?: { type?: string; item?: { type?: string; call_id?: string; name?: string; arguments?: string } };
 }
 
-const MICROPHONE_TIMEOUT_MS = 12_000;
+const MICROPHONE_ATTEMPT_TIMEOUT_MS = 7_000;
+const MICROPHONE_RETRY_DELAY_MS = 300;
 const ICE_GATHERING_TIMEOUT_MS = 10_000;
 const LIVE_CREATE_TIMEOUT_MS = 50_000;
 const SESSION_START_TIMEOUT_MS = 20_000;
@@ -212,10 +214,13 @@ export function useLiveConversation(
           ?? devices.find((device) => device.kind === "audioinput" && device.label.includes(microphoneName));
         if (selected?.deviceId) audioConstraints.deviceId = { exact: selected.deviceId };
       }
-      const microphone = await withTimeout(
-        navigator.mediaDevices.getUserMedia({ audio: audioConstraints }),
-        MICROPHONE_TIMEOUT_MS,
-        "Микрофонът не отговори навреме.",
+      const microphone = await acquireMicrophone(
+        (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+        { audio: audioConstraints },
+        {
+          attemptTimeoutMs: MICROPHONE_ATTEMPT_TIMEOUT_MS,
+          retryDelayMs: MICROPHONE_RETRY_DELAY_MS,
+        },
       );
       if (!stillCurrent()) {
         microphone.getTracks().forEach((track) => track.stop());
