@@ -7,6 +7,13 @@ import {
   detectAssistantVoiceCommandFromLiveEvent,
 } from "../lib/assistant-command";
 import { backendUsageFromLiveEvent, executeAidooLiveTool, functionCallFromLiveEvent, sendAidooToolOutput } from "../lib/aidoo-live-tools";
+import {
+  ASSISTANT_GOODBYE_SILENCE_MS,
+  ASSISTANT_GOODBYE_START_TIMEOUT_MS,
+  LiveInactivityTimer,
+  assistantGoodbyeInstruction,
+  assistantGoodbyePrompt,
+} from "../lib/live-inactivity";
 import { acquireMicrophone } from "../lib/live-microphone";
 
 export type LivePhase = "idle" | "preparing" | "connecting" | "listening" | "speaking" | "working" | "switching" | "closing" | "error";
@@ -25,6 +32,7 @@ interface LiveSessionAnswer {
 
 interface LiveEvent {
   type?: string;
+  client_event_id?: string;
   delta?: string;
   error?: { message?: string };
   event?: {
@@ -62,6 +70,8 @@ export function useLiveConversation(
   const audioContextRef = useRef<AudioContext | null>(null);
   const monitorFrameRef = useRef<number | null>(null);
   const timeoutRef = useRef<number | null>(null);
+  const goodbyeTimerRef = useRef<number | null>(null);
+  const goodbyeInstructionIdRef = useRef<string | null>(null);
   const readyRef = useRef(false);
   const closingRef = useRef(false);
   const switchingRef = useRef(false);
@@ -71,7 +81,12 @@ export function useLiveConversation(
   const commandDetectorRef = useRef(new AssistantVoiceCommandDetector());
   const startRef = useRef<() => Promise<void>>(async () => undefined);
   const stopRef = useRef<() => void>(() => undefined);
+  const inactivityHandlerRef = useRef<() => void>(() => undefined);
+  const inactivityTimerRef = useRef<LiveInactivityTimer | null>(null);
   const handledToolCallsRef = useRef(new Set<string>());
+  if (inactivityTimerRef.current === null) {
+    inactivityTimerRef.current = new LiveInactivityTimer(() => inactivityHandlerRef.current());
+  }
 
   const updatePhase = useCallback((next: LivePhase) => {
     if (mountedRef.current) setPhase(next);
@@ -86,8 +101,15 @@ export function useLiveConversation(
     timeoutRef.current = null;
   }, []);
 
+  const clearGoodbyeTimer = useCallback(() => {
+    if (goodbyeTimerRef.current !== null) window.clearTimeout(goodbyeTimerRef.current);
+    goodbyeTimerRef.current = null;
+  }, []);
+
   const releaseBrowserMedia = useCallback(() => {
     clearTimer();
+    clearGoodbyeTimer();
+    inactivityTimerRef.current?.stop();
     readyRef.current = false;
     if (monitorFrameRef.current !== null) cancelAnimationFrame(monitorFrameRef.current);
     monitorFrameRef.current = null;
@@ -102,7 +124,8 @@ export function useLiveConversation(
     commandDetectorRef.current.reset();
     handledToolCallsRef.current.clear();
     toolBusyRef.current = false;
-  }, [clearTimer]);
+    goodbyeInstructionIdRef.current = null;
+  }, [clearGoodbyeTimer, clearTimer]);
 
   const finish = useCallback((nextPhase: LivePhase = "idle") => {
     operationRef.current += 1;
@@ -167,6 +190,68 @@ export function useLiveConversation(
     }
   }, [clearTimer, finish, updatePhase]);
   stopRef.current = stop;
+
+  const finishAfterLocalGoodbye = useCallback(() => {
+    clearGoodbyeTimer();
+    const synth = window.speechSynthesis;
+    if (!synth || typeof SpeechSynthesisUtterance === "undefined") {
+      finish("idle");
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance("Чао!");
+    utterance.lang = "bg-BG";
+    utterance.rate = 0.95;
+    let completed = false;
+    const complete = () => {
+      if (completed) return;
+      completed = true;
+      clearGoodbyeTimer();
+      finish("idle");
+    };
+    utterance.onend = complete;
+    utterance.onerror = complete;
+    goodbyeTimerRef.current = window.setTimeout(complete, 2_500);
+    try {
+      synth.speak(utterance);
+    } catch {
+      complete();
+    }
+  }, [clearGoodbyeTimer, finish]);
+
+  const beginInactiveClose = useCallback(() => {
+    if (closingRef.current) return;
+    const channel = channelRef.current;
+    if (toolBusyRef.current) {
+      inactivityTimerRef.current?.start();
+      return;
+    }
+    if (!readyRef.current || channel?.readyState !== "open") {
+      finish("idle");
+      return;
+    }
+    closingRef.current = true;
+    updatePhase("closing");
+    const eventId = `aidoo_idle_goodbye_${Date.now()}`;
+    goodbyeInstructionIdRef.current = eventId;
+    try {
+      channel.send(JSON.stringify(assistantGoodbyeInstruction(eventId)));
+    } catch {
+      finishAfterLocalGoodbye();
+      return;
+    }
+    clearGoodbyeTimer();
+    goodbyeTimerRef.current = window.setTimeout(finishAfterLocalGoodbye, ASSISTANT_GOODBYE_START_TIMEOUT_MS);
+  }, [clearGoodbyeTimer, finish, finishAfterLocalGoodbye, updatePhase]);
+  inactivityHandlerRef.current = beginInactiveClose;
+
+  const registerRemoteSpeech = useCallback(() => {
+    if (!closingRef.current || !goodbyeInstructionIdRef.current) {
+      inactivityTimerRef.current?.touch();
+      return;
+    }
+    clearGoodbyeTimer();
+    goodbyeTimerRef.current = window.setTimeout(() => finish("idle"), ASSISTANT_GOODBYE_SILENCE_MS);
+  }, [clearGoodbyeTimer, finish]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -242,7 +327,7 @@ export function useLiveConversation(
       for (const track of microphone.getAudioTracks()) peer.addTrack(track, microphone);
       updatePhase("connecting");
 
-      peer.addEventListener("track", ({ track }) => monitorRemoteAudio(track, audioContextRef, monitorFrameRef, readyRef, closingRef, toolBusyRef, mountedRef, updatePhase));
+      peer.addEventListener("track", ({ track }) => monitorRemoteAudio(track, audioContextRef, monitorFrameRef, readyRef, closingRef, toolBusyRef, mountedRef, updatePhase, registerRemoteSpeech));
 
       const channel = peer.createDataChannel("oai-events");
       channelRef.current = channel;
@@ -254,11 +339,21 @@ export function useLiveConversation(
           clearTimer();
           readyRef.current = true;
           updatePhase("listening");
+          inactivityTimerRef.current?.start();
         } else if (event.type === "session.input_transcript.delta" && event.delta) {
+          inactivityTimerRef.current?.touch();
           const command = detectAssistantVoiceCommandFromLiveEvent(event, commandDetectorRef.current);
           if (command === "start-dictation") void switchToDictation();
           if (command === "end-session") stopRef.current();
+        } else if (event.type === "session.instructions.appended" && event.client_event_id === goodbyeInstructionIdRef.current) {
+          const promptId = `${event.client_event_id}_prompt`;
+          try {
+            channel.send(JSON.stringify(assistantGoodbyePrompt(promptId)));
+          } catch {
+            finishAfterLocalGoodbye();
+          }
         } else if (event.type === "response.event") {
+          inactivityTimerRef.current?.touch();
           const backendUsage = backendUsageFromLiveEvent(event);
           if (backendUsage) {
             void invoke("record_live_backend_usage", {
@@ -271,12 +366,14 @@ export function useLiveConversation(
           if (!call?.call_id || handledToolCallsRef.current.has(call.call_id)) return;
           handledToolCallsRef.current.add(call.call_id);
           toolBusyRef.current = true;
+          inactivityTimerRef.current?.pause();
           updatePhase("working");
           void executeAidooLiveTool(call).then(({ callId, output }) => {
             if (channel.readyState !== "open" || closingRef.current) return;
             sendAidooToolOutput(channel, callId, output);
             toolBusyRef.current = false;
             updatePhase("listening");
+            inactivityTimerRef.current?.start();
           }).catch((reason) => {
             toolBusyRef.current = false;
             fail(reason);
@@ -284,7 +381,8 @@ export function useLiveConversation(
         } else if (event.type === "session.closed") {
           finish("idle");
         } else if (event.type === "error" || event.type === "session.failed") {
-          fail(event.error?.message ?? "GPT-Live прекъсна разговора.");
+          if (goodbyeInstructionIdRef.current) finishAfterLocalGoodbye();
+          else fail(event.error?.message ?? "GPT-Live прекъсна разговора.");
         }
       });
       channel.addEventListener("close", () => {
@@ -313,7 +411,7 @@ export function useLiveConversation(
     } catch (reason) {
       if (stillCurrent()) fail(reason);
     }
-  }, [clearTimer, fail, finish, microphoneName, phase, switchToDictation, updatePhase]);
+  }, [clearTimer, fail, finish, finishAfterLocalGoodbye, microphoneName, phase, registerRemoteSpeech, switchToDictation, updatePhase]);
   startRef.current = start;
 
   return { phase, error, start, stop };
@@ -328,6 +426,7 @@ function monitorRemoteAudio(
   toolBusyRef: MutableRefObject<boolean>,
   mountedRef: MutableRefObject<boolean>,
   updatePhase: (phase: LivePhase) => void,
+  onRemoteSpeech: () => void,
 ) {
   try {
     const context = new AudioContext();
@@ -347,7 +446,10 @@ function monitorRemoteAudio(
         const centered = (sample - 128) / 128;
         energy += centered * centered;
       }
-      if (Math.sqrt(energy / samples.length) > 0.025) lastSpeechAt = performance.now();
+      if (Math.sqrt(energy / samples.length) > 0.025) {
+        lastSpeechAt = performance.now();
+        onRemoteSpeech();
+      }
       if (readyRef.current && !closingRef.current && !toolBusyRef.current && mountedRef.current) {
         updatePhase(performance.now() - lastSpeechAt < 280 ? "speaking" : "listening");
       }

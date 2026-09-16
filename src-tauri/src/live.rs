@@ -110,6 +110,8 @@ fn create_request(sdp: &str) -> Result<LiveCreateRequest<'_>, String> {
                 data_channel: LiveDataChannelConfig {
                     allowed_client_events: vec![
                         "session.close",
+                        "session.instructions.append",
+                        "session.commentary.append",
                         "response.item.create",
                         "response.create",
                     ],
@@ -120,6 +122,14 @@ fn create_request(sdp: &str) -> Result<LiveCreateRequest<'_>, String> {
                         },
                         LiveServerEventSelector {
                             r#type: "session.input_transcript.delta",
+                            response_event: None,
+                        },
+                        LiveServerEventSelector {
+                            r#type: "session.instructions.appended",
+                            response_event: None,
+                        },
+                        LiveServerEventSelector {
+                            r#type: "session.commentary.appended",
                             response_event: None,
                         },
                         LiveServerEventSelector {
@@ -457,13 +467,21 @@ mod tests {
         assert_eq!(value["session"]["store"], false);
         assert_eq!(
             value["session"]["client"]["data_channel"]["allowed_client_events"],
-            serde_json::json!(["session.close", "response.item.create", "response.create"])
+            serde_json::json!([
+                "session.close",
+                "session.instructions.append",
+                "session.commentary.append",
+                "response.item.create",
+                "response.create"
+            ])
         );
         assert_eq!(
             value["session"]["client"]["data_channel"]["allowed_server_events"],
             serde_json::json!([
                 {"type": "session.started"},
                 {"type": "session.input_transcript.delta"},
+                {"type": "session.instructions.appended"},
+                {"type": "session.commentary.appended"},
                 {"type": "session.closed"},
                 {"type": "error"},
                 {"type": "response.event", "response_event": "response.output_item.done"},

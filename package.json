@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "check": "tsc --noEmit && npm run test:assistant && npm run check:structure && npm run check:i18n && npm run check:release-config && npm run check:macos-dependencies && npm run check:wakeword && npm run check:website",
-    "test:assistant": "node --test scripts/test-assistant-command.mjs scripts/test-aidoo-live-tools.mjs scripts/test-live-microphone.mjs",
+    "test:assistant": "node --test scripts/test-assistant-command.mjs scripts/test-aidoo-live-tools.mjs scripts/test-live-inactivity.mjs scripts/test-live-microphone.mjs",
     "check:structure": "python3 scripts/check-source-layout.py",
     "check:i18n": "node scripts/check-i18n-errors.mjs",
     "check:release-config": "python3 scripts/check-release-config.py",
