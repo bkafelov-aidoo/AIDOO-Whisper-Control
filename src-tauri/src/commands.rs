@@ -513,19 +513,112 @@ pub(super) fn delete_history_item(
     Ok(())
 }
 
-#[tauri::command]
-pub(super) fn open_accessibility_settings() -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    {
-        let status = std::process::Command::new("open")
-            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-            .status()
-            .map_err(|error| error.to_string())?;
-        if !status.success() {
-            return Err("Accessibility настройките не можаха да бъдат отворени.".into());
+#[cfg(target_os = "macos")]
+fn launch_accessibility_settings<Minimize, Open, Restore>(
+    minimize_main: Minimize,
+    open_settings: Open,
+    restore_main: Restore,
+) -> Result<(), String>
+where
+    Minimize: FnOnce(),
+    Open: FnOnce() -> Result<(), String>,
+    Restore: FnOnce(),
+{
+    minimize_main();
+    match open_settings() {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            restore_main();
+            Err(error)
         }
     }
+}
+
+#[tauri::command]
+pub(super) fn open_accessibility_settings(app: AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let main = app.get_webview_window("main");
+        let restore_after_failure = main
+            .as_ref()
+            .and_then(|window| window.is_minimized().ok())
+            .is_some_and(|minimized| !minimized);
+        launch_accessibility_settings(
+            || {
+                if restore_after_failure {
+                    if let Some(window) = &main {
+                        let _ = window.minimize();
+                    }
+                }
+            },
+            || {
+                let status = std::process::Command::new("open")
+                    .args(["-b", "com.apple.systempreferences"])
+                    .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+                    .status()
+                    .map_err(|error| error.to_string())?;
+                if status.success() {
+                    Ok(())
+                } else {
+                    Err("Accessibility настройките не можаха да бъдат отворени.".into())
+                }
+            },
+            || {
+                if restore_after_failure {
+                    if let Some(window) = &main {
+                        let _ = window.unminimize();
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+            },
+        )?;
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
     Ok(())
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod accessibility_settings_tests {
+    use super::launch_accessibility_settings;
+    use std::{cell::RefCell, rc::Rc};
+
+    #[test]
+    fn minimizes_the_main_window_before_opening_system_settings() {
+        let actions = Rc::new(RefCell::new(Vec::new()));
+        let minimized = actions.clone();
+        let opened = actions.clone();
+        let restored = actions.clone();
+        launch_accessibility_settings(
+            move || minimized.borrow_mut().push("minimize"),
+            move || {
+                opened.borrow_mut().push("open");
+                Ok(())
+            },
+            move || restored.borrow_mut().push("restore"),
+        )
+        .unwrap();
+        assert_eq!(*actions.borrow(), ["minimize", "open"]);
+    }
+
+    #[test]
+    fn restores_the_main_window_when_system_settings_cannot_open() {
+        let actions = Rc::new(RefCell::new(Vec::new()));
+        let minimized = actions.clone();
+        let opened = actions.clone();
+        let restored = actions.clone();
+        let result = launch_accessibility_settings(
+            move || minimized.borrow_mut().push("minimize"),
+            move || {
+                opened.borrow_mut().push("open");
+                Err("open failed".into())
+            },
+            move || restored.borrow_mut().push("restore"),
+        );
+        assert_eq!(result.unwrap_err(), "open failed");
+        assert_eq!(*actions.borrow(), ["minimize", "open", "restore"]);
+    }
 }
 
 #[tauri::command]
