@@ -216,7 +216,8 @@ enum ChromePresentationError {
 
 #[cfg(target_os = "macos")]
 fn present_in_chrome(clinic_prefix: &str, url: &str) -> Result<(), ChromePresentationError> {
-    let navigation_script = spa_navigation_script(url).map_err(|_| ChromePresentationError::Unavailable)?;
+    let navigation_script =
+        spa_navigation_script(url).map_err(|_| ChromePresentationError::Unavailable)?;
     let output = Command::new("/usr/bin/osascript")
         .arg("-e")
         .arg(CHROME_PRESENT_SCRIPT)

@@ -32,6 +32,7 @@ mod tests;
 mod text_insertion;
 mod transcription;
 mod usage;
+mod voice_audio;
 mod voice_commands;
 
 use chrono::{Local, Utc};

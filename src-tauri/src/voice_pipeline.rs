@@ -9,6 +9,8 @@ use crate::models::{
     LiveBackendUsage, ASSISTANT_REASONING_MODEL, ASSISTANT_SPEECH_MODEL,
     ASSISTANT_TRANSCRIPTION_MODEL,
 };
+use crate::voice_audio::pcm_to_wav;
+pub(crate) use crate::voice_audio::wav_duration_seconds;
 
 const TRANSCRIPTION_ENDPOINT: &str = "https://api.openai.com/v1/audio/transcriptions";
 const RESPONSES_ENDPOINT: &str = "https://api.openai.com/v1/responses";
@@ -398,7 +400,8 @@ pub async fn synthesize_speech(text: &str, api_key: &str) -> Result<SpeechResult
             "voice": "marin",
             "input": text,
             "instructions": "Говори на български, спокойно, ясно и кратко. Произнасяй AIDOO като Айдуу.",
-            "response_format": "wav",
+            "response_format": "pcm",
+            "stream_format": "audio",
             "speed": 1.05
         }))
         .send()
@@ -407,7 +410,8 @@ pub async fn synthesize_speech(text: &str, api_key: &str) -> Result<SpeechResult
     if !response.status().is_success() {
         return Err(api_error(response, "Гласовият отговор не успя").await);
     }
-    let audio = read_limited_body(response, MAX_SPEECH_BYTES).await?;
+    let pcm = read_limited_body(response, MAX_SPEECH_BYTES).await?;
+    let audio = pcm_to_wav(&pcm)?;
     let duration_seconds = wav_duration_seconds(&audio)?;
     Ok(SpeechResult {
         audio,
@@ -425,17 +429,6 @@ fn validate_audio(audio: &[u8]) -> Result<(), String> {
         return Err("Невалидна или прекалено дълга аудио реплика.".into());
     }
     Ok(())
-}
-
-pub fn wav_duration_seconds(audio: &[u8]) -> Result<f64, String> {
-    let cursor = std::io::Cursor::new(audio);
-    let reader = hound::WavReader::new(cursor)
-        .map_err(|_| "OpenAI върна невалиден гласов файл.".to_string())?;
-    let spec = reader.spec();
-    if spec.sample_rate == 0 || spec.channels == 0 {
-        return Err("OpenAI върна невалиден гласов файл.".into());
-    }
-    Ok(reader.duration() as f64 / f64::from(spec.sample_rate))
 }
 
 fn parse_tool_calls(output: &[Value]) -> Result<Vec<VoiceToolCall>, String> {
