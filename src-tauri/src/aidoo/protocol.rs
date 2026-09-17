@@ -1,27 +1,44 @@
 use super::{
-    commands::show_patient_view, draft, presentation::PatientView, treatment, types, workflow,
+    commands::show_patient_view,
+    draft,
+    presentation::{PatientView, PresentationPhase},
+    treatment, types, workflow,
 };
 use crate::AppState;
 use tauri::{AppHandle, State};
 
 #[tauri::command]
-pub(crate) fn aidoo_select_patient(
+pub(crate) async fn aidoo_select_patient(
     patient_id: String,
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::PatientSummary, String> {
     let patient = state.aidoo.select_patient(&patient_id)?;
-    show_patient_view(&app, &state, &patient.id, PatientView::Status);
+    show_patient_view(
+        &app,
+        &state,
+        &patient.id,
+        PatientView::Status,
+        PresentationPhase::Open,
+    )
+    .await;
     Ok(patient)
 }
 
 #[tauri::command]
-pub(crate) fn aidoo_next_patient(
+pub(crate) async fn aidoo_next_patient(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::PatientSummary, String> {
     let patient = state.aidoo.select_next_patient()?;
-    show_patient_view(&app, &state, &patient.id, PatientView::Status);
+    show_patient_view(
+        &app,
+        &state,
+        &patient.id,
+        PatientView::Status,
+        PresentationPhase::Open,
+    )
+    .await;
     Ok(patient)
 }
 
@@ -31,12 +48,19 @@ pub(crate) async fn aidoo_begin_status(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::StatusEntryState, String> {
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Status,
+        PresentationPhase::Open,
+    )
+    .await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let result = client
         .active_visit(&session.token, &session.clinic_id, &patient_id)
         .await;
-    show_patient_view(&app, &state, &patient_id, PatientView::Status);
     match result {
         Ok(visit) if !visit.is_finished && !visit.cancelled => Ok(types::StatusEntryState {
             ready: true,
@@ -61,6 +85,14 @@ pub(crate) async fn aidoo_start_status_visit(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::StatusVisitResult, String> {
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Status,
+        PresentationPhase::Open,
+    )
+    .await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let result = workflow::create_status_visit(
@@ -72,7 +104,14 @@ pub(crate) async fn aidoo_start_status_visit(
         is_nzok,
     )
     .await;
-    show_patient_view(&app, &state, &patient_id, PatientView::Status);
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Status,
+        PresentationPhase::Refresh,
+    )
+    .await;
     result.map_err(|error| error.message)
 }
 
@@ -84,6 +123,14 @@ pub(crate) async fn aidoo_apply_status(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::ClinicalWriteResult, String> {
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Status,
+        PresentationPhase::Open,
+    )
+    .await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let visit = client
@@ -139,7 +186,14 @@ pub(crate) async fn aidoo_apply_status(
     )?;
     let result =
         workflow::apply_confirmed_draft(&client, &session.token, &session.clinic_id, &draft).await;
-    show_patient_view(&app, &state, &patient_id, PatientView::Status);
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Status,
+        PresentationPhase::Refresh,
+    )
+    .await;
     Ok(clinical_result(
         &draft.spoken_summary,
         result.map_err(|error| error.message)?,
@@ -147,13 +201,20 @@ pub(crate) async fn aidoo_apply_status(
 }
 
 #[tauri::command]
-pub(crate) fn aidoo_finish_status(
+pub(crate) async fn aidoo_finish_status(
     patient_id: String,
     app: AppHandle,
     state: State<'_, AppState>,
-) -> String {
-    show_patient_view(&app, &state, &patient_id, PatientView::Treatment);
-    "Статусът е записан. Отварям Лечение.".into()
+) -> Result<String, String> {
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Treatment,
+        PresentationPhase::Open,
+    )
+    .await;
+    Ok("Статусът е записан. Отварям Лечение.".into())
 }
 
 #[tauri::command]
@@ -165,6 +226,14 @@ pub(crate) async fn aidoo_add_procedure(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::ClinicalWriteResult, String> {
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Treatment,
+        PresentationPhase::Open,
+    )
+    .await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let visit = active_treatment_visit(&client, &session, &patient_id).await?;
@@ -213,6 +282,14 @@ pub(crate) async fn aidoo_write_diagnosis(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::ClinicalWriteResult, String> {
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Treatment,
+        PresentationPhase::Open,
+    )
+    .await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let visit = active_treatment_visit(&client, &session, &patient_id).await?;
@@ -257,6 +334,14 @@ pub(crate) async fn aidoo_write_official_note(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::ClinicalWriteResult, String> {
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Treatment,
+        PresentationPhase::Open,
+    )
+    .await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let visit = active_treatment_visit(&client, &session, &patient_id).await?;
@@ -330,7 +415,14 @@ async fn apply_treatment_change(
         &draft,
     )
     .await;
-    show_patient_view(app, state, &patient_id, PatientView::Treatment);
+    show_patient_view(
+        app,
+        state,
+        &patient_id,
+        PatientView::Treatment,
+        PresentationPhase::Refresh,
+    )
+    .await;
     Ok(clinical_result(
         &draft.spoken_summary,
         result.map_err(|error| error.message)?,

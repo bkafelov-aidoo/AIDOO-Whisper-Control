@@ -1,4 +1,9 @@
-use super::{client::AidooClient, presentation, runtime::AidooSessionSnapshot, types};
+use super::{
+    client::AidooClient,
+    presentation::{self, PresentationPhase},
+    runtime::AidooSessionSnapshot,
+    types,
+};
 use crate::AppState;
 use chrono::{
     DateTime, Datelike, Duration, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike,
@@ -31,6 +36,14 @@ pub(crate) async fn aidoo_find_schedule_slot(
         .await
         .map_err(|error| error.message)?;
     let selected = resolve_doctor(&doctors, &session.doctor_id, doctor.as_deref())?;
+    show_schedule_target(
+        &app,
+        &state,
+        &from_date.to_string(),
+        &selected.id,
+        PresentationPhase::Open,
+    )
+    .await;
     let room_ids = selected
         .schedules
         .iter()
@@ -57,7 +70,6 @@ pub(crate) async fn aidoo_find_schedule_slot(
         now,
     )?;
     state.aidoo.store_schedule_slot(slot.clone())?;
-    show_schedule_view(&app, &state, &slot);
     Ok(slot)
 }
 
@@ -70,6 +82,7 @@ pub(crate) async fn aidoo_book_schedule_slot(
     state: State<'_, AppState>,
 ) -> Result<types::ScheduleBookingResult, String> {
     let slot = state.aidoo.schedule_slot(&slot_id)?;
+    show_schedule_view(&app, &state, &slot, PresentationPhase::Open).await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let patient = match resolve_booking_patient(
@@ -102,7 +115,7 @@ pub(crate) async fn aidoo_book_schedule_slot(
         .map_err(|error| error.message)?;
     if !slot_is_in_current_worktime(&slot, &doctors)? {
         state.aidoo.clear_schedule_slot();
-        show_schedule_view(&app, &state, &slot);
+        show_schedule_view(&app, &state, &slot, PresentationPhase::Open).await;
         return Err(
             "Работният график за предложения час е променен. Потърсете свободен час отново.".into(),
         );
@@ -118,7 +131,7 @@ pub(crate) async fn aidoo_book_schedule_slot(
     .await?;
     if slot_conflicts(&slot, &fresh)? {
         state.aidoo.clear_schedule_slot();
-        show_schedule_view(&app, &state, &slot);
+        show_schedule_view(&app, &state, &slot, PresentationPhase::Open).await;
         return Err("Часът вече е зает. Потърсете свободен час отново.".into());
     }
 
@@ -175,7 +188,7 @@ pub(crate) async fn aidoo_book_schedule_slot(
         },
         (Err(error), false) if !error.is_ambiguous_write() => {
             state.aidoo.clear_schedule_slot();
-            show_schedule_view(&app, &state, &slot);
+            show_schedule_view(&app, &state, &slot, PresentationPhase::Open).await;
             return Err(error.message.clone());
         }
         _ => types::VerificationResult {
@@ -189,7 +202,7 @@ pub(crate) async fn aidoo_book_schedule_slot(
             | types::VerificationOutcome::VerifiedAfterAmbiguousWrite
     );
     state.aidoo.clear_schedule_slot();
-    show_schedule_view(&app, &state, &slot);
+    show_schedule_view(&app, &state, &slot, PresentationPhase::Refresh).await;
     let spoken_summary = if booked {
         format!(
             "Записах пациента на {} от {} за {} минути.",
@@ -250,7 +263,22 @@ async fn schedule_occupancy(
     Ok(merged)
 }
 
-fn show_schedule_view(app: &AppHandle, state: &AppState, slot: &types::ScheduleSlot) {
+async fn show_schedule_view(
+    app: &AppHandle,
+    state: &AppState,
+    slot: &types::ScheduleSlot,
+    phase: PresentationPhase,
+) {
+    show_schedule_target(app, state, &slot.local_date, &slot.doctor_id, phase).await;
+}
+
+async fn show_schedule_target(
+    app: &AppHandle,
+    state: &AppState,
+    date: &str,
+    doctor_id: &str,
+    phase: PresentationPhase,
+) {
     let clinic_link = state.settings.lock().ok().and_then(|settings| {
         if !settings.aidoo_browser_sync_enabled {
             return None;
@@ -264,9 +292,11 @@ fn show_schedule_view(app: &AppHandle, state: &AppState, slot: &types::ScheduleS
         presentation::present_schedule(
             app.clone(),
             clinic_link,
-            slot.local_date.clone(),
-            slot.doctor_id.clone(),
-        );
+            date.to_string(),
+            doctor_id.to_string(),
+            phase,
+        )
+        .await;
     }
 }
 

@@ -9,6 +9,12 @@ pub enum PatientView {
     Treatment,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PresentationPhase {
+    Open,
+    Refresh,
+}
+
 impl PatientView {
     fn mode(self) -> &'static str {
         match self {
@@ -61,7 +67,13 @@ on run argv
 end run
 "#;
 
-pub fn present_patient(app: AppHandle, clinic_link: String, patient_id: String, view: PatientView) {
+pub async fn present_patient(
+    app: AppHandle,
+    clinic_link: String,
+    patient_id: String,
+    view: PatientView,
+    phase: PresentationPhase,
+) {
     let target = match patient_view_url(&clinic_link, &patient_id, view, sync_nonce()) {
         Ok(target) => target,
         Err(error) => {
@@ -72,11 +84,19 @@ pub fn present_patient(app: AppHandle, clinic_link: String, patient_id: String, 
     present_target(
         app,
         target,
+        phase,
         "AIDOO промяната е запазена, но пациентският екран не можа да бъде показан.",
-    );
+    )
+    .await;
 }
 
-pub fn present_schedule(app: AppHandle, clinic_link: String, date: String, doctor_id: String) {
+pub async fn present_schedule(
+    app: AppHandle,
+    clinic_link: String,
+    date: String,
+    doctor_id: String,
+    phase: PresentationPhase,
+) {
     let target = match schedule_view_url(&clinic_link, &date, &doctor_id, sync_nonce()) {
         Ok(target) => target,
         Err(error) => {
@@ -87,53 +107,79 @@ pub fn present_schedule(app: AppHandle, clinic_link: String, date: String, docto
     present_target(
         app,
         target,
+        phase,
         "Графикът е обработен, но страницата му не можа да бъде показана.",
-    );
+    )
+    .await;
 }
 
-fn present_target(app: AppHandle, target: PatientViewTarget, failure_message: &'static str) {
-    let thread_app = app.clone();
-    let _ = std::thread::Builder::new()
-        .name("aidoo-browser-presentation".into())
-        .spawn(move || {
-            match present_in_chrome(&target.clinic_prefix, &target.url) {
-                Ok(()) => return,
-                Err(ChromePresentationError::JavascriptDisabled) => {
-                    crate::storage::append_diagnostic(
-                        "AIDOO browser presentation requires JavaScript from Apple Events",
-                    );
-                    let _ = thread_app.emit(
-                        "toast",
-                        "Chrome блокира показването на AIDOO. В Chrome включете View → Developer → Allow JavaScript from Apple Events и опитайте отново.",
-                    );
-                    return;
-                }
-                Err(ChromePresentationError::NoReadyTab) => {
-                    crate::storage::append_diagnostic(
-                        "AIDOO browser presentation found only an unloaded clinic tab",
-                    );
-                    let _ = thread_app.emit(
-                        "toast",
-                        "AIDOO табът е празен заради остарял browser cache. Отворете работещ AIDOO екран в Chrome и опитайте отново.",
-                    );
-                    return;
-                }
-                Err(ChromePresentationError::Unavailable) => {}
+async fn present_target(
+    app: AppHandle,
+    target: PatientViewTarget,
+    phase: PresentationPhase,
+    failure_message: &'static str,
+) {
+    let fallback_url = target.url.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        present_in_chrome(
+            &target.clinic_prefix,
+            &target.url,
+            phase.then_bridge(&target.refresh_bridge_url),
+        )
+    })
+    .await;
+
+    let error = match result {
+        Ok(Ok(())) => return,
+        Ok(Err(error)) => error,
+        Err(_) => ChromePresentationError::Unavailable,
+    };
+    match error {
+        ChromePresentationError::JavascriptDisabled => {
+            crate::storage::append_diagnostic(
+                "AIDOO browser presentation requires JavaScript from Apple Events",
+            );
+            let _ = app.emit(
+                "toast",
+                "Chrome блокира показването на AIDOO. В Chrome включете View → Developer → Allow JavaScript from Apple Events и опитайте отново.",
+            );
+        }
+        ChromePresentationError::NoReadyTab => {
+            crate::storage::append_diagnostic(
+                "AIDOO browser presentation found only an unloaded clinic tab",
+            );
+            let _ = app.emit(
+                "toast",
+                "AIDOO табът е празен заради остарял browser cache. Отворете работещ AIDOO екран в Chrome и опитайте отново.",
+            );
+        }
+        ChromePresentationError::Unavailable => {
+            let opened = tauri::async_runtime::spawn_blocking(move || {
+                open_in_chrome(&fallback_url).or_else(|_| open_in_default_browser(&fallback_url))
+            })
+            .await
+            .is_ok_and(|result| result.is_ok());
+            if !opened {
+                crate::storage::append_diagnostic("AIDOO browser presentation failed");
+                let _ = app.emit("toast", failure_message);
             }
-            if open_in_chrome(&target.url).is_ok() {
-                return;
-            }
-            if open_in_default_browser(&target.url).is_ok() {
-                return;
-            }
-            crate::storage::append_diagnostic("AIDOO browser presentation failed");
-            let _ = thread_app.emit("toast", failure_message);
-        });
+        }
+    }
 }
 
 struct PatientViewTarget {
     clinic_prefix: String,
     url: String,
+    refresh_bridge_url: String,
+}
+
+impl PresentationPhase {
+    fn then_bridge(self, bridge: &str) -> Option<&str> {
+        match self {
+            Self::Open => None,
+            Self::Refresh => Some(bridge),
+        }
+    }
 }
 
 fn patient_view_url(
@@ -158,6 +204,7 @@ fn patient_view_url(
     })?;
     Ok(PatientViewTarget {
         clinic_prefix: format!("{record_base}/"),
+        refresh_bridge_url: format!("{record_base}/documents"),
         url: format!(
             "{record_base}/medical-record?patientid={patient_id}&tab=record&mode={}&selectedTeeth=&triggerNzokChecksProp=true&aidooControlSync={nonce}",
             view.mode()
@@ -186,6 +233,7 @@ fn schedule_view_url(
     })?;
     Ok(PatientViewTarget {
         clinic_prefix: format!("{record_base}/"),
+        refresh_bridge_url: format!("{record_base}/documents"),
         url: format!(
             "{record_base}/schedule?mode=doctors&active-date={date}&selected-doctors=%5B%22{doctor_id}%22%5D&aidooControlSync={nonce}"
         ),
@@ -199,11 +247,27 @@ fn sync_nonce() -> u128 {
         .unwrap_or(0)
 }
 
-fn spa_navigation_script(url: &str) -> Result<String, String> {
+fn spa_navigation_script(url: &str, refresh_bridge_url: Option<&str>) -> Result<String, String> {
     let encoded_url = serde_json::to_string(url)
         .map_err(|_| "The AIDOO browser route could not be encoded".to_string())?;
+    let navigate = |method: &str, target: &str| {
+        format!(
+            "window.history.{method}State({{aidooControl:true}},'',{target});window.dispatchEvent(new PopStateEvent('popstate'));"
+        )
+    };
+    let navigation = if let Some(bridge) = refresh_bridge_url {
+        let encoded_bridge = serde_json::to_string(bridge)
+            .map_err(|_| "The AIDOO refresh route could not be encoded".to_string())?;
+        format!(
+            "{}window.setTimeout(()=>{{{}}},500);",
+            navigate("push", &encoded_bridge),
+            navigate("replace", &encoded_url)
+        )
+    } else {
+        navigate("push", &encoded_url)
+    };
     Ok(format!(
-        "(()=>{{if(!document.body||!document.body.innerText.trim())return'not-ready';window.history.pushState({{aidooControl:true}},'',{encoded_url});window.dispatchEvent(new PopStateEvent('popstate'));return'navigated';}})()"
+        "(()=>{{if(!document.body||!document.body.innerText.trim())return'not-ready';{navigation}return'navigated';}})()"
     ))
 }
 
@@ -215,9 +279,13 @@ enum ChromePresentationError {
 }
 
 #[cfg(target_os = "macos")]
-fn present_in_chrome(clinic_prefix: &str, url: &str) -> Result<(), ChromePresentationError> {
-    let navigation_script =
-        spa_navigation_script(url).map_err(|_| ChromePresentationError::Unavailable)?;
+fn present_in_chrome(
+    clinic_prefix: &str,
+    url: &str,
+    refresh_bridge_url: Option<&str>,
+) -> Result<(), ChromePresentationError> {
+    let navigation_script = spa_navigation_script(url, refresh_bridge_url)
+        .map_err(|_| ChromePresentationError::Unavailable)?;
     let output = Command::new("/usr/bin/osascript")
         .arg("-e")
         .arg(CHROME_PRESENT_SCRIPT)
@@ -243,7 +311,11 @@ fn present_in_chrome(clinic_prefix: &str, url: &str) -> Result<(), ChromePresent
 }
 
 #[cfg(not(target_os = "macos"))]
-fn present_in_chrome(_clinic_prefix: &str, _url: &str) -> Result<(), ChromePresentationError> {
+fn present_in_chrome(
+    _clinic_prefix: &str,
+    _url: &str,
+    _refresh_bridge_url: Option<&str>,
+) -> Result<(), ChromePresentationError> {
     Err(ChromePresentationError::Unavailable)
 }
 
@@ -302,6 +374,10 @@ mod tests {
             format!("{scheme}aidoo-web.on.dev-craft.tech/clinics/demo/")
         );
         assert_eq!(
+            status.refresh_bridge_url,
+            format!("{scheme}aidoo-web.on.dev-craft.tech/clinics/demo/documents")
+        );
+        assert_eq!(
             status.url,
             format!(
                 "{scheme}aidoo-web.on.dev-craft.tech/clinics/demo/medical-record?patientid=patient-id&tab=record&mode=status&selectedTeeth=&triggerNzokChecksProp=true&aidooControlSync=42"
@@ -349,18 +425,37 @@ mod tests {
         let target = format!(
             "{scheme}app.aidoo.bg/clinics/demo/medical-record?patientid=patient-id&mode=status"
         );
-        let script = spa_navigation_script(&target).unwrap();
+        let script = spa_navigation_script(&target, None).unwrap();
         assert!(script.contains("history.pushState"));
         assert!(script.contains("PopStateEvent('popstate')"));
         assert!(script.contains("return'navigated'"));
         assert!(script.contains(&format!("\"{target}\"")));
+        assert!(!script.contains("location.reload"));
+    }
+
+    #[test]
+    fn refreshes_a_loaded_spa_by_remounting_the_target_route() {
+        let scheme = ["https:", "//"].concat();
+        let target = format!(
+            "{scheme}app.aidoo.bg/clinics/demo/medical-record?patientid=patient-id&mode=status"
+        );
+        let bridge = format!("{scheme}app.aidoo.bg/clinics/demo/documents");
+        let script = spa_navigation_script(&target, Some(&bridge)).unwrap();
+
+        let bridge_position = script.find(&format!("\"{bridge}\"")).unwrap();
+        let target_position = script.find(&format!("\"{target}\"")).unwrap();
+        assert!(bridge_position < target_position);
+        assert!(script.contains("setTimeout"));
+        assert!(script.contains("history.replaceState"));
+        assert_eq!(script.matches("PopStateEvent('popstate')").count(), 2);
+        assert!(!script.contains("location.reload"));
     }
 
     #[test]
     fn safely_encodes_the_target_inside_the_spa_navigation_script() {
         let scheme = ["https:", "//"].concat();
         let target = format!("{scheme}app.aidoo.bg/clinics/demo/?value=\"quoted\"");
-        let script = spa_navigation_script(&target).unwrap();
+        let script = spa_navigation_script(&target, None).unwrap();
         assert!(script.contains("value=\\\"quoted\\\""));
     }
 }

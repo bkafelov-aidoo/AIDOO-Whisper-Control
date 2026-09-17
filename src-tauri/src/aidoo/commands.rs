@@ -1,7 +1,7 @@
 use super::{
     clinic::parse_clinic_reference,
     draft,
-    presentation::{self, PatientView},
+    presentation::{self, PatientView, PresentationPhase},
     treatment, types, workflow,
 };
 use crate::{acquire_operation, aidoo_keyring_entry, stop_wake_word_listener, storage, AppState};
@@ -14,11 +14,12 @@ fn set_connection_error(state: &AppState, error: Option<String>) {
     }
 }
 
-pub(super) fn show_patient_view(
+pub(super) async fn show_patient_view(
     app: &AppHandle,
     state: &AppState,
     patient_id: &str,
     view: PatientView,
+    phase: PresentationPhase,
 ) {
     let clinic_link = state.settings.lock().ok().and_then(|settings| {
         if !settings.aidoo_browser_sync_enabled {
@@ -30,7 +31,14 @@ pub(super) fn show_patient_view(
             .or_else(|| settings.aidoo_clinic_slug.clone())
     });
     if let Some(clinic_link) = clinic_link {
-        presentation::present_patient(app.clone(), clinic_link, patient_id.to_string(), view);
+        presentation::present_patient(
+            app.clone(),
+            clinic_link,
+            patient_id.to_string(),
+            view,
+            phase,
+        )
+        .await;
     }
 }
 
@@ -240,7 +248,14 @@ pub(crate) async fn aidoo_search_patients(
         .await
         .map_err(|error| error.message)?;
     if let Some(patient) = state.aidoo.remember_patient_search(&results)? {
-        show_patient_view(&app, &state, &patient.id, PatientView::Status);
+        show_patient_view(
+            &app,
+            &state,
+            &patient.id,
+            PatientView::Status,
+            PresentationPhase::Open,
+        )
+        .await;
     }
     Ok(results)
 }
@@ -295,6 +310,14 @@ pub(crate) async fn aidoo_active_treatments(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Vec<types::VisitTreatment>, String> {
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Treatment,
+        PresentationPhase::Open,
+    )
+    .await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let visit = client
@@ -308,7 +331,6 @@ pub(crate) async fn aidoo_active_treatments(
         .visit_treatments(&session.token, &session.clinic_id, &patient_id, &visit.id)
         .await
         .map_err(|error| error.message)?;
-    show_patient_view(&app, &state, &patient_id, PatientView::Treatment);
     Ok(treatments)
 }
 
@@ -321,6 +343,14 @@ pub(crate) async fn aidoo_create_status_visit(
     state: State<'_, AppState>,
 ) -> Result<types::StatusVisitResult, String> {
     require_spoken_confirmation(&confirmation)?;
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Status,
+        PresentationPhase::Open,
+    )
+    .await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let result = workflow::create_status_visit(
@@ -332,7 +362,14 @@ pub(crate) async fn aidoo_create_status_visit(
         is_nzok,
     )
     .await;
-    show_patient_view(&app, &state, &patient_id, PatientView::Status);
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Status,
+        PresentationPhase::Refresh,
+    )
+    .await;
     result.map_err(|error| error.message)
 }
 
@@ -344,6 +381,14 @@ pub(crate) async fn aidoo_prepare_status_draft(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::PreparedStatusDraft, String> {
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Status,
+        PresentationPhase::Open,
+    )
+    .await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let visit = client
@@ -377,7 +422,14 @@ pub(crate) async fn aidoo_prepare_status_draft(
     };
     let view_patient_id = draft.patient_id.clone();
     state.aidoo.store_draft(draft)?;
-    show_patient_view(&app, &state, &view_patient_id, PatientView::Status);
+    show_patient_view(
+        &app,
+        &state,
+        &view_patient_id,
+        PatientView::Status,
+        PresentationPhase::Open,
+    )
+    .await;
     Ok(preview)
 }
 
@@ -390,11 +442,26 @@ pub(crate) async fn aidoo_confirm_status_draft(
 ) -> Result<types::VerificationResult, String> {
     require_spoken_confirmation(&confirmation)?;
     let draft = state.aidoo.take_draft(&draft_id)?;
+    show_patient_view(
+        &app,
+        &state,
+        &draft.patient_id,
+        PatientView::Status,
+        PresentationPhase::Open,
+    )
+    .await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let result =
         workflow::apply_confirmed_draft(&client, &session.token, &session.clinic_id, &draft).await;
-    show_patient_view(&app, &state, &draft.patient_id, PatientView::Status);
+    show_patient_view(
+        &app,
+        &state,
+        &draft.patient_id,
+        PatientView::Status,
+        PresentationPhase::Refresh,
+    )
+    .await;
     result.map_err(|error| error.message)
 }
 
@@ -410,6 +477,14 @@ pub(crate) async fn aidoo_prepare_treatment_draft(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<types::PreparedTreatmentDraft, String> {
+    show_patient_view(
+        &app,
+        &state,
+        &patient_id,
+        PatientView::Treatment,
+        PresentationPhase::Open,
+    )
+    .await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let visit = client
@@ -458,7 +533,14 @@ pub(crate) async fn aidoo_prepare_treatment_draft(
     };
     let view_patient_id = draft.patient_id.clone();
     state.aidoo.store_treatment_draft(draft)?;
-    show_patient_view(&app, &state, &view_patient_id, PatientView::Treatment);
+    show_patient_view(
+        &app,
+        &state,
+        &view_patient_id,
+        PatientView::Treatment,
+        PresentationPhase::Open,
+    )
+    .await;
     Ok(preview)
 }
 
@@ -471,6 +553,14 @@ pub(crate) async fn aidoo_confirm_treatment_draft(
 ) -> Result<types::VerificationResult, String> {
     require_spoken_confirmation(&confirmation)?;
     let draft = state.aidoo.take_treatment_draft(&draft_id)?;
+    show_patient_view(
+        &app,
+        &state,
+        &draft.patient_id,
+        PatientView::Treatment,
+        PresentationPhase::Open,
+    )
+    .await;
     let session = state.aidoo.session()?;
     let client = state.aidoo.client()?;
     let result = workflow::apply_confirmed_treatment_draft(
@@ -480,7 +570,14 @@ pub(crate) async fn aidoo_confirm_treatment_draft(
         &draft,
     )
     .await;
-    show_patient_view(&app, &state, &draft.patient_id, PatientView::Treatment);
+    show_patient_view(
+        &app,
+        &state,
+        &draft.patient_id,
+        PatientView::Treatment,
+        PresentationPhase::Refresh,
+    )
+    .await;
     result.map_err(|error| error.message)
 }
 
