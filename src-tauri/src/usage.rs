@@ -29,7 +29,13 @@ pub(super) fn finish_live_usage(app: &AppHandle) {
         .elapsed()
         .as_millis()
         .min(u128::from(u64::MAX)) as u64;
-    record_usage(app, "live", timing.created_at, millis, models::LIVE_MODEL);
+    record_usage(
+        app,
+        "assistantSession",
+        timing.created_at,
+        millis,
+        models::ASSISTANT_PIPELINE_MODEL,
+    );
 }
 
 pub(super) fn record_transcription_usage(app: &AppHandle, duration_seconds: f64, model: &str) {
@@ -39,6 +45,26 @@ pub(super) fn record_transcription_usage(app: &AppHandle, duration_seconds: f64,
         Utc::now().to_rfc3339(),
         models::duration_millis(duration_seconds),
         model,
+    );
+}
+
+pub(super) fn record_assistant_transcription_usage(app: &AppHandle, duration_seconds: f64) {
+    record_usage(
+        app,
+        "assistantTranscription",
+        Utc::now().to_rfc3339(),
+        models::duration_millis(duration_seconds),
+        models::ASSISTANT_TRANSCRIPTION_MODEL,
+    );
+}
+
+pub(super) fn record_assistant_speech_usage(app: &AppHandle, duration_seconds: f64) {
+    record_usage(
+        app,
+        "assistantSpeech",
+        Utc::now().to_rfc3339(),
+        models::duration_millis(duration_seconds),
+        models::ASSISTANT_SPEECH_MODEL,
     );
 }
 

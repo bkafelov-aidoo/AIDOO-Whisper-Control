@@ -1,54 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { backendUsageFromLiveEvent, executeAidooLiveTool, functionCallFromLiveEvent } from "../src/lib/aidoo-live-tools.ts";
-
-test("extracts only completed delegated function calls", () => {
-  assert.equal(functionCallFromLiveEvent({ type: "response.event", event: { type: "response.output_text.delta" } }), null);
-  assert.deepEqual(functionCallFromLiveEvent({
-    type: "response.event",
-    event: {
-      type: "response.output_item.done",
-      item: { type: "function_call", call_id: "call-1", name: "prepare_aidoo_status", arguments: "{}" },
-    },
-  }), { type: "function_call", call_id: "call-1", name: "prepare_aidoo_status", arguments: "{}" });
-});
-
-test("extracts backend token usage from final delegated responses", () => {
-  assert.deepEqual(backendUsageFromLiveEvent({
-    type: "response.event",
-    event: {
-      type: "response.completed",
-      response: {
-        id: "resp_1",
-        model: "gpt-5.6-terra",
-        usage: {
-          input_tokens: 1_000,
-          input_tokens_details: { cached_tokens: 200, cache_write_tokens: 100 },
-          output_tokens: 50,
-        },
-      },
-    },
-  }), {
-    responseId: "resp_1",
-    model: "gpt-5.6-terra",
-    usage: { inputTokens: 1_000, cachedInputTokens: 200, cacheWriteTokens: 100, outputTokens: 50 },
-  });
-  assert.equal(backendUsageFromLiveEvent({
-    type: "response.event",
-    event: {
-      type: "response.completed",
-      response: {
-        id: "resp_invalid",
-        model: "gpt-5.6-terra",
-        usage: { input_tokens: 10, input_tokens_details: { cached_tokens: 11 }, output_tokens: 1 },
-      },
-    },
-  }), null);
-});
+import { executeAidooVoiceTool } from "../src/lib/aidoo-voice-tools.ts";
 
 test("maps a surface status draft to the protected Tauri command", async () => {
   const calls = [];
-  const result = await executeAidooLiveTool({
+  const result = await executeAidooVoiceTool({
     type: "function_call",
     call_id: "call-2",
     name: "prepare_aidoo_status",
@@ -85,7 +41,7 @@ test("maps the direct clinical protocol without confirmation round trips", async
     calls.push({ command, args });
     return { verification: { outcome: "verified" } };
   };
-  await executeAidooLiveTool({
+  await executeAidooVoiceTool({
     type: "function_call",
     call_id: "call-direct-status",
     name: "apply_aidoo_status",
@@ -103,13 +59,13 @@ test("maps the direct clinical protocol without confirmation round trips", async
       },
     }),
   }, invoke);
-  await executeAidooLiveTool({
+  await executeAidooVoiceTool({
     type: "function_call",
     call_id: "call-finish-status",
     name: "finish_aidoo_status",
     arguments: JSON.stringify({ patientId: "patient-test" }),
   }, invoke);
-  await executeAidooLiveTool({
+  await executeAidooVoiceTool({
     type: "function_call",
     call_id: "call-direct-note",
     name: "write_aidoo_official_note",
@@ -153,7 +109,7 @@ test("maps the direct clinical protocol without confirmation round trips", async
 
 test("returns command failures to the model without retrying", async () => {
   let attempts = 0;
-  const result = await executeAidooLiveTool({
+  const result = await executeAidooVoiceTool({
     type: "function_call",
     call_id: "call-3",
     name: "confirm_aidoo_status",
@@ -172,7 +128,7 @@ test("maps visible schedule discovery and the explicit booking command", async (
     calls.push({ command, args });
     return { ok: true };
   };
-  await executeAidooLiveTool({
+  await executeAidooVoiceTool({
     type: "function_call",
     call_id: "call-find-slot",
     name: "find_aidoo_schedule_slot",
@@ -183,7 +139,7 @@ test("maps visible schedule discovery and the explicit booking command", async (
       doctor: null,
     }),
   }, invoke);
-  await executeAidooLiveTool({
+  await executeAidooVoiceTool({
     type: "function_call",
     call_id: "call-book-slot",
     name: "book_aidoo_schedule_slot",
@@ -207,7 +163,7 @@ test("maps visible schedule discovery and the explicit booking command", async (
 
 test("maps an NZOK status visit with spoken confirmation", async () => {
   const calls = [];
-  await executeAidooLiveTool({
+  await executeAidooVoiceTool({
     type: "function_call",
     call_id: "call-visit",
     name: "create_aidoo_status_visit",
@@ -232,7 +188,7 @@ test("maps diagnosis, procedures and dictated official note as one draft", async
     note: "Пациентът е информиран за възможностите.",
     procedureIds: ["procedure-1"],
   };
-  await executeAidooLiveTool({
+  await executeAidooVoiceTool({
     type: "function_call",
     call_id: "call-treatment",
     name: "prepare_aidoo_treatment",
@@ -249,7 +205,7 @@ test("maps diagnosis, procedures and dictated official note as one draft", async
 
 test("reads active treatment rows before selecting one", async () => {
   const calls = [];
-  await executeAidooLiveTool({
+  await executeAidooVoiceTool({
     type: "function_call",
     call_id: "call-active-treatments",
     name: "get_aidoo_active_treatments",
@@ -267,7 +223,7 @@ test("reads active treatment rows before selecting one", async () => {
 test("rejects unknown tools and malformed arguments before invoking native code", async () => {
   let attempts = 0;
   const fakeInvoke = async () => { attempts += 1; };
-  await assert.rejects(() => executeAidooLiveTool({ call_id: "x", name: "unknown", arguments: "{}" }, fakeInvoke));
-  await assert.rejects(() => executeAidooLiveTool({ call_id: "x", name: "search_aidoo_patients", arguments: "not-json" }, fakeInvoke));
+  await assert.rejects(() => executeAidooVoiceTool({ call_id: "x", name: "unknown", arguments: "{}" }, fakeInvoke));
+  await assert.rejects(() => executeAidooVoiceTool({ call_id: "x", name: "search_aidoo_patients", arguments: "not-json" }, fakeInvoke));
   assert.equal(attempts, 0);
 });

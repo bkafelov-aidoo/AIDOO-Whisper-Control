@@ -3,8 +3,6 @@ import test from "node:test";
 import {
   ASSISTANT_INACTIVITY_MS,
   LiveInactivityTimer,
-  assistantGoodbyeInstruction,
-  assistantGoodbyePrompt,
 } from "../src/lib/live-inactivity.ts";
 
 function fakeClock() {
@@ -51,19 +49,4 @@ test("activity restarts the inactivity window and pause suppresses it", () => {
   timer.start();
   clock.fire();
   assert.equal(closes, 1);
-});
-
-test("idle close asks GPT-Live to say only goodbye before closing", () => {
-  assert.deepEqual(assistantGoodbyeInstruction("idle_1"), {
-    type: "session.instructions.append",
-    event_id: "idle_1",
-    delegation_id: null,
-    content: "След 20 секунди без активност разговорът приключва. Кажи веднага само „Чао!“ на български, без допълнителен текст, след което замълчи.",
-  });
-  assert.deepEqual(assistantGoodbyePrompt("idle_1_prompt"), {
-    type: "session.commentary.append",
-    event_id: "idle_1_prompt",
-    delegation_id: null,
-    content: "Кажи сега само „Чао!“.",
-  });
 });

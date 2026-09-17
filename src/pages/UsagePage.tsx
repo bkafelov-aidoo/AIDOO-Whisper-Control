@@ -4,7 +4,7 @@ import type { AppLanguage, UsageEntry, UsageLedger } from "../types";
 
 export function UsagePage({ usage, language }: { usage: UsageLedger; language: AppLanguage }) {
   const t = translator(language);
-  const aiCost = usage.liveCostNanoUsd + usage.liveBackendCostNanoUsd;
+  const aiCost = usage.liveCostNanoUsd + usage.liveBackendCostNanoUsd + usage.assistantTranscriptionCostNanoUsd + usage.assistantSpeechCostNanoUsd;
   const totalCost = aiCost + usage.transcriptionCostNanoUsd;
   const totalDuration = usage.liveDurationMillis + usage.transcriptionDurationMillis;
 
@@ -27,7 +27,7 @@ export function UsagePage({ usage, language }: { usage: UsageLedger; language: A
           duration={formatDuration(usage.liveDurationMillis, language)}
           count={formatCount(usage.liveSessionCount, language, "session")}
           cost={formatUsd(aiCost)}
-          detail={`${t("usageLiveBase")} ${formatUsd(usage.liveCostNanoUsd)} · ${t("usageBackend")} ${formatUsd(usage.liveBackendCostNanoUsd)}`}
+          detail={`${t("usageAssistantStt")} ${formatUsd(usage.assistantTranscriptionCostNanoUsd)} · ${t("usageBackend")} ${formatUsd(usage.liveBackendCostNanoUsd)} · ${t("usageTts")} ≈${formatUsd(usage.assistantSpeechCostNanoUsd)}${usage.liveCostNanoUsd ? ` · ${t("usageLiveBase")} ${formatUsd(usage.liveCostNanoUsd)}` : ""}`}
         />
         <UsageCard
           className="transcription"
@@ -81,15 +81,15 @@ function UsageRow({ entry, language }: { entry: UsageEntry; language: AppLanguag
   return (
     <article className="usage-row">
       <div className={`usage-row-icon ${entry.kind}`}>
-        {entry.kind === "live" ? <MessageCircle /> : entry.kind === "liveBackend" ? <Server /> : <AudioLines />}
+        {entry.kind === "live" || entry.kind === "assistantSession" || entry.kind === "assistantSpeech" ? <MessageCircle /> : entry.kind === "liveBackend" ? <Server /> : <AudioLines />}
       </div>
       <div className="usage-row-copy">
-        <strong>{entry.kind === "live" ? t("usageAiSession") : entry.kind === "liveBackend" ? t("usageBackendResponse") : t("usageTranscription")}</strong>
+        <strong>{entry.kind === "live" ? t("usageAiSession") : entry.kind === "assistantSession" ? t("usageAssistantSession") : entry.kind === "assistantTranscription" ? t("usageAssistantRecognition") : entry.kind === "assistantSpeech" ? t("usageAssistantSpeech") : entry.kind === "liveBackend" ? t("usageBackendResponse") : t("usageTranscription")}</strong>
         <span>{formatDate(entry.createdAt, language)} · {entry.model}</span>
       </div>
       {entry.importedFromHistory && <span className="usage-imported">{t("usageImported")}</span>}
       <div className="usage-row-values">
-        <strong>{formatUsd(entry.costNanoUsd)}</strong>
+        <strong>{entry.estimated ? `≈${formatUsd(entry.costNanoUsd)}` : formatUsd(entry.costNanoUsd)}</strong>
         <span>{entry.kind === "liveBackend" ? formatTokenUsage(entry, language) : formatDuration(entry.durationMillis, language)}</span>
       </div>
     </article>

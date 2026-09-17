@@ -7,8 +7,8 @@ mod audio;
 mod commands;
 mod dictation;
 mod feedback_sound;
-mod live;
 mod recovery;
+mod voice_pipeline;
 mod wake_runtime;
 mod wake_word;
 
@@ -20,6 +20,7 @@ use commands::*;
 use dictation::*;
 use recovery::*;
 use usage::*;
+use voice_commands::*;
 use wake_runtime::*;
 
 mod models;
@@ -30,6 +31,7 @@ mod tests;
 mod text_insertion;
 mod transcription;
 mod usage;
+mod voice_commands;
 
 use chrono::{Local, Utc};
 use models::{
@@ -117,6 +119,7 @@ struct AppState {
     live_usage_timing: Mutex<Option<usage::LiveUsageTiming>>,
     live_backend_response_ids: Mutex<HashSet<String>>,
     live_phase: Mutex<String>,
+    voice_pipeline: voice_pipeline::VoicePipelineRuntime,
     assistant_start_request: AssistantStartRequest,
     aidoo: aidoo::runtime::AidooRuntime,
     aidoo_connection_error: Mutex<Option<String>>,
@@ -167,6 +170,7 @@ impl AppState {
             live_usage_timing: Mutex::new(None),
             live_backend_response_ids: Mutex::new(HashSet::new()),
             live_phase: Mutex::new("idle".into()),
+            voice_pipeline: voice_pipeline::VoicePipelineRuntime::default(),
             assistant_start_request: AssistantStartRequest::default(),
             aidoo: aidoo::runtime::AidooRuntime::new(),
             aidoo_connection_error: Mutex::new(None),
@@ -373,9 +377,10 @@ pub fn run() {
             start_wake_word_calibration,
             stop_wake_word_calibration,
             prepare_live_session,
-            create_live_session,
+            begin_voice_turn,
+            continue_voice_turn,
+            synthesize_voice_reply,
             end_live_session,
-            record_live_backend_usage,
             set_live_phase,
             request_live_stop,
             take_assistant_request,

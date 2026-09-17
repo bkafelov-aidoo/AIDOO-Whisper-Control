@@ -15,6 +15,8 @@ export function AssistantPage({ live, language, available, dictationBusy, aidooC
   const status = live.phase === "preparing" ? t("livePreparing")
     : live.phase === "connecting" ? t("liveConnecting")
       : live.phase === "listening" ? t("liveListening")
+        : live.phase === "hearing" ? t("liveHearing")
+          : live.phase === "transcribing" ? t("liveTranscribing")
         : live.phase === "speaking" ? t("liveSpeaking")
           : live.phase === "working" ? t("liveWorking")
             : live.phase === "switching" ? t("liveSwitching")
@@ -24,7 +26,7 @@ export function AssistantPage({ live, language, available, dictationBusy, aidooC
 
   return <div className="page assistant-page">
     <header className="page-header">
-      <div><span className="eyebrow">GPT-LIVE-1</span><h1>{t("assistant")}</h1><p>{t("assistantTagline")}</p></div>
+      <div><span className="eyebrow">AIDOO VOICE</span><h1>{t("assistant")}</h1><p>{t("assistantTagline")}</p></div>
       <span className={`assistant-mode-pill ${active ? "active" : ""}`}><MessageCircle />{t("assistantMode")}</span>
     </header>
     <section className={`assistant-stage ${live.phase}`} aria-live="polite">
@@ -35,7 +37,7 @@ export function AssistantPage({ live, language, available, dictationBusy, aidooC
       <span className="assistant-mode-label">{t("assistantMode")}</span>
       <h2>{status}</h2>
       <p>{active ? t("liveActiveHelp") : t("liveHelp")}</p>
-      {active && <div className="assistant-wave" aria-hidden="true">{Array.from({ length: 13 }, (_, index) => <i key={index} />)}</div>}
+      {(live.phase === "listening" || live.phase === "hearing" || live.phase === "speaking") && <div className="assistant-wave" aria-hidden="true">{Array.from({ length: 13 }, (_, index) => <i key={index} />)}</div>}
       <div className="assistant-actions">
         {active
           ? <button className="danger-button assistant-end" disabled={live.phase === "closing" || live.phase === "switching"} onClick={live.stop}><Square />{t("liveStop")}</button>

@@ -35,7 +35,7 @@ export interface TranscriptEntry {
 
 export interface UsageEntry {
   id: string;
-  kind: "live" | "liveBackend" | "transcription";
+  kind: "live" | "assistantSession" | "assistantTranscription" | "assistantSpeech" | "liveBackend" | "transcription";
   createdAt: string;
   durationMillis: number;
   model: string;
@@ -46,6 +46,7 @@ export interface UsageEntry {
   cacheWriteTokens: number;
   outputTokens: number;
   importedFromHistory: boolean;
+  estimated: boolean;
 }
 
 export interface UsageLedger {
@@ -60,6 +61,10 @@ export interface UsageLedger {
   liveBackendInputTokens: number;
   liveBackendOutputTokens: number;
   transcriptionCount: number;
+  assistantTranscriptionDurationMillis: number;
+  assistantTranscriptionCostNanoUsd: number;
+  assistantSpeechDurationMillis: number;
+  assistantSpeechCostNanoUsd: number;
 }
 
 export interface FailedRecording {
@@ -118,7 +123,7 @@ export interface BootstrapState {
 export interface OverlayBootstrapState {
   uiLanguage: "auto" | "bg" | "en";
   recording: RecordingSnapshot;
-  assistantPhase: "idle" | "preparing" | "connecting" | "listening" | "speaking" | "working" | "switching" | "closing" | "error";
+  assistantPhase: "idle" | "preparing" | "connecting" | "listening" | "hearing" | "transcribing" | "speaking" | "working" | "switching" | "closing" | "error";
 }
 
 export interface TranscriptionCompleted {

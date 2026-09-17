@@ -162,7 +162,7 @@ export default function App() {
         </nav>
         <div className={`sidebar-status ${status.tone}`}>
           <i />
-          <span>{liveBusy ? (live.phase === "speaking" ? t("liveSpeaking") : live.phase === "listening" ? t("liveListening") : t("liveConnecting")) : status.label}</span>
+          <span>{liveBusy ? (live.phase === "speaking" ? t("liveSpeaking") : live.phase === "hearing" ? t("liveHearing") : live.phase === "transcribing" ? t("liveTranscribing") : live.phase === "listening" ? t("liveListening") : live.phase === "working" ? t("liveWorking") : t("liveConnecting")) : status.label}</span>
           <kbd>{shortcut}</kbd>
         </div>
       </aside>

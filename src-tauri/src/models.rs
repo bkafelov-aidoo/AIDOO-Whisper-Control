@@ -3,16 +3,22 @@ use std::path::Path;
 
 pub const ECONOMY_MODEL: &str = "gpt-4o-mini-transcribe";
 pub const ACCURACY_MODEL: &str = "gpt-transcribe";
+pub const ASSISTANT_TRANSCRIPTION_MODEL: &str = "gpt-transcribe";
+pub const ASSISTANT_REASONING_MODEL: &str = "gpt-5.6-luna";
+pub const ASSISTANT_SPEECH_MODEL: &str = "gpt-4o-mini-tts";
+pub const ASSISTANT_PIPELINE_MODEL: &str = "turn-based-voice-pipeline";
+// Kept for correctly pricing usage entries created before the pipeline migration.
 pub const LIVE_MODEL: &str = "gpt-live-1";
-pub const LIVE_BACKEND_MODEL: &str = "gpt-5.6-terra";
+pub const LIVE_BACKEND_MODEL: &str = ASSISTANT_REASONING_MODEL;
 pub const ECONOMY_RATE_NANO_USD_PER_MINUTE: u64 = 3_000_000;
 pub const ACCURACY_RATE_NANO_USD_PER_MINUTE: u64 = 4_500_000;
 pub const LIVE_RATE_NANO_USD_PER_MINUTE: u64 = 50_000_000;
-const TERRA_INPUT_NANO_USD_PER_TOKEN: u64 = 2_000;
-const TERRA_CACHED_INPUT_NANO_USD_PER_TOKEN: u64 = 200;
-const TERRA_CACHE_WRITE_NANO_USD_PER_TOKEN: u64 = 2_500;
-const TERRA_OUTPUT_NANO_USD_PER_TOKEN: u64 = 12_000;
-const TERRA_LONG_CONTEXT_THRESHOLD: u64 = 272_000;
+pub const ASSISTANT_SPEECH_ESTIMATED_RATE_NANO_USD_PER_MINUTE: u64 = 15_000_000;
+const LUNA_INPUT_NANO_USD_PER_TOKEN: u64 = 200;
+const LUNA_CACHED_INPUT_NANO_USD_PER_TOKEN: u64 = 20;
+const LUNA_CACHE_WRITE_NANO_USD_PER_TOKEN: u64 = 250;
+const LUNA_OUTPUT_NANO_USD_PER_TOKEN: u64 = 1_200;
+const LUNA_LONG_CONTEXT_THRESHOLD: u64 = 272_000;
 const SUPPORTED_LANGUAGES: &[&str] = &["auto", "bg", "en", "de", "es", "fr", "it"];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -226,14 +232,14 @@ mod tests {
             cache_write_tokens: 100,
             output_tokens: 50,
         };
-        assert_eq!(live_backend_cost_nano_usd(&backend), Some(2_290_000));
+        assert_eq!(live_backend_cost_nano_usd(&backend), Some(229_000));
 
         let mut usage = UsageLedger::default();
         let entry = usage
             .record_live_backend("2026-09-17T10:00:00Z".into(), LIVE_BACKEND_MODEL, &backend)
             .unwrap();
         assert_eq!(entry.kind, "liveBackend");
-        assert_eq!(usage.live_backend_cost_nano_usd, 2_290_000);
+        assert_eq!(usage.live_backend_cost_nano_usd, 229_000);
         assert_eq!(usage.live_backend_response_count, 1);
         assert_eq!(usage.live_backend_input_tokens, 1_000);
         assert_eq!(usage.live_backend_output_tokens, 50);
@@ -255,7 +261,7 @@ mod tests {
             cache_write_tokens: 0,
             output_tokens: 10,
         };
-        assert_eq!(live_backend_cost_nano_usd(&long), Some(1_088_184_000));
+        assert_eq!(live_backend_cost_nano_usd(&long), Some(108_818_400));
     }
 }
 
@@ -292,9 +298,11 @@ pub struct UsageEntry {
     pub output_tokens: u64,
     #[serde(default)]
     pub imported_from_history: bool,
+    #[serde(default)]
+    pub estimated: bool,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveBackendUsage {
     pub input_tokens: u64,
@@ -319,6 +327,10 @@ pub struct UsageLedger {
     pub live_backend_input_tokens: u64,
     pub live_backend_output_tokens: u64,
     pub transcription_count: u64,
+    pub assistant_transcription_duration_millis: u64,
+    pub assistant_transcription_cost_nano_usd: u64,
+    pub assistant_speech_duration_millis: u64,
+    pub assistant_speech_cost_nano_usd: u64,
 }
 
 impl UsageLedger {
@@ -332,6 +344,13 @@ impl UsageLedger {
     ) -> Option<UsageEntry> {
         let rate = match (kind, model) {
             ("live", LIVE_MODEL) => LIVE_RATE_NANO_USD_PER_MINUTE,
+            ("assistantSession", ASSISTANT_PIPELINE_MODEL) => 0,
+            ("assistantTranscription", ASSISTANT_TRANSCRIPTION_MODEL) => {
+                ACCURACY_RATE_NANO_USD_PER_MINUTE
+            }
+            ("assistantSpeech", ASSISTANT_SPEECH_MODEL) => {
+                ASSISTANT_SPEECH_ESTIMATED_RATE_NANO_USD_PER_MINUTE
+            }
             ("transcription", ECONOMY_MODEL) => ECONOMY_RATE_NANO_USD_PER_MINUTE,
             ("transcription", ACCURACY_MODEL) => ACCURACY_RATE_NANO_USD_PER_MINUTE,
             _ => return None,
@@ -350,13 +369,31 @@ impl UsageLedger {
             cache_write_tokens: 0,
             output_tokens: 0,
             imported_from_history,
+            estimated: kind == "assistantSpeech",
         };
         match kind {
-            "live" => {
+            "live" | "assistantSession" => {
                 self.live_duration_millis =
                     self.live_duration_millis.saturating_add(duration_millis);
-                self.live_cost_nano_usd = self.live_cost_nano_usd.saturating_add(cost);
+                if kind == "live" {
+                    self.live_cost_nano_usd = self.live_cost_nano_usd.saturating_add(cost);
+                }
                 self.live_session_count = self.live_session_count.saturating_add(1);
+            }
+            "assistantTranscription" => {
+                self.assistant_transcription_duration_millis = self
+                    .assistant_transcription_duration_millis
+                    .saturating_add(duration_millis);
+                self.assistant_transcription_cost_nano_usd = self
+                    .assistant_transcription_cost_nano_usd
+                    .saturating_add(cost);
+            }
+            "assistantSpeech" => {
+                self.assistant_speech_duration_millis = self
+                    .assistant_speech_duration_millis
+                    .saturating_add(duration_millis);
+                self.assistant_speech_cost_nano_usd =
+                    self.assistant_speech_cost_nano_usd.saturating_add(cost);
             }
             "transcription" => {
                 self.transcription_duration_millis = self
@@ -396,6 +433,7 @@ impl UsageLedger {
             cache_write_tokens: usage.cache_write_tokens,
             output_tokens: usage.output_tokens,
             imported_from_history: false,
+            estimated: false,
         };
         self.live_backend_cost_nano_usd = self.live_backend_cost_nano_usd.saturating_add(cost);
         self.live_backend_response_count = self.live_backend_response_count.saturating_add(1);
@@ -428,18 +466,18 @@ pub fn live_backend_cost_nano_usd(usage: &LiveBackendUsage) -> Option<u64> {
         .cached_input_tokens
         .checked_add(usage.cache_write_tokens)?;
     let uncached = usage.input_tokens.checked_sub(discounted)?;
-    let long_context = usage.input_tokens > TERRA_LONG_CONTEXT_THRESHOLD;
+    let long_context = usage.input_tokens > LUNA_LONG_CONTEXT_THRESHOLD;
     let input_multiplier = if long_context { 2_u128 } else { 1 };
     let output_numerator = if long_context { 3_u128 } else { 2 };
-    let cost = u128::from(uncached) * u128::from(TERRA_INPUT_NANO_USD_PER_TOKEN) * input_multiplier
+    let cost = u128::from(uncached) * u128::from(LUNA_INPUT_NANO_USD_PER_TOKEN) * input_multiplier
         + u128::from(usage.cached_input_tokens)
-            * u128::from(TERRA_CACHED_INPUT_NANO_USD_PER_TOKEN)
+            * u128::from(LUNA_CACHED_INPUT_NANO_USD_PER_TOKEN)
             * input_multiplier
         + u128::from(usage.cache_write_tokens)
-            * u128::from(TERRA_CACHE_WRITE_NANO_USD_PER_TOKEN)
+            * u128::from(LUNA_CACHE_WRITE_NANO_USD_PER_TOKEN)
             * input_multiplier
         + u128::from(usage.output_tokens)
-            * u128::from(TERRA_OUTPUT_NANO_USD_PER_TOKEN)
+            * u128::from(LUNA_OUTPUT_NANO_USD_PER_TOKEN)
             * output_numerator
             / 2;
     Some(cost.min(u128::from(u64::MAX)) as u64)

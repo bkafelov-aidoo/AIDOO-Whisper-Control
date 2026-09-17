@@ -147,6 +147,8 @@ export default function Overlay() {
   const assistantStatus = assistantPhase === "preparing" ? (language === "bg" ? "Подготвям микрофона…" : "Preparing the microphone…")
     : assistantPhase === "connecting" ? (language === "bg" ? "Свързвам се с AIDOO…" : "Connecting to AIDOO…")
       : assistantPhase === "listening" ? (language === "bg" ? "AIDOO ви слуша" : "AIDOO is listening")
+        : assistantPhase === "hearing" ? (language === "bg" ? "Чувам ви…" : "I can hear you…")
+          : assistantPhase === "transcribing" ? (language === "bg" ? "Разпознавам командата…" : "Recognising the command…")
         : assistantPhase === "speaking" ? (language === "bg" ? "AIDOO говори" : "AIDOO is speaking")
           : assistantPhase === "working" ? (language === "bg" ? "Проверявам действието в AIDOO…" : "Checking the action in AIDOO…")
           : assistantPhase === "switching" ? (language === "bg" ? "Стартирам транскрипция…" : "Starting dictation…")
@@ -164,7 +166,7 @@ export default function Overlay() {
           <strong>{assistantStatus}</strong>
           <span>{language === "bg" ? "„Започни транскрипция“ за запис · „Край“ за приключване" : "“Start transcription” to record · “End” to finish"}</span>
         </div>
-        {(assistantPhase === "listening" || assistantPhase === "speaking") && <div className="overlay-wave assistant-wave" aria-hidden="true">{Array.from({ length: 7 }, (_, index) => <i key={index} style={{ animationDelay: `${index * -0.09}s` }} />)}</div>}
+        {(assistantPhase === "listening" || assistantPhase === "hearing" || assistantPhase === "speaking") && <div className="overlay-wave assistant-wave" aria-hidden="true">{Array.from({ length: 7 }, (_, index) => <i key={index} style={{ animationDelay: `${index * -0.09}s` }} />)}</div>}
         <button className="overlay-stop assistant-stop" type="button" title={language === "bg" ? "Приключи AI разговора" : "End the AI conversation"} aria-label={language === "bg" ? "Приключи AI разговора" : "End the AI conversation"} onClick={() => void stopAssistant()}>
           <Square aria-hidden="true" /><span>{language === "bg" ? "Край" : "End"}</span>
         </button>
