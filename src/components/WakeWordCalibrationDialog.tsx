@@ -8,15 +8,16 @@ import type { AppLanguage, WakeWordCalibrationScore } from "../types";
 import type { ToastHandler } from "../ui-types";
 import { useDialogFocus } from "../hooks/useDialogFocus";
 
-type Phase = "intro" | "starting" | "countdown" | "listening" | "success" | "failed";
+type Phase = "intro" | "starting" | "countdown" | "listening" | "enabling" | "success" | "failed";
 const REQUIRED_MATCHES = 3;
 const INITIAL_COUNTDOWN = 2;
 const NEXT_ATTEMPT_DELAY_MS = 900;
 
-export function WakeWordCalibrationDialog({ language, onClose, onToast }: {
+export function WakeWordCalibrationDialog({ language, onClose, onToast, onCalibrated }: {
   language: AppLanguage;
   onClose: () => void;
   onToast: ToastHandler;
+  onCalibrated: () => Promise<void>;
 }) {
   const t = translator(language);
   const [phase, setPhase] = useState<Phase>("intro");
@@ -32,6 +33,11 @@ export function WakeWordCalibrationDialog({ language, onClose, onToast }: {
   const hearingTimerRef = useRef<number | null>(null);
   const countdownTimerRef = useRef<number | null>(null);
   const nextAttemptTimerRef = useRef<number | null>(null);
+  const onCalibratedRef = useRef(onCalibrated);
+
+  useEffect(() => {
+    onCalibratedRef.current = onCalibrated;
+  }, [onCalibrated]);
 
   const moveTo = (next: Phase) => {
     phaseRef.current = next;
@@ -54,7 +60,18 @@ export function WakeWordCalibrationDialog({ language, onClose, onToast }: {
     await stop();
     onClose();
   };
-  const dialogRef = useDialogFocus(() => void close(), phase !== "starting");
+  const complete = async () => {
+    moveTo("enabling");
+    await stop();
+    try {
+      await onCalibratedRef.current();
+      moveTo("success");
+    } catch (reason) {
+      moveTo("failed");
+      onToast(String(reason).replace(/^Error:\s*/, ""), "error");
+    }
+  };
+  const dialogRef = useDialogFocus(() => void close(), phase !== "starting" && phase !== "enabling");
 
   useEffect(() => {
     const events = createEventScope(listen, (reason) => onToast(String(reason), "error"));
@@ -84,8 +101,7 @@ export function WakeWordCalibrationDialog({ language, onClose, onToast }: {
         const next = Math.min(REQUIRED_MATCHES, current + 1);
         if (next === REQUIRED_MATCHES) {
           nextAttemptTimerRef.current = window.setTimeout(() => {
-            moveTo("success");
-            void stop();
+            void complete();
           }, 450);
         } else {
           nextAttemptTimerRef.current = window.setTimeout(() => {
@@ -144,12 +160,14 @@ export function WakeWordCalibrationDialog({ language, onClose, onToast }: {
   };
 
   const active = phase === "starting" || phase === "countdown" || phase === "listening";
+  const busy = phase === "starting" || phase === "enabling";
   return <div className="modal-backdrop"><section ref={dialogRef} className="calibration-dialog" role="dialog" aria-modal="true" aria-labelledby="wake-calibration-title" tabIndex={-1}>
-    <button className="close-button" aria-label={t("cancel")} disabled={phase === "starting"} onClick={() => void close()}><X /></button>
-    <span className={`calibration-icon ${phase}`} aria-hidden="true">{phase === "success" ? <Check /> : active ? <Mic /> : <AudioLines />}</span>
+    <button className="close-button" aria-label={t("cancel")} disabled={busy} onClick={() => void close()}><X /></button>
+    <span className={`calibration-icon ${phase}`} aria-hidden="true">{phase === "success" ? <Check /> : active ? <Mic /> : phase === "enabling" ? <LoaderCircle className="spin" /> : <AudioLines />}</span>
     <h2 id="wake-calibration-title">{t("wakeCalibrationTitle")}</h2>
     {phase === "intro" && <><p>{t("wakeCalibrationIntro")}</p><div className="privacy-note">{t("wakeCalibrationPrivacy")}</div></>}
     {phase === "starting" && <><LoaderCircle className="spin calibration-loader" /><strong>{t("wakeCalibrationStarting")}</strong></>}
+    {phase === "enabling" && <><LoaderCircle className="spin calibration-loader" /><strong>{t("wakeCalibrationEnabling")}</strong></>}
     {phase === "countdown" && <><strong className="calibration-countdown">{countdown}</strong><p>{t("wakeCalibrationPrepare")}</p></>}
     {phase === "listening" && <>
       <strong className="calibration-prompt">Hey, AIDOO</strong>
@@ -165,7 +183,7 @@ export function WakeWordCalibrationDialog({ language, onClose, onToast }: {
       {phase === "intro" && <button className="primary-button" onClick={() => void start()}><Mic />{t("wakeCalibrationStart")}</button>}
       {phase === "failed" && <button className="primary-button" onClick={() => void start()}><RotateCcw />{t("retry")}</button>}
       {phase === "success" && <button className="primary-button" onClick={() => void close()}><Check />{t("finish")}</button>}
-      {active && <button className="secondary-button" disabled={phase === "starting"} onClick={() => void close()}>{t("cancel")}</button>}
+      {active && <button className="secondary-button" disabled={busy} onClick={() => void close()}>{t("cancel")}</button>}
     </footer>
   </section></div>;
 }
