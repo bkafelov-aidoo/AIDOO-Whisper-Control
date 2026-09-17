@@ -29,6 +29,26 @@ fn key_matching_requires_the_exact_modifier_set() {
 }
 
 #[test]
+fn captured_shortcut_is_suppressed_until_the_user_releases_the_chord() {
+    let mut runtime = ShortcutRuntime::default();
+
+    runtime.track_physical_key("alt_gr", true);
+    runtime.suppress_shortcuts_until_current_keys_are_released();
+
+    // A repeated/duplicate key-down from the same physical press must not start dictation.
+    runtime.track_physical_key("alt_gr", true);
+    assert!(runtime.consume_capture_release_guard());
+
+    // The release that ends shortcut capture is consumed as part of the same gesture.
+    runtime.track_physical_key("alt_gr", false);
+    assert!(runtime.consume_capture_release_guard());
+
+    // A later, deliberate press is the first event that may start dictation.
+    runtime.track_physical_key("alt_gr", true);
+    assert!(!runtime.consume_capture_release_guard());
+}
+
+#[test]
 fn right_option_matches_as_a_dedicated_physical_key() {
     let binding = ShortcutBinding::key("alt_gr", &[]);
     let platform_side_effect = BTreeSet::from(["control"]);
@@ -78,6 +98,7 @@ fn listener_reset_releases_stale_push_to_talk_state() {
             ..ModifierState::default()
         },
         dictation_trigger: Some(InputTrigger::Key("alt_gr".into())),
+        ..ShortcutRuntime::default()
     };
 
     assert!(runtime.reset_stale_inputs());

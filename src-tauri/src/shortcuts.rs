@@ -105,13 +105,39 @@ impl ModifierState {
 struct ShortcutRuntime {
     modifiers: ModifierState,
     dictation_trigger: Option<InputTrigger>,
+    pressed_keys: BTreeSet<String>,
+    suppress_shortcuts_until_release: bool,
 }
 
 impl ShortcutRuntime {
+    fn track_physical_key(&mut self, code: &str, pressed: bool) {
+        if pressed {
+            self.pressed_keys.insert(code.into());
+        } else {
+            self.pressed_keys.remove(code);
+        }
+    }
+
+    fn suppress_shortcuts_until_current_keys_are_released(&mut self) {
+        self.suppress_shortcuts_until_release = !self.pressed_keys.is_empty();
+    }
+
+    fn consume_capture_release_guard(&mut self) -> bool {
+        if !self.suppress_shortcuts_until_release {
+            return false;
+        }
+        if self.pressed_keys.is_empty() {
+            self.suppress_shortcuts_until_release = false;
+        }
+        true
+    }
+
     #[cfg(target_os = "macos")]
     fn reset_stale_inputs(&mut self) -> bool {
         let dictation_was_active = self.dictation_trigger.take().is_some();
         self.modifiers = ModifierState::default();
+        self.pressed_keys.clear();
+        self.suppress_shortcuts_until_release = false;
         dictation_was_active
     }
 }
@@ -244,11 +270,21 @@ fn process_event(app: &AppHandle, runtime: &mut ShortcutRuntime, event: InputEve
             "right-option up received"
         });
     }
+    runtime.track_physical_key(code, pressed);
     if pressed {
         runtime.modifiers.update(code, true);
     }
     if capture_is_active(app) {
         process_capture_key(app, &runtime.modifiers, code, pressed);
+        if !capture_is_active(app) {
+            runtime.suppress_shortcuts_until_current_keys_are_released();
+        }
+        if !pressed {
+            runtime.modifiers.update(code, false);
+        }
+        return;
+    }
+    if runtime.consume_capture_release_guard() {
         if !pressed {
             runtime.modifiers.update(code, false);
         }
