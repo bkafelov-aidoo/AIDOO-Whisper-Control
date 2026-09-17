@@ -22,6 +22,8 @@ const CHROME_PRESENT_SCRIPT: &str = r#"
 on run argv
   set clinicPrefix to item 1 of argv
   set targetURL to item 2 of argv
+  set navigationJavaScript to item 3 of argv
+  set foundClinicTab to false
   tell application "Google Chrome"
     if (count of windows) is 0 then
       make new window
@@ -31,14 +33,24 @@ on run argv
         set browserTab to tab tabIndex of browserWindow
         set tabURL to URL of browserTab
         if tabURL starts with clinicPrefix then
-          set URL of browserTab to targetURL
-          set active tab index of browserWindow to tabIndex
-          set index of browserWindow to 1
-          activate
-          return "reused"
+          set foundClinicTab to true
+          try
+            set navigationResult to execute browserTab javascript navigationJavaScript
+          on error
+            return "javascript-disabled"
+          end try
+          if navigationResult is "navigated" then
+            set active tab index of browserWindow to tabIndex
+            set index of browserWindow to 1
+            activate
+            return "reused-spa"
+          end if
         end if
       end repeat
     end repeat
+    if foundClinicTab then
+      return "no-ready-tab"
+    end if
     tell front window
       make new tab at end of tabs with properties {URL:targetURL}
       set active tab index to (count of tabs)
@@ -84,8 +96,29 @@ fn present_target(app: AppHandle, target: PatientViewTarget, failure_message: &'
     let _ = std::thread::Builder::new()
         .name("aidoo-browser-presentation".into())
         .spawn(move || {
-            if present_in_chrome(&target.clinic_prefix, &target.url).is_ok() {
-                return;
+            match present_in_chrome(&target.clinic_prefix, &target.url) {
+                Ok(()) => return,
+                Err(ChromePresentationError::JavascriptDisabled) => {
+                    crate::storage::append_diagnostic(
+                        "AIDOO browser presentation requires JavaScript from Apple Events",
+                    );
+                    let _ = thread_app.emit(
+                        "toast",
+                        "Chrome блокира показването на AIDOO. В Chrome включете View → Developer → Allow JavaScript from Apple Events и опитайте отново.",
+                    );
+                    return;
+                }
+                Err(ChromePresentationError::NoReadyTab) => {
+                    crate::storage::append_diagnostic(
+                        "AIDOO browser presentation found only an unloaded clinic tab",
+                    );
+                    let _ = thread_app.emit(
+                        "toast",
+                        "AIDOO табът е празен заради остарял browser cache. Отворете работещ AIDOO екран в Chrome и опитайте отново.",
+                    );
+                    return;
+                }
+                Err(ChromePresentationError::Unavailable) => {}
             }
             if open_in_chrome(&target.url).is_ok() {
                 return;
@@ -166,28 +199,51 @@ fn sync_nonce() -> u128 {
         .unwrap_or(0)
 }
 
+fn spa_navigation_script(url: &str) -> Result<String, String> {
+    let encoded_url = serde_json::to_string(url)
+        .map_err(|_| "The AIDOO browser route could not be encoded".to_string())?;
+    Ok(format!(
+        "(()=>{{if(!document.body||!document.body.innerText.trim())return'not-ready';window.history.pushState({{aidooControl:true}},'',{encoded_url});window.dispatchEvent(new PopStateEvent('popstate'));return'navigated';}})()"
+    ))
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ChromePresentationError {
+    JavascriptDisabled,
+    NoReadyTab,
+    Unavailable,
+}
+
 #[cfg(target_os = "macos")]
-fn present_in_chrome(clinic_prefix: &str, url: &str) -> Result<(), String> {
-    let status = Command::new("/usr/bin/osascript")
+fn present_in_chrome(clinic_prefix: &str, url: &str) -> Result<(), ChromePresentationError> {
+    let navigation_script = spa_navigation_script(url).map_err(|_| ChromePresentationError::Unavailable)?;
+    let output = Command::new("/usr/bin/osascript")
         .arg("-e")
         .arg(CHROME_PRESENT_SCRIPT)
         .arg("--")
         .arg(clinic_prefix)
         .arg(url)
+        .arg(navigation_script)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .status()
-        .map_err(|_| "Chrome automation could not start".to_string())?;
-    status
-        .success()
-        .then_some(())
-        .ok_or_else(|| "Chrome automation was not available".into())
+        .output()
+        .map_err(|_| ChromePresentationError::Unavailable)?;
+    if !output.status.success() {
+        return Err(ChromePresentationError::Unavailable);
+    }
+    let result = String::from_utf8_lossy(&output.stdout);
+    if result.trim() == "javascript-disabled" {
+        return Err(ChromePresentationError::JavascriptDisabled);
+    }
+    if result.trim() == "no-ready-tab" {
+        return Err(ChromePresentationError::NoReadyTab);
+    }
+    Ok(())
 }
 
 #[cfg(not(target_os = "macos"))]
-fn present_in_chrome(_clinic_prefix: &str, _url: &str) -> Result<(), String> {
-    Err("Chrome automation is not implemented on this platform".into())
+fn present_in_chrome(_clinic_prefix: &str, _url: &str) -> Result<(), ChromePresentationError> {
+    Err(ChromePresentationError::Unavailable)
 }
 
 #[cfg(target_os = "macos")]
@@ -278,5 +334,32 @@ mod tests {
         let clinic = ["https:", "//app.aidoo.bg/clinics/demo/login"].concat();
         assert!(schedule_view_url(&clinic, "2026-09-21&mode=x", "doctor-id", 1).is_err());
         assert!(schedule_view_url(&clinic, "2026-09-21", "doctor&id", 1).is_err());
+    }
+
+    #[test]
+    fn reuses_the_loaded_spa_without_hard_reloading_the_patient_route() {
+        assert!(
+            CHROME_PRESENT_SCRIPT.contains("execute browserTab javascript navigationJavaScript")
+        );
+        assert!(!CHROME_PRESENT_SCRIPT.contains("set URL of browserTab to targetURL"));
+        assert!(CHROME_PRESENT_SCRIPT.contains("return \"no-ready-tab\""));
+
+        let scheme = ["https:", "//"].concat();
+        let target = format!(
+            "{scheme}app.aidoo.bg/clinics/demo/medical-record?patientid=patient-id&mode=status"
+        );
+        let script = spa_navigation_script(&target).unwrap();
+        assert!(script.contains("history.pushState"));
+        assert!(script.contains("PopStateEvent('popstate')"));
+        assert!(script.contains("return'navigated'"));
+        assert!(script.contains(&format!("\"{target}\"")));
+    }
+
+    #[test]
+    fn safely_encodes_the_target_inside_the_spa_navigation_script() {
+        let scheme = ["https:", "//"].concat();
+        let target = format!("{scheme}app.aidoo.bg/clinics/demo/?value=\"quoted\"");
+        let script = spa_navigation_script(&target).unwrap();
+        assert!(script.contains("value=\\\"quoted\\\""));
     }
 }
