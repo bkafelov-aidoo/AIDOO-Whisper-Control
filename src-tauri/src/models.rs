@@ -7,9 +7,10 @@ pub const ASSISTANT_TRANSCRIPTION_MODEL: &str = "gpt-transcribe";
 pub const ASSISTANT_REASONING_MODEL: &str = "gpt-5.6-luna";
 pub const ASSISTANT_SPEECH_MODEL: &str = "gpt-4o-mini-tts";
 pub const ASSISTANT_PIPELINE_MODEL: &str = "turn-based-voice-pipeline";
-// Kept for correctly pricing usage entries created before the pipeline migration.
 pub const LIVE_MODEL: &str = "gpt-live-1";
 pub const LIVE_BACKEND_MODEL: &str = ASSISTANT_REASONING_MODEL;
+pub const ASSISTANT_MODE_ECONOMY: &str = "economy";
+pub const ASSISTANT_MODE_LIVE: &str = LIVE_MODEL;
 pub const ECONOMY_RATE_NANO_USD_PER_MINUTE: u64 = 3_000_000;
 pub const ACCURACY_RATE_NANO_USD_PER_MINUTE: u64 = 4_500_000;
 pub const LIVE_RATE_NANO_USD_PER_MINUTE: u64 = 50_000_000;
@@ -61,6 +62,7 @@ pub struct AppSettings {
     pub aidoo_clinic_url: Option<String>,
     pub aidoo_email: Option<String>,
     pub aidoo_browser_sync_enabled: bool,
+    pub aidoo_assistant_mode: String,
     pub dictation_shortcut: ShortcutBinding,
 }
 
@@ -85,6 +87,7 @@ impl Default for AppSettings {
             aidoo_clinic_url: None,
             aidoo_email: None,
             aidoo_browser_sync_enabled: true,
+            aidoo_assistant_mode: ASSISTANT_MODE_ECONOMY.into(),
             dictation_shortcut: ShortcutBinding::key("alt_gr", &[]),
         }
     }
@@ -100,6 +103,12 @@ impl AppSettings {
         }
         if !matches!(self.ui_language.as_str(), "auto" | "bg" | "en") {
             self.ui_language = "auto".into();
+        }
+        if !matches!(
+            self.aidoo_assistant_mode.as_str(),
+            ASSISTANT_MODE_ECONOMY | ASSISTANT_MODE_LIVE
+        ) {
+            self.aidoo_assistant_mode = ASSISTANT_MODE_ECONOMY.into();
         }
         if self.output_directory.as_deref().is_some_and(|directory| {
             directory.trim().is_empty() || !Path::new(directory).is_absolute()
@@ -129,8 +138,8 @@ fn normalized_optional(value: Option<String>) -> Option<String> {
 mod tests {
     use super::{
         cost_nano_usd, live_backend_cost_nano_usd, AppSettings, FailedRecording, LiveBackendUsage,
-        UsageLedger, ACCURACY_MODEL, ACCURACY_RATE_NANO_USD_PER_MINUTE, ECONOMY_MODEL,
-        ECONOMY_RATE_NANO_USD_PER_MINUTE, LIVE_BACKEND_MODEL, LIVE_MODEL,
+        UsageLedger, ACCURACY_MODEL, ACCURACY_RATE_NANO_USD_PER_MINUTE, ASSISTANT_MODE_ECONOMY,
+        ECONOMY_MODEL, ECONOMY_RATE_NANO_USD_PER_MINUTE, LIVE_BACKEND_MODEL, LIVE_MODEL,
         LIVE_RATE_NANO_USD_PER_MINUTE,
     };
 
@@ -155,6 +164,7 @@ mod tests {
             ui_language: "unsupported".into(),
             output_directory: Some("relative/output".into()),
             microphone_name: Some("   ".into()),
+            aidoo_assistant_mode: "unknown-assistant".into(),
             ..AppSettings::default()
         };
 
@@ -165,6 +175,7 @@ mod tests {
         assert_eq!(settings.ui_language, "auto");
         assert_eq!(settings.output_directory, None);
         assert_eq!(settings.microphone_name, None);
+        assert_eq!(settings.aidoo_assistant_mode, ASSISTANT_MODE_ECONOMY);
     }
 
     #[test]

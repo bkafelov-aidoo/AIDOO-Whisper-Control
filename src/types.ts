@@ -19,6 +19,7 @@ export interface AppSettings {
   aidooClinicUrl: string | null;
   aidooEmail: string | null;
   aidooBrowserSyncEnabled: boolean;
+  aidooAssistantMode: "economy" | "gpt-live-1";
   dictationShortcut: ShortcutBinding;
 }
 

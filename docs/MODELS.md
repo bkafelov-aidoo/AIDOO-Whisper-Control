@@ -9,7 +9,11 @@ The product uses stable OpenAI model aliases so users receive the current compat
 
 The local Costs panel stores the duration, model, documented rate and calculated USD cost for each successful transcription. It keeps all-time totals separately from the latest 500 detail rows. On the first launch with this feature, the app imports the bounded local transcription history once and labels those rows as estimates from history. Transcript text, audio and patient data are never copied into the usage ledger.
 
-The AIDOO assistant uses a turn-based pipeline instead of a duration-billed Live session. A local voice activity detector keeps a short pre-roll, ends a turn after a natural pause and sends only that bounded WAV turn to `gpt-transcribe` at $0.0045/minute. Silence while the assistant waits is not uploaded or added to the transcription estimate.
+In Settings, AIDOO Control offers two voice modes. **Economy AI** uses the turn-based pipeline described below. It sends only completed speech turns, so silence is not transcribed or billed as audio input. The tradeoff is a short pause between a command and the reply.
+
+The optional **GPT Live 1** mode uses `gpt-live-1` for a full-duplex WebRTC conversation with smoother interruption and simultaneous listening and speaking. Its base rate is **$0.05/minute** for the full active session, billed per second; backend model and tool usage are separate. The OpenAI Platform bill remains authoritative. See the official [GPT Live 1 model documentation](https://developers.openai.com/api/docs/models/gpt-live-1).
+
+In Economy AI, a local voice activity detector keeps a short pre-roll, ends a turn after a natural pause and sends only that bounded WAV turn to `gpt-transcribe` at $0.0045/minute. Silence while the assistant waits is not uploaded or added to the transcription estimate.
 
 The transcript is sent through the Responses API to `gpt-5.6-luna` with the same AIDOO function tools. The ledger records the reported uncached input, cached input, cache-write and output token counts at $0.20, $0.02, $0.25 and $1.20 per million tokens. Requests above 272,000 input tokens use the documented long-context multipliers. Simple patient-search and next-patient commands are routed locally to the appropriate function tool before the first model call, while the model still receives the verified result and produces the spoken confirmation.
 

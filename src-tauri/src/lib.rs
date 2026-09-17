@@ -7,6 +7,7 @@ mod audio;
 mod commands;
 mod dictation;
 mod feedback_sound;
+mod live;
 mod recovery;
 mod voice_pipeline;
 mod wake_runtime;
@@ -377,6 +378,8 @@ pub fn run() {
             start_wake_word_calibration,
             stop_wake_word_calibration,
             prepare_live_session,
+            create_live_session,
+            record_live_backend_usage,
             begin_voice_turn,
             continue_voice_turn,
             synthesize_voice_reply,

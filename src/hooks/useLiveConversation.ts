@@ -44,6 +44,7 @@ export function useLiveConversation(
   onError: (reason: unknown) => void,
   onDictationStarted?: () => void,
   onAssistantRequested?: () => void,
+  enabled = true,
 ): LiveConversationState {
   const [phase, setPhase] = useState<LivePhase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -67,8 +68,8 @@ export function useLiveConversation(
   }, []);
 
   useEffect(() => {
-    void invoke("set_live_phase", { phase }).catch(() => undefined);
-  }, [phase]);
+    if (enabled) void invoke("set_live_phase", { phase }).catch(() => undefined);
+  }, [enabled, phase]);
 
   const stopPlayback = useCallback(() => {
     const source = playbackSourceRef.current;
@@ -240,6 +241,11 @@ export function useLiveConversation(
 
   useEffect(() => {
     mountedRef.current = true;
+    if (!enabled) {
+      setError(null);
+      setPhase("idle");
+      return;
+    }
     let unlistenForce: (() => void) | undefined;
     let unlistenRequest: (() => void) | undefined;
     const consumeAssistantRequest = async () => {
@@ -265,10 +271,10 @@ export function useLiveConversation(
       releaseMedia();
       void invoke("end_live_session").catch(() => undefined);
     };
-  }, [finish, onAssistantRequested, onError, releaseMedia]);
+  }, [enabled, finish, onAssistantRequested, onError, releaseMedia]);
 
   const start = useCallback(async () => {
-    if (!["idle", "error"].includes(phase)) return;
+    if (!enabled || !["idle", "error"].includes(phase)) return;
     const operation = operationRef.current + 1;
     operationRef.current = operation;
     const stillCurrent = () => operationRef.current === operation && mountedRef.current;
@@ -277,7 +283,7 @@ export function useLiveConversation(
     processingRef.current = false;
     updatePhase("preparing");
     try {
-      await invoke("prepare_live_session");
+      await invoke("prepare_live_session", { mode: "economy" });
       if (!stillCurrent()) return;
       updatePhase("connecting");
       const audioConstraints: MediaTrackConstraints = {
@@ -323,7 +329,7 @@ export function useLiveConversation(
     } catch (reason) {
       if (stillCurrent()) fail(reason);
     }
-  }, [fail, microphoneName, phase, stopPlayback, updatePhase]);
+  }, [enabled, fail, microphoneName, phase, stopPlayback, updatePhase]);
   startRef.current = start;
 
   return { phase, error, start, stop };

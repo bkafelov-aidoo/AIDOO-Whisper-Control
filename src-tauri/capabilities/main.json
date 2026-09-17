@@ -42,6 +42,8 @@
     "allow-start-wake-word-calibration",
     "allow-stop-wake-word-calibration",
     "allow-prepare-live-session",
+    "allow-create-live-session",
+    "allow-record-live-backend-usage",
     "allow-begin-voice-turn",
     "allow-continue-voice-turn",
     "allow-synthesize-voice-reply",

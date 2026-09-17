@@ -1,4 +1,6 @@
 export const ASSISTANT_INACTIVITY_MS = 20_000;
+export const ASSISTANT_GOODBYE_START_TIMEOUT_MS = 5_000;
+export const ASSISTANT_GOODBYE_SILENCE_MS = 900;
 
 type Schedule = (callback: () => void, delayMs: number) => number;
 type Cancel = (handle: number) => void;
@@ -53,4 +55,22 @@ export class LiveInactivityTimer {
     if (this.handle !== null) this.cancel(this.handle);
     this.handle = null;
   }
+}
+
+export function assistantGoodbyeInstruction(eventId: string) {
+  return {
+    type: "session.instructions.append",
+    event_id: eventId,
+    delegation_id: null,
+    content: "След 20 секунди без активност разговорът приключва. Кажи веднага само „Чао!“ на български, без допълнителен текст, след което замълчи.",
+  } as const;
+}
+
+export function assistantGoodbyePrompt(eventId: string) {
+  return {
+    type: "session.commentary.append",
+    event_id: eventId,
+    delegation_id: null,
+    content: "Кажи сега само „Чао!“.",
+  } as const;
 }

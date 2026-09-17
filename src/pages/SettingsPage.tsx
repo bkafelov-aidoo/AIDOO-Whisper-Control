@@ -103,6 +103,22 @@ export function SettingsPage({ data, language, isBusy, onSave, onRefresh, onToas
         {data.hasAidooPassword && <button className="text-button danger" disabled={controlsDisabled} onClick={async () => { setAidooBusy(true); try { await invoke("disconnect_aidoo"); setAidooPassword(""); await onRefresh(); onToast(t("aidooDisconnectedToast")); } catch (reason) { onToast(errorMessage(reason, language), "error"); } finally { setAidooBusy(false); } }}><Unplug />{t("aidooDisconnect")}</button>}
       </div>
       <SettingRow title={t("aidooBrowserSync")} detail={t("aidooBrowserSyncHelp")}><Toggle label={t("aidooBrowserSync")} checked={draft.aidooBrowserSyncEnabled} disabled={controlsDisabled} onChange={(aidooBrowserSyncEnabled) => setDraft({ ...draft, aidooBrowserSyncEnabled })} /></SettingRow>
+      <div className="assistant-model-setting">
+        <div className="assistant-model-heading"><strong>{t("assistantModeSettings")}</strong><p>{t("assistantModeSettingsHelp")}</p></div>
+        <div className="assistant-model-picker" role="radiogroup" aria-label={t("assistantModeSettings")}>
+          <button type="button" role="radio" aria-checked={draft.aidooAssistantMode === "economy"} className={`assistant-model-option ${draft.aidooAssistantMode === "economy" ? "selected" : ""}`} disabled={controlsDisabled} onClick={() => setDraft({ ...draft, aidooAssistantMode: "economy" })}>
+            <span className="assistant-model-option-title"><span className="assistant-model-radio" aria-hidden="true" /><strong>{t("assistantModeEconomyTitle")}</strong><em>{t("assistantModeEconomyBadge")}</em></span>
+            <span className="assistant-model-description">{t("assistantModeEconomyHelp")}</span>
+            <span className="assistant-model-price">{t("assistantModeEconomyPrice")}</span>
+          </button>
+          <button type="button" role="radio" aria-checked={draft.aidooAssistantMode === "gpt-live-1"} className={`assistant-model-option ${draft.aidooAssistantMode === "gpt-live-1" ? "selected" : ""}`} disabled={controlsDisabled} onClick={() => setDraft({ ...draft, aidooAssistantMode: "gpt-live-1" })}>
+            <span className="assistant-model-option-title"><span className="assistant-model-radio" aria-hidden="true" /><strong>{t("assistantModeLiveTitle")}</strong></span>
+            <span className="assistant-model-description">{t("assistantModeLiveHelp")}</span>
+            <span className="assistant-model-price">{t("assistantModeLivePrice")}</span>
+          </button>
+        </div>
+        <small className="assistant-model-billing-note">{t("assistantModeBillingNote")}</small>
+      </div>
     </SettingsSection>
     <SettingsSection icon={<Languages />} title={t("modelLanguage")}>
       <ModelPicker settings={draft} language={language} disabled={controlsDisabled} onChange={setDraft} />

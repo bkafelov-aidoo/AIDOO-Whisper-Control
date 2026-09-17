@@ -3,13 +3,15 @@ use super::*;
 pub(super) struct LiveUsageTiming {
     started_at: std::time::Instant,
     created_at: String,
+    model: String,
 }
 
-pub(super) fn start_live_usage(state: &AppState) {
+pub(super) fn start_live_usage(state: &AppState, model: &str) {
     if let Ok(mut timing) = state.live_usage_timing.lock() {
         *timing = Some(LiveUsageTiming {
             started_at: std::time::Instant::now(),
             created_at: Utc::now().to_rfc3339(),
+            model: model.into(),
         });
     }
 }
@@ -29,13 +31,12 @@ pub(super) fn finish_live_usage(app: &AppHandle) {
         .elapsed()
         .as_millis()
         .min(u128::from(u64::MAX)) as u64;
-    record_usage(
-        app,
-        "assistantSession",
-        timing.created_at,
-        millis,
-        models::ASSISTANT_PIPELINE_MODEL,
-    );
+    let kind = if timing.model == models::LIVE_MODEL {
+        "live"
+    } else {
+        "assistantSession"
+    };
+    record_usage(app, kind, timing.created_at, millis, &timing.model);
 }
 
 pub(super) fn record_transcription_usage(app: &AppHandle, duration_seconds: f64, model: &str) {

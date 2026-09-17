@@ -483,6 +483,27 @@ body[data-window="overlay"] { overflow: hidden; }
 .aidoo-connection-grid label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 650; }
 .aidoo-connection-grid input { width: 100%; }
 
+.assistant-model-setting { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+.assistant-model-heading { margin-bottom: 12px; }
+.assistant-model-heading strong { color: var(--ink); font-size: 14px; }
+.assistant-model-heading p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.assistant-model-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.assistant-model-option { display: flex; min-height: 178px; flex-direction: column; align-items: stretch; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: rgba(248, 251, 255, .72); color: var(--ink); text-align: left; cursor: pointer; transition: border-color .16s ease, background .16s ease, box-shadow .16s ease, transform .16s ease; }
+.assistant-model-option:hover:not(:disabled) { border-color: #9bbfe9; transform: translateY(-1px); }
+.assistant-model-option.selected { border-color: var(--blue); background: rgba(232, 243, 255, .82); box-shadow: 0 0 0 1px rgba(24, 119, 242, .14), 0 8px 24px rgba(31, 86, 151, .08); }
+.assistant-model-option:focus-visible { outline: 3px solid rgba(24, 119, 242, .24); outline-offset: 2px; }
+.assistant-model-option-title { display: flex; align-items: center; gap: 9px; min-height: 24px; }
+.assistant-model-option-title strong { font-size: 15px; }
+.assistant-model-option-title em { margin-left: auto; padding: 4px 8px; border-radius: 999px; background: #dcecff; color: #1265bd; font-size: 10px; font-style: normal; font-weight: 750; letter-spacing: .03em; text-transform: uppercase; }
+.assistant-model-radio { width: 17px; height: 17px; flex: 0 0 auto; border: 2px solid #a7b6c7; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 3px #fff; }
+.assistant-model-option.selected .assistant-model-radio { border-color: var(--blue); background: var(--blue); }
+.assistant-model-description { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.assistant-model-price { margin-top: auto; color: #215f9f; font-size: 11px; font-weight: 700; line-height: 1.45; }
+.assistant-model-billing-note { display: block; margin-top: 10px; color: var(--muted); font-size: 11px; }
+.assistant-mode-cost { max-width: 560px; margin: 12px auto 0; color: var(--muted); font-size: 12px; line-height: 1.45; text-align: center; }
+
 @media (max-width: 850px) {
   .aidoo-connection-grid { grid-template-columns: 1fr; }
+  .assistant-model-picker { grid-template-columns: 1fr; }
+  .assistant-model-option { min-height: 0; }
 }

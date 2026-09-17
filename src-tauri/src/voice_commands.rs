@@ -2,6 +2,22 @@ use super::*;
 
 const MAX_LIVE_SESSION_DURATION: std::time::Duration = std::time::Duration::from_secs(10 * 60);
 
+fn configured_assistant_mode(state: &State<'_, AppState>) -> Result<String, String> {
+    state
+        .settings
+        .lock()
+        .map(|settings| settings.aidoo_assistant_mode.clone())
+        .map_err(|_| "Настройките са заключени.".into())
+}
+
+fn require_assistant_mode(state: &State<'_, AppState>, expected: &str) -> Result<(), String> {
+    if configured_assistant_mode(state)? == expected {
+        Ok(())
+    } else {
+        Err("Избраният AI режим беше променен. Стартирайте разговора отново.".into())
+    }
+}
+
 pub(super) fn release_live_session(app: &AppHandle, generation: Option<u64>) -> bool {
     let state = app.state::<AppState>();
     if generation
@@ -25,6 +41,7 @@ pub(super) fn release_live_session(app: &AppHandle, generation: Option<u64>) -> 
 
 #[tauri::command]
 pub(super) fn prepare_live_session(
+    mode: String,
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
@@ -34,6 +51,13 @@ pub(super) fn prepare_live_session(
     let operation = acquire_operation(&app, &state)?;
     stop_wake_word_listener(&state);
     api_key_from_state(&state)?;
+    if !matches!(
+        mode.as_str(),
+        models::ASSISTANT_MODE_ECONOMY | models::ASSISTANT_MODE_LIVE
+    ) || configured_assistant_mode(&state)? != mode
+    {
+        return Err("Изберете валиден AI режим от настройките.".into());
+    }
     state
         .live_backend_response_ids
         .lock()
@@ -46,17 +70,17 @@ pub(super) fn prepare_live_session(
         .fetch_add(1, Ordering::AcqRel)
         .wrapping_add(1);
     operation.disarm();
-    start_live_usage(&state);
+    if mode == models::ASSISTANT_MODE_ECONOMY {
+        start_live_usage(&state, models::ASSISTANT_PIPELINE_MODEL);
+    }
     refresh_tray_menu(&app);
-    storage::append_diagnostic("turn-based voice session started");
+    storage::append_diagnostic(&format!("{mode} voice session prepared"));
 
     let timeout_app = app.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(MAX_LIVE_SESSION_DURATION).await;
         if release_live_session(&timeout_app, Some(generation)) {
-            storage::append_diagnostic(
-                "turn-based voice session reached the 10-minute safety limit",
-            );
+            storage::append_diagnostic("voice session reached the 10-minute safety limit");
             let _ = timeout_app.emit("live:force-close", "duration-limit");
         }
     });
@@ -72,6 +96,7 @@ pub(super) async fn begin_voice_turn(
     if !state.live_session_active.load(Ordering::Acquire) {
         return Err("AI разговорът не е активен.".into());
     }
+    require_assistant_mode(&state, models::ASSISTANT_MODE_ECONOMY)?;
     let duration_seconds = voice_pipeline::wav_duration_seconds(&audio_data)?;
     if !(0.15..=30.0).contains(&duration_seconds) {
         return Err("Аудио репликата е прекалено кратка или дълга.".into());
@@ -95,6 +120,7 @@ pub(super) async fn continue_voice_turn(
     if !state.live_session_active.load(Ordering::Acquire) {
         return Err("AI разговорът не е активен.".into());
     }
+    require_assistant_mode(&state, models::ASSISTANT_MODE_ECONOMY)?;
     let api_key = api_key_from_state(&state)?;
     let result =
         voice_pipeline::continue_turn(&state.voice_pipeline, &turn_id, outputs, &api_key).await?;
@@ -111,6 +137,7 @@ pub(super) async fn synthesize_voice_reply(
     if !state.live_session_active.load(Ordering::Acquire) {
         return Err("AI разговорът не е активен.".into());
     }
+    require_assistant_mode(&state, models::ASSISTANT_MODE_ECONOMY)?;
     let api_key = api_key_from_state(&state)?;
     let result = voice_pipeline::synthesize_speech(&text, &api_key).await?;
     record_assistant_speech_usage(&app, result.duration_seconds);
@@ -122,6 +149,46 @@ pub(super) fn end_live_session(app: AppHandle) {
     if release_live_session(&app, None) {
         storage::append_diagnostic("turn-based voice session ended");
     }
+}
+
+#[tauri::command]
+pub(super) async fn create_live_session(
+    sdp: String,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<live::LiveSessionAnswer, String> {
+    if !state.live_session_active.load(Ordering::Acquire) {
+        return Err("GPT Live режимът не е подготвен.".into());
+    }
+    require_assistant_mode(&state, models::ASSISTANT_MODE_LIVE)?;
+    let api_key = api_key_from_state(&state)?;
+    let answer = match live::create_session(&sdp, &api_key).await {
+        Ok(answer) => answer,
+        Err(error) => {
+            release_live_session(&app, None);
+            return Err(error);
+        }
+    };
+    if state.live_session_active.load(Ordering::Acquire) {
+        start_live_usage(&state, models::LIVE_MODEL);
+    }
+    storage::append_diagnostic("GPT Live session started");
+    Ok(answer)
+}
+
+#[tauri::command]
+pub(super) fn record_live_backend_usage(
+    response_id: String,
+    model: String,
+    usage: models::LiveBackendUsage,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    if !state.live_session_active.load(Ordering::Acquire) {
+        return Err("AI разговорът не е активен.".into());
+    }
+    require_assistant_mode(&state, models::ASSISTANT_MODE_LIVE)?;
+    record_backend_usage_once(&app, &state, &response_id, &model, &usage)
 }
 
 fn record_turn_response_usage(

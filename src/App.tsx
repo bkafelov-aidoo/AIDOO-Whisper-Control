@@ -17,6 +17,7 @@ import { Onboarding } from "./components/Onboarding";
 import { DeleteDialog } from "./components/DeleteDialog";
 import type { ToastTone } from "./ui-types";
 import { useLiveConversation } from "./hooks/useLiveConversation";
+import { useGptLiveConversation } from "./hooks/useGptLiveConversation";
 
 type Page = "dictation" | "assistant" | "history" | "usage" | "settings";
 
@@ -44,7 +45,22 @@ export default function App() {
     showToast(translator(languageRef.current)("assistantDictationStarted"));
   }, [showToast]);
   const handleAssistantRequested = useCallback(() => setPage("assistant"), []);
-  const live = useLiveConversation(data?.settings.microphoneName ?? null, showLiveError, handleAssistantDictation, handleAssistantRequested);
+  const assistantMode = data?.settings.aidooAssistantMode ?? "economy";
+  const economyLive = useLiveConversation(
+    data?.settings.microphoneName ?? null,
+    showLiveError,
+    handleAssistantDictation,
+    handleAssistantRequested,
+    Boolean(data) && assistantMode === "economy",
+  );
+  const gptLive = useGptLiveConversation(
+    data?.settings.microphoneName ?? null,
+    showLiveError,
+    handleAssistantDictation,
+    handleAssistantRequested,
+    Boolean(data) && assistantMode === "gpt-live-1",
+  );
+  const live = assistantMode === "gpt-live-1" ? gptLive : economyLive;
 
   const refresh = useCallback(async () => {
     try {
@@ -201,6 +217,7 @@ export default function App() {
             available={data.settings.onboardingComplete && data.hasApiKey}
             dictationBusy={recordingBusy}
             aidooConnected={data.aidooConnected}
+            mode={data.settings.aidooAssistantMode}
           />
         )}
         {page === "history" && (

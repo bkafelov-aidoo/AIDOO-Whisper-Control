@@ -265,6 +265,7 @@ def main() -> int:
         "https://api.openai.com/v1/audio/transcriptions",
         "https://api.openai.com/v1/audio/speech",
         "https://api.openai.com/v1/responses",
+        "https://api.openai.com/v1/live/sessions",
         "https://app.aidoo.bg",
         "https://app.aidoo.bg/web",
         "https://aidoo-web.on.dev-craft.tech",
@@ -274,10 +275,10 @@ def main() -> int:
         errors.append(
             f"Native runtime HTTPS destinations differ: {sorted(runtime_https_urls)}"
         )
-    if runtime_sources.count(".https_only(true)") != 4:
+    if runtime_sources.count(".https_only(true)") != 5:
         errors.append("All native API clients must reject non-HTTPS requests")
-    # Four production clients plus the HTTP-only local contract-test client.
-    if runtime_sources.count(".redirect(reqwest::redirect::Policy::none())") != 5:
+    # Five production clients plus the HTTP-only local contract-test client.
+    if runtime_sources.count(".redirect(reqwest::redirect::Policy::none())") != 6:
         errors.append("All native API clients must reject HTTP redirects")
     javascript_dependencies = {
         **package.get("dependencies", {}),
@@ -350,6 +351,8 @@ def main() -> int:
         "allow-start-wake-word-calibration",
         "allow-stop-wake-word-calibration",
         "allow-prepare-live-session",
+        "allow-create-live-session",
+        "allow-record-live-backend-usage",
         "allow-begin-voice-turn",
         "allow-continue-voice-turn",
         "allow-synthesize-voice-reply",
